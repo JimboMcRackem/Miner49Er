@@ -83,7 +83,8 @@ public partial class NetworkManager : Node
 	private void OnPeerDisconnected(long id)
 	{
 		if (!IsHost) return;
-		if (Players.Remove(id)) BroadcastLobby();
+		_matchHost?.EliminatePeer(id);   // mid-match: treat as eliminated
+		if (Players.Remove(id)) BroadcastLobby(); // lobby: drop from list
 	}
 
 	private void OnConnectedToServer()
