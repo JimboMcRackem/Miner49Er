@@ -74,9 +74,81 @@ public partial class NetworkManager : Node
 
 	// Connection callbacks ---------------------------------------------------
 
-	private void OnPeerConnected(long id) { /* host fills lobby in Task 6 */ }
-	private void OnPeerDisconnected(long id) { /* handled in Task 6/13 */ }
-	private void OnConnectedToServer() { /* client submits info in Task 6 */ }
+	private void OnPeerConnected(long id)
+	{
+		// Host waits for the joiner's SubmitPlayerInfo; nothing to do yet.
+	}
+
+	private void OnPeerDisconnected(long id)
+	{
+		if (!IsHost) return;
+		if (Players.Remove(id)) BroadcastLobby();
+	}
+
+	private void OnConnectedToServer()
+	{
+		RpcId(1, nameof(SubmitPlayerInfo), _pendingName, _pendingColor);
+	}
+
 	private void OnConnectionFailed() { Multiplayer.MultiplayerPeer = null; JoinFailed?.Invoke(); }
 	private void OnServerDisconnected() { Multiplayer.MultiplayerPeer = null; Players.Clear(); Disconnected?.Invoke(); }
+
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+	public void SubmitPlayerInfo(string name, int colorIndex)
+	{
+		if (!IsHost) return;
+		long sender = Multiplayer.GetRemoteSenderId();
+		Players[sender] = new PlayerInfo { Name = name, ColorIndex = colorIndex, Ready = false };
+		BroadcastLobby();
+	}
+
+	public void ToggleReady()
+	{
+		if (IsHost)
+		{
+			var info = Players[LocalId];
+			info.Ready = !info.Ready;
+			Players[LocalId] = info;
+			BroadcastLobby();
+		}
+		else
+		{
+			RpcId(1, nameof(RequestToggleReady));
+		}
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+	public void RequestToggleReady()
+	{
+		if (!IsHost) return;
+		long sender = Multiplayer.GetRemoteSenderId();
+		if (!Players.TryGetValue(sender, out var info)) return;
+		info.Ready = !info.Ready;
+		Players[sender] = info;
+		BroadcastLobby();
+	}
+
+	private void BroadcastLobby()
+	{
+		var ids = new long[Players.Count];
+		var names = new string[Players.Count];
+		var colors = new int[Players.Count];
+		var readys = new int[Players.Count]; // bool[] is not a Godot Variant; use int (0/1) instead
+		int i = 0;
+		foreach (var (id, info) in Players)
+		{
+			ids[i] = id; names[i] = info.Name; colors[i] = info.ColorIndex; readys[i] = info.Ready ? 1 : 0; i++;
+		}
+		Rpc(nameof(ReceiveLobby), ids, names, colors, readys);
+		ReceiveLobby(ids, names, colors, readys); // apply locally on host too
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.Authority)]
+	public void ReceiveLobby(long[] ids, string[] names, int[] colors, int[] readys)
+	{
+		Players.Clear();
+		for (int i = 0; i < ids.Length; i++)
+			Players[ids[i]] = new PlayerInfo { Name = names[i], ColorIndex = colors[i], Ready = readys[i] != 0 };
+		LobbyChanged?.Invoke();
+	}
 }
