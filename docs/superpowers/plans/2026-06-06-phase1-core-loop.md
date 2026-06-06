@@ -1312,17 +1312,29 @@ In `src/Miner49er.Core/Sim/Simulation.cs`, add these methods inside the class
 
 - [ ] **Step 5: Advance charge fuses and detonate in Tick**
 
-In `src/Miner49er.Core/Sim/Simulation.cs`, replace the line
-`// Charge fuses are advanced in a later task.` with:
+> NOTE: charges must be snapshotted **before** activities are advanced, otherwise a
+> charge planted during this tick's activity-completion would have its fuse
+> decremented in the same tick (breaking `Plant_starts_planting_then_creates_charge_with_fuse`,
+> which asserts the fuse equals `FuseSeconds` right after planting).
+
+In `src/Miner49er.Core/Sim/Simulation.cs`, replace the entire `Tick` method (the one
+containing `// Charge fuses are advanced in a later task.`) with:
 ```csharp
-        AdvanceCharges(dt);
+    public void Tick(double dt)
+    {
+        // Snapshot charges before advancing activities so newly-planted charges
+        // (spawned this tick) are not advanced until the next tick.
+        var chargesThisTick = _charges.ToList();
+        AdvanceActivities(dt);
+        AdvanceCharges(chargesThisTick, dt);
+    }
 ```
 Then add these methods inside the class:
 ```csharp
-    private void AdvanceCharges(double dt)
+    private void AdvanceCharges(List<Charge> snapshot, double dt)
     {
-        // Snapshot because Detonate mutates the list.
-        foreach (var charge in _charges.ToList())
+        // Use pre-tick snapshot so newly-planted charges don't advance this tick.
+        foreach (var charge in snapshot)
         {
             charge.FuseRemaining -= dt;
             if (charge.FuseRemaining <= 0)
@@ -2107,11 +2119,184 @@ git commit -m "feat(game): add HUD for gold and activity, finalize Phase 1 loop"
 
 ---
 
+## Task 14: Splash + loading screen shell
+
+> Godot task — verified by running the editor (F5), not xUnit.
+
+**Files:**
+- Create: `game/Splash.cs`
+- Create: `game/Splash.tscn`
+- Create: `game/LoadingScreen.cs`
+- Modify: `project.godot` (change `run/main_scene` to the splash)
+- Modify: `game/Main.cs` (show the loading screen while the map generates; guard `_PhysicsProcess` until the sim exists)
+
+The app boots: **Splash** (title, brief dwell or key press) → scene change to **Main**, which shows a **LoadingScreen** overlay for one rendered frame while `MapGenerator.Generate` + setup run, then reveals the game. Generation is near-instant in Phase 1; the loading state exists as the hook for big maps and (Phase 2) network join.
+
+- [ ] **Step 1: Create the splash script**
+
+Create `game/Splash.cs`:
+```csharp
+using Godot;
+
+namespace Miner49er;
+
+public partial class Splash : Control
+{
+    [Export] public float DwellSeconds = 1.5f;
+    private double _elapsed;
+    private bool _advancing;
+
+    public override void _Ready()
+    {
+        var center = new CenterContainer();
+        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        AddChild(center);
+
+        var title = new Label { Text = "MINER 49ER" };
+        title.AddThemeFontSizeOverride("font_size", 64);
+        center.AddChild(title);
+    }
+
+    public override void _Process(double delta)
+    {
+        _elapsed += delta;
+        if (_elapsed >= DwellSeconds) Advance();
+    }
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event.IsPressed()) Advance();
+    }
+
+    private void Advance()
+    {
+        if (_advancing) return;
+        _advancing = true;
+        GetTree().ChangeSceneToFile("res://game/Main.tscn");
+    }
+}
+```
+
+- [ ] **Step 2: Create the splash scene**
+
+Create `game/Splash.tscn`:
+```ini
+[gd_scene load_steps=2 format=3 uid="uid://miner49ersplash"]
+
+[ext_resource type="Script" path="res://game/Splash.cs" id="1"]
+
+[node name="Splash" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+script = ExtResource("1")
+```
+
+- [ ] **Step 3: Create the loading screen**
+
+Create `game/LoadingScreen.cs`:
+```csharp
+using Godot;
+
+namespace Miner49er;
+
+/// <summary>Full-screen overlay shown while the map is generated / match set up.</summary>
+public partial class LoadingScreen : CanvasLayer
+{
+    private Label _label = null!;
+
+    public override void _Ready()
+    {
+        Layer = 100; // draw above everything
+
+        var bg = new ColorRect { Color = new Color(0.02f, 0.02f, 0.03f) };
+        bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        AddChild(bg);
+
+        _label = new Label { Text = "Generating mine…" };
+        _label.SetAnchorsPreset(Control.LayoutPreset.Center);
+        _label.AddThemeFontSizeOverride("font_size", 28);
+        AddChild(_label);
+    }
+
+    public void SetStatus(string text) => _label.Text = text;
+}
+```
+
+- [ ] **Step 4: Point the project at the splash scene**
+
+In `project.godot`, change the main scene line from:
+```ini
+run/main_scene="res://game/Main.tscn"
+```
+to:
+```ini
+run/main_scene="res://game/Splash.tscn"
+```
+
+- [ ] **Step 5: Show the loading screen in Main during generation**
+
+In `game/Main.cs`, add a field near the other node fields:
+```csharp
+    private LoadingScreen? _loading;
+```
+Replace the existing `_Ready` method:
+```csharp
+    public override void _Ready()
+    {
+        InputBindings.EnsureDefaults();
+        StartNewGame(seed: 12345);
+    }
+```
+with:
+```csharp
+    public override async void _Ready()
+    {
+        InputBindings.EnsureDefaults();
+        _loading = new LoadingScreen { Name = "LoadingScreen" };
+        AddChild(_loading);
+        // Let the loading overlay render one frame before the (synchronous) generation runs.
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        StartNewGame(seed: 12345);
+        _loading.QueueFree();
+        _loading = null;
+    }
+```
+Then guard the per-frame update so it no-ops until generation has produced a sim. Change the start of `_PhysicsProcess`:
+```csharp
+    public override void _PhysicsProcess(double delta)
+    {
+        HandleActions();
+```
+to:
+```csharp
+    public override void _PhysicsProcess(double delta)
+    {
+        if (_sim == null) return; // still on the loading frame
+        HandleActions();
+```
+
+- [ ] **Step 6: Run and verify**
+
+Run (F5). Expected sequence:
+- The splash shows "MINER 49ER" for ~1.5s (or press any key/button to skip).
+- A brief "Generating mine…" loading overlay.
+- The game appears (mine, miner, fog, HUD) and plays exactly as in Task 13.
+- R still restarts the round (it calls `StartNewGame`, which no longer touches the loading screen — that's fine).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add game/Splash.cs game/Splash.tscn game/LoadingScreen.cs project.godot game/Main.cs
+git commit -m "feat(game): add splash and loading screen shell"
+```
+
+---
+
 ## Final verification
 
 - [ ] Run `dotnet test` from repo root → **all Core tests pass**.
-- [ ] Run the Godot project (F5) and confirm the full loop from Task 13 Step 3.
-- [ ] Confirm `git status` is clean and all 13 tasks are committed.
+- [ ] Run the Godot project (F5) and confirm splash → loading → the full loop from Task 13 Step 3.
+- [ ] Confirm `git status` is clean and all 14 tasks are committed.
 
 ---
 
@@ -2128,6 +2313,7 @@ git commit -m "feat(game): add HUD for gold and activity, finalize Phase 1 loop"
 | Placeholder art | Tasks 11–13 (colored rects) |
 | Fog of war (visible/explored/unexplored) | Task 8 (logic), Task 12 (render) |
 | Rebindable input foundation (keyboard + gamepad) | Task 10 (`InputBindings`; full UI is Phase 5) |
+| Splash + loading screen shell | Task 14 |
 
 **Deferred to later phases (intentionally not in this plan):** networking and multiple players (Phase 2), listen mechanic and audio (Phase 3), water/cave-ins/time-pressure/items/secondary-goal modes (Phase 4), rebinding UI, settings persistence, custom-sprite editor, visibility culling, NAT/relay (Phase 5).
 

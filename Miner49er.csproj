@@ -1,0 +1,17 @@
+<Project Sdk="Godot.NET.Sdk/4.6.3">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Miner49er</RootNamespace>
+  </PropertyGroup>
+  <!-- The Godot project lives at the repo root and would otherwise glob the
+       Core library + test sources under src/. Compile only the game/ scripts;
+       Core comes in via the ProjectReference below. -->
+  <ItemGroup>
+    <Compile Remove="src/**/*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="src/Miner49er.Core/Miner49er.Core.csproj" />
+  </ItemGroup>
+</Project>
