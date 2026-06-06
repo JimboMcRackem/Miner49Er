@@ -1,0 +1,21 @@
+# Godot 4 + .NET
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+*.translation
+
+# .NET / C#
+.mono/
+data_*/
+mono_crash.*
+[Bb]in/
+[Oo]bj/
+*.user
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vs/
+.idea/
+.vscode/
