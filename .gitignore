@@ -14,6 +14,10 @@ mono_crash.*
 [Oo]bj/
 *.user
 
+# Godot-generated desktop binaries (build output at repo root)
+/Miner49er.exe
+/Miner49er.console.exe
+
 # OS / editor
 .DS_Store
 Thumbs.db

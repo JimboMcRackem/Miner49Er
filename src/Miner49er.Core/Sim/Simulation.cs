@@ -27,6 +27,15 @@ public sealed class Simulation
 
     public Miner GetMiner(int id) => _miners[id];
 
+    public void KillMiner(int id)
+    {
+        var m = _miners[id];
+        if (!m.Alive) return;
+        m.Alive = false;
+        m.Activity = ActivityKind.None;
+        _events.Add(new MinerKilled(id));
+    }
+
     public IReadOnlyList<SimEvent> DrainEvents()
     {
         var copy = _events.ToList();

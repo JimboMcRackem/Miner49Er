@@ -14,6 +14,10 @@ config/name="Miner49er"
 run/main_scene="res://game/Splash.tscn"
 config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 
+[autoload]
+
+NetworkManager="*res://game/net/NetworkManager.cs"
+
 [display]
 
 window/size/viewport_width=1280
