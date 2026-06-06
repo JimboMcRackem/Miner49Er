@@ -7,7 +7,7 @@ namespace Miner49er;
 /// colored rectangles. Placeholder art for Phase 1.</summary>
 public partial class WorldRenderer : Node2D
 {
-	private Main _main = null!;
+	private MatchClient _client = null!;
 	private readonly System.Collections.Generic.List<(GridPos pos, float life)> _flashes = new();
 
 	private static readonly Color FloorColor = new("2b2b33");
@@ -17,7 +17,7 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color ChargeColor = new("ff5530");
 	private static readonly Color FlashColor = new("ffd27f");
 
-	public void Init(Main main) => _main = main;
+	public void Init(MatchClient client) => _client = client;
 
 	public void AddExplosionFlash(GridPos pos) => _flashes.Add((pos, 0.4f));
 
@@ -35,9 +35,9 @@ public partial class WorldRenderer : Node2D
 
 	public override void _Draw()
 	{
-		if (_main == null) return;
-		var grid = _main.Sim.Grid;
-		int ts = Main.TileSize;
+		if (_client == null) return;
+		var grid = _client.Grid;
+		int ts = MatchClient.TileSize;
 
 		foreach (var p in grid.Positions())
 		{
@@ -52,9 +52,9 @@ public partial class WorldRenderer : Node2D
 			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), color);
 		}
 
-		foreach (var c in _main.Sim.Charges)
+		foreach (var c in _client.Charges)
 		{
-			var center = new Vector2(c.WallPos.X * ts + ts / 2f, c.WallPos.Y * ts + ts / 2f);
+			var center = new Vector2(c.X * ts + ts / 2f, c.Y * ts + ts / 2f);
 			DrawCircle(center, ts * 0.25f, ChargeColor);
 		}
 
