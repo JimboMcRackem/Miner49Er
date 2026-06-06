@@ -18,6 +18,7 @@ public partial class Main : Node2D
     private FogRenderer _fogRenderer = null!;
     private Node2D _playerVisual = null!;
     private Camera2D _camera = null!;
+    private Hud _hud = null!;
 
     private bool _isMoving;
     private float _moveT;
@@ -62,6 +63,12 @@ public partial class Main : Node2D
             _fogRenderer.Init(this);
         }
 
+        if (_hud == null)
+        {
+            _hud = new Hud { Name = "Hud" };
+            AddChild(_hud);
+        }
+
         UpdateFog();
     }
 
@@ -90,6 +97,20 @@ public partial class Main : Node2D
         HandleMovement(delta);
         _sim.Tick(delta);
         ConsumeEvents();
+        _hud.SetText(BuildHudText());
+    }
+
+    private string BuildHudText()
+    {
+        string status = _local.Alive
+            ? _local.Activity switch
+            {
+                ActivityKind.Mining => $"Mining… {_local.ActivitySecondsRemaining:0.0}s",
+                ActivityKind.Planting => $"Planting… {_local.ActivitySecondsRemaining:0.0}s",
+                _ => "Ready",
+            }
+            : "Dead — press R to restart";
+        return $"Gold: {_local.GoldCollected}    {status}";
     }
 
     private void ConsumeEvents()
