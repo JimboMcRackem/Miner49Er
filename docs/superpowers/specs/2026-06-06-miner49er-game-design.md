@@ -204,6 +204,25 @@ Each unit has one clear purpose and a well-defined interface:
 - **`Customization`** — color/sprite selection; (later) sprite editor.
 - **`MatchFlow`** — lobby, round lifecycle, spectate, win/secondary-goal
   resolution.
+- **`ScreenFlow`** — application screen states and transitions
+  (Splash → [Menu] → Loading → Game), including the loading screen shown while
+  the map is generated and the match is set up.
+
+### 8.1 Application screens (splash + loading)
+
+The app boots through a small screen-state flow rather than dropping straight
+into gameplay:
+
+- **Splash screen** — shown at launch: game title/logo, a brief dwell (or
+  "press any key"), then transitions onward. It is the engine's `main_scene`.
+- **Loading screen** — shown during potentially slow setup: procedural map
+  generation and match initialization (and, from Phase 2, connecting/syncing
+  players). In Phase 1 generation is near-instant, but the loading state is
+  built now so the hook exists where it's genuinely needed later (large 8-player
+  maps, network join). Displays a status message (e.g. "Generating mine…").
+
+A minimal version (Splash → Loading → Game) is included in Phase 1 so the shell
+exists from the start; a full main menu and settings screens come in Phase 5.
 
 ---
 
@@ -214,7 +233,8 @@ implementation cycle. **Phase 1 is the immediate build target.**
 
 1. **Phase 1 — Core single-machine loop (no net):** tile grid, grid movement +
    facing, pickaxe, plant/blast with proximity death, procedural map gen,
-   placeholder art, fog-of-war rendering. *Goal: mining and blasting is fun.*
+   placeholder art, fog-of-war rendering, and a minimal screen shell
+   (splash → loading → game). *Goal: mining and blasting is fun.*
 2. **Phase 2 — Multiplayer:** host/join (listen server, LAN/direct-IP),
    input→host→sync, spectate-on-death, last-man-standing round flow.
 3. **Phase 3 — Listen mechanic + audio:** positional SFX, music, listen action +
