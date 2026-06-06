@@ -1,0 +1,13 @@
+config_version=5
+
+[application]
+config/name="Miner49er"
+run/main_scene="res://game/Main.tscn"
+config/features=PackedStringArray("4.6", "C#", "Forward Plus")
+
+[dotnet]
+project/assembly_name="Miner49er"
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
