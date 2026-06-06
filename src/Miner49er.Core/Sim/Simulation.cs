@@ -72,10 +72,32 @@ public sealed class Simulation
         return true;
     }
 
+    public bool TryStartPlanting(int id)
+    {
+        var m = _miners[id];
+        if (!m.Alive) return false;
+
+        var target = m.Pos + m.Facing.ToOffset();
+        if (!Grid.InBounds(target) || !Grid.Get(target).IsBlastable()) return false;
+        if (LiveChargeCount(id) >= Config.MaxLiveChargesPerMiner) return false;
+        if (_charges.Any(c => c.WallPos == target)) return false;
+
+        m.Activity = ActivityKind.Planting;
+        m.ActivityTarget = target;
+        m.ActivitySecondsRemaining = Config.PlantSeconds;
+        _events.Add(new ActivityStarted(id, ActivityKind.Planting, target));
+        return true;
+    }
+
+    private int LiveChargeCount(int ownerId) => _charges.Count(c => c.OwnerId == ownerId);
+
     public void Tick(double dt)
     {
+        // Snapshot charges before advancing activities so newly-planted charges
+        // (spawned this tick) are not advanced until the next tick.
+        var chargesThisTick = _charges.ToList();
         AdvanceActivities(dt);
-        // Charge fuses are advanced in a later task.
+        AdvanceCharges(chargesThisTick, dt);
     }
 
     private void AdvanceActivities(double dt)
@@ -89,6 +111,53 @@ public sealed class Simulation
 
             CompleteActivity(m);
         }
+    }
+
+    private void AdvanceCharges(List<Charge> snapshot, double dt)
+    {
+        // Use pre-tick snapshot so newly-planted charges don't advance this tick,
+        // and so Detonate's removal of a charge doesn't skip others.
+        foreach (var charge in snapshot)
+        {
+            charge.FuseRemaining -= dt;
+            if (charge.FuseRemaining <= 0)
+                Detonate(charge);
+        }
+    }
+
+    private void Detonate(Charge charge)
+    {
+        _charges.Remove(charge);
+
+        var destroyed = new List<GridPos>();
+        int r = Config.BlastRockRadius;
+        for (int dy = -r; dy <= r; dy++)
+            for (int dx = -r; dx <= r; dx++)
+            {
+                var p = new GridPos(charge.WallPos.X + dx, charge.WallPos.Y + dy);
+                if (Math.Abs(dx) + Math.Abs(dy) > r) continue;        // Manhattan disc
+                if (!Grid.InBounds(p) || !Grid.Get(p).IsBlastable()) continue;
+                bool wasGold = Grid.Get(p) == TileType.GoldRock;
+                Grid.Set(p, TileType.Floor);
+                if (wasGold)
+                {
+                    var owner = _miners[charge.OwnerId];
+                    if (owner.Alive) owner.GoldCollected++;
+                }
+                destroyed.Add(p);
+            }
+
+        foreach (var m in _miners.Values)
+        {
+            if (m.Alive && m.Pos.ChebyshevTo(charge.WallPos) <= Config.BlastKillRadius)
+            {
+                m.Alive = false;
+                m.Activity = ActivityKind.None;
+                _events.Add(new MinerKilled(m.Id));
+            }
+        }
+
+        _events.Add(new Explosion(charge.WallPos, destroyed));
     }
 
     private void CompleteActivity(Miner m)
@@ -106,6 +175,13 @@ public sealed class Simulation
             if (wasGold) m.GoldCollected++;
             _events.Add(new RockMined(m.Id, target, wasGold));
         }
-        // Planting completion handled in a later task.
+        else if (kind == ActivityKind.Planting)
+        {
+            if (!Grid.InBounds(target) || !Grid.Get(target).IsBlastable()) return;
+            if (LiveChargeCount(m.Id) >= Config.MaxLiveChargesPerMiner) return;
+            if (_charges.Any(c => c.WallPos == target)) return;
+            _charges.Add(new Charge(m.Id, target, Config.FuseSeconds));
+            _events.Add(new ChargePlanted(m.Id, target));
+        }
     }
 }
