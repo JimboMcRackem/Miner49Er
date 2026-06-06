@@ -57,6 +57,8 @@ The world is a 2D grid of tiles. Tile types:
 - A short smooth slide (tween) between tiles so motion doesn't feel robotic.
 - The miner has a **facing direction**, set by the last move input. All
   directional verbs act on the tile directly ahead.
+- Movement **cadence** (how fast you cross tiles) is authoritative sim state,
+  configurable per match and modifiable per player by effects — see §3.5.
 
 ### 3.3 Verbs
 
@@ -86,6 +88,58 @@ the faced tile.
 - **Last miner alive wins.** In secondary-goal modes, the secondary goal
   (most gold, reach center first) is layered on top of the same elimination
   baseline.
+
+### 3.5 Movement speed & status effects
+
+Movement speed is configurable at two levels: a **global per-match base** set
+before the round starts, and **per-player timed modifiers** applied by items and
+other effects during play. Both live in the authoritative `Simulation` so they
+are fair under the host-authoritative model and deterministic across clients —
+nothing here reads wall-clock time; everything advances via `Tick(dt)`.
+
+**Speed lives in the sim, not the renderer.** Each `Miner` carries a
+`MoveCooldownRemaining`. A move is only accepted when that cooldown is zero;
+accepting a move sets the cooldown to the miner's *effective seconds-per-tile*,
+and `Tick(dt)` counts it down. Movement still snaps one tile at a time — the
+cooldown just enforces the cadence. The client reads the local miner's current
+effective seconds-per-tile to set its pixel-slide duration, so the on-screen
+animation always matches the authoritative pace. *(Smaller seconds-per-tile =
+faster.)*
+
+**Effective speed formula** — multiplicative and capped:
+
+```
+effectiveSecondsPerTile = clamp(
+    BaseMoveSeconds × ∏(active MoveSpeed-modifier magnitudes),
+    MinMoveSeconds, MaxMoveSeconds )
+```
+
+- `BaseMoveSeconds` comes from the **pre-match speed preset**, identical for all
+  players: **Slow ≈ 0.20 / Standard ≈ 0.12 / Fast ≈ 0.07** s-per-tile (tunable,
+  a host-side option in §7.2).
+- Each active modifier contributes a multiplier: a speed effect uses a magnitude
+  `< 1` (fewer seconds per tile = faster, e.g. ×0.6), a slow effect uses `> 1`
+  (e.g. ×1.8). Opposite effects partly cancel.
+- `MinMoveSeconds` / `MaxMoveSeconds` clamp the result (e.g. floor 0.05s, ceiling
+  0.40s) so a stack of buffs can never let a miner teleport and a stack of
+  debuffs can never freeze one in place.
+
+**Generic timed status-effect mechanism.** Each `Miner` holds a small list of
+`StatusEffect { Channel, Magnitude, RemainingSeconds }`. `Tick(dt)` decrements
+each `RemainingSeconds` and drops expired effects. For now the only `Channel` is
+`MoveSpeed`, but the mechanism is built generically so later channels (mining
+speed, vision radius) can reuse it. Stacking rule: **at most one active instance
+per effect kind** — re-applying the same effect (drinking a second speed potion)
+*refreshes its duration* rather than compounding a second multiplier; *different*
+kinds multiply together and then clamp. This is the actual deliverable of this
+design.
+
+**Items are the first consumers (Phase 4, out of scope here).** Concrete items
+such as a **Potion of Speed** (apply a `MoveSpeed ×0.6` effect for N seconds) or
+a **Slow Mold** (apply `MoveSpeed ×1.8` for N seconds) are *examples of effects
+this mechanism produces*. The item pickup-on-map / inventory / use-verb flow is
+**not** specified here — it remains Phase 4 (§9, §10). This section defines only
+the speed model and the effect mechanism those items will plug into.
 
 ---
 
@@ -177,7 +231,8 @@ trickiest area.
   - **Later:** a self-contained **custom-sprite editor** (paint a miner on a
     small grid, save/load).
 - Host-side tunables: pickaxe time, blast timer/radius, charge cap, vision
-  radius, map size scaling, round timer.
+  radius, map size scaling, round timer, **base movement speed preset**
+  (slow/standard/fast — see §3.5).
 
 ### 7.3 Settings architecture
 
@@ -240,7 +295,8 @@ implementation cycle. **Phase 1 is the immediate build target.**
 3. **Phase 3 — Listen mechanic + audio:** positional SFX, music, listen action +
    compass indicator.
 4. **Phase 4 — Hazards & modes:** water (drown/block), cave-ins, time pressure,
-   secondary-goal modes (gold, reach-center), items/power-ups.
+   secondary-goal modes (gold, reach-center), items/power-ups (consuming the
+   status-effect mechanism from §3.5, e.g. speed potion / slow mold).
 5. **Phase 5 — Polish & hardening:** rebinding UI, full settings, custom-sprite
    editor, visibility culling (cheat-resistant fog), NAT/relay fallback for
    internet play.
@@ -253,7 +309,9 @@ implementation cycle. **Phase 1 is the immediate build target.**
 - Blast radius shape (cross vs. square) and exact charge cap (default 3).
 - Listen indicator duration and whether it has a max range (default: always
   points to nearest living player, no range cap).
-- Item set specifics (candidates: speed boost, bigger blast, longer vision,
-  water plank, decoy noise-maker) — finalized in Phase 4.
+- Item set specifics (candidates: speed potion / slow mold via the §3.5
+  status-effect mechanism, bigger blast, longer vision, water plank, decoy
+  noise-maker) — finalized in Phase 4. Exact effect magnitudes, durations, and
+  speed clamp bounds tune there.
 - Round/lobby UX details (Phase 2).
 - Final audio and art direction (placeholders until then).
