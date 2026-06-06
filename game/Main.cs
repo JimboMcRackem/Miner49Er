@@ -1,0 +1,130 @@
+using Godot;
+using Miner49er.Core;
+
+namespace Miner49er;
+
+public partial class Main : Node2D
+{
+    public const int TileSize = 32;
+    public const float MoveTime = 0.12f; // seconds per tile step
+    public const int VisionRadius = 5;
+    private const int LocalId = 1;
+
+    private Simulation _sim = null!;
+    private Miner _local = null!;
+    private readonly FogState _fog = new();
+
+    private Node2D _playerVisual = null!;
+    private Camera2D _camera = null!;
+
+    private bool _isMoving;
+    private float _moveT;
+    private Vector2 _moveFrom;
+    private Vector2 _moveTo;
+
+    public override void _Ready()
+    {
+        InputBindings.EnsureDefaults();
+        StartNewGame(seed: 12345);
+    }
+
+    private void StartNewGame(int seed)
+    {
+        var map = MapGenerator.Generate(new MapConfig { Seed = seed, PlayerCount = 1 });
+        _sim = new Simulation(map.Grid, new SimConfig());
+        _local = _sim.AddMiner(LocalId, map.Spawns[0]);
+        _isMoving = false;
+
+        // Persistent nodes are created once; restart only resets sim + position.
+        if (_playerVisual == null)
+        {
+            _playerVisual = BuildPlayerVisual();
+            AddChild(_playerVisual);
+            _camera = new Camera2D { Zoom = new Vector2(1.5f, 1.5f) };
+            _playerVisual.AddChild(_camera);
+            _camera.MakeCurrent();
+        }
+        _playerVisual.Position = ToPixelCenter(_local.Pos);
+
+        UpdateFog();
+    }
+
+    private static Node2D BuildPlayerVisual()
+    {
+        var root = new Node2D { Name = "PlayerVisual" };
+        var body = new Polygon2D
+        {
+            Color = new Color("e8c34a"),
+            Polygon = new[]
+            {
+                new Vector2(-10, -10), new Vector2(10, -10),
+                new Vector2(10, 10), new Vector2(-10, 10),
+            },
+        };
+        root.AddChild(body);
+        return root;
+    }
+
+    private static Vector2 ToPixelCenter(GridPos p) =>
+        new(p.X * TileSize + TileSize / 2f, p.Y * TileSize + TileSize / 2f);
+
+    public override void _PhysicsProcess(double delta)
+    {
+        HandleActions();
+        HandleMovement(delta);
+        _sim.Tick(delta);
+        _sim.DrainEvents(); // events consumed in later tasks (SFX/FX)
+    }
+
+    private void HandleActions()
+    {
+        if (Input.IsActionJustPressed(InputBindings.Pickaxe)) _sim.TryStartMining(LocalId);
+        if (Input.IsActionJustPressed(InputBindings.Plant)) _sim.TryStartPlanting(LocalId);
+        if (Input.IsActionJustPressed(InputBindings.Restart)) StartNewGame(12345);
+    }
+
+    private void HandleMovement(double delta)
+    {
+        if (!_isMoving && _local.Alive)
+        {
+            Direction? dir = ReadDirection();
+            if (dir.HasValue)
+            {
+                var before = _local.Pos;
+                if (_sim.TryMove(LocalId, dir.Value))
+                {
+                    _moveFrom = ToPixelCenter(before);
+                    _moveTo = ToPixelCenter(_local.Pos);
+                    _moveT = 0f;
+                    _isMoving = true;
+                    UpdateFog();
+                }
+            }
+        }
+
+        if (_isMoving)
+        {
+            _moveT += (float)delta / MoveTime;
+            if (_moveT >= 1f) { _moveT = 1f; _isMoving = false; }
+            _playerVisual.Position = _moveFrom.Lerp(_moveTo, _moveT);
+        }
+    }
+
+    private static Direction? ReadDirection()
+    {
+        if (Input.IsActionPressed(InputBindings.MoveUp)) return Direction.North;
+        if (Input.IsActionPressed(InputBindings.MoveDown)) return Direction.South;
+        if (Input.IsActionPressed(InputBindings.MoveLeft)) return Direction.West;
+        if (Input.IsActionPressed(InputBindings.MoveRight)) return Direction.East;
+        return null;
+    }
+
+    private void UpdateFog()
+    {
+        _fog.Update(Visibility.Compute(_sim.Grid, _local.Pos, VisionRadius));
+    }
+
+    public Simulation Sim => _sim;
+    public Miner Local => _local;
+    public FogState Fog => _fog;
+}
