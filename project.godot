@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 [autoload]
 
 NetworkManager="*res://game/net/NetworkManager.cs"
+AudioManager="*res://game/audio/AudioManager.cs"
 
 [display]
 
