@@ -14,6 +14,7 @@ public partial class Main : Node2D
     private Miner _local = null!;
     private readonly FogState _fog = new();
 
+    private WorldRenderer _world = null!;
     private Node2D _playerVisual = null!;
     private Camera2D _camera = null!;
 
@@ -34,6 +35,13 @@ public partial class Main : Node2D
         _sim = new Simulation(map.Grid, new SimConfig());
         _local = _sim.AddMiner(LocalId, map.Spawns[0]);
         _isMoving = false;
+
+        if (_world == null)
+        {
+            _world = new WorldRenderer { Name = "WorldRenderer", ZIndex = -10 };
+            AddChild(_world);
+            _world.Init(this);
+        }
 
         // Persistent nodes are created once; restart only resets sim + position.
         if (_playerVisual == null)
@@ -73,7 +81,28 @@ public partial class Main : Node2D
         HandleActions();
         HandleMovement(delta);
         _sim.Tick(delta);
-        _sim.DrainEvents(); // events consumed in later tasks (SFX/FX)
+        ConsumeEvents();
+    }
+
+    private void ConsumeEvents()
+    {
+        foreach (var e in _sim.DrainEvents())
+        {
+            switch (e)
+            {
+                case Explosion ex:
+                    _world.AddExplosionFlash(ex.WallPos);
+                    foreach (var d in ex.DestroyedRock) _world.AddExplosionFlash(d);
+                    UpdateFog(); // blasting reveals new space
+                    break;
+                case RockMined:
+                    UpdateFog(); // digging reveals new space
+                    break;
+                case MinerKilled k when k.MinerId == LocalId:
+                    // Phase 1: dying just stops input until R restarts.
+                    break;
+            }
+        }
     }
 
     private void HandleActions()
