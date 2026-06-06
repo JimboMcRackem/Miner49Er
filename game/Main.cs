@@ -62,16 +62,19 @@ public partial class Main : Node2D
 		nm.MatchEnded -= OnMatchEnded;
 		nm.ReturnToLobbyRequested -= OnReturnToLobby;
 		nm.Disconnected -= OnDisconnected;
+		nm.RegisterMatch(null, null);
 	}
 
 	public override void _PhysicsProcess(double delta)
 	{
 		// Disable input + HUD activity once the local miner is dead (spectate).
+		bool sawLocal = false;
 		bool localAlive = false;
 		string status = "Spectating";
 		foreach (var m in _client.Miners)
 			if (m.Id == _client.LocalMinerId)
 			{
+				sawLocal = true;
 				localAlive = m.Alive;
 				status = m.Alive
 					? (m.Activity == (int)ActivityKind.Mining ? $"Mining… {m.ActivityRemaining:0.0}s"
@@ -80,7 +83,7 @@ public partial class Main : Node2D
 					: "Dead — spectating";
 				_hud.SetText($"Gold: {m.Gold}    {status}");
 			}
-		if (_input != null) _input.Enabled = localAlive;
+		if (_input != null) _input.Enabled = !sawLocal || localAlive;
 	}
 
 	private void OnMatchEnded(long winnerPeerId)

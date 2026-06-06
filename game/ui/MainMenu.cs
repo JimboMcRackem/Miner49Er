@@ -41,8 +41,12 @@ public partial class MainMenu : Control
 		_status = new Label { Text = "" };
 		box.AddChild(_status);
 
-		NetworkManager.Instance.JoinFailed += () => _status.Text = "Connection failed.";
+		NetworkManager.Instance.JoinFailed += OnJoinFailed;
 	}
+
+	private void OnJoinFailed() => _status.Text = "Connection failed.";
+
+	public override void _ExitTree() => NetworkManager.Instance.JoinFailed -= OnJoinFailed;
 
 	private void OnHost()
 	{

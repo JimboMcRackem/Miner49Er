@@ -166,7 +166,7 @@ public partial class NetworkManager : Node
 	private MatchHost? _matchHost;
 	private MatchClient? _matchClient;
 
-	public void RegisterMatch(MatchHost? host, MatchClient client)
+	public void RegisterMatch(MatchHost? host, MatchClient? client)
 	{
 		_matchHost = host;
 		_matchClient = client;
@@ -176,7 +176,7 @@ public partial class NetworkManager : Node
 	{
 		if (!IsHost) return;
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
-		int seed = (int)(Time.GetUnixTimeFromSystem() % int.MaxValue);
+		int seed = System.Random.Shared.Next();
 		Rpc(nameof(BeginMatch), seed, order.Length, order);
 		BeginMatch(seed, order.Length, order); // host applies locally too
 	}
@@ -224,7 +224,7 @@ public partial class NetworkManager : Node
 		ReceiveTick(bytes); // host renders its own view
 	}
 
-	[Rpc(MultiplayerApi.RpcMode.Authority, TransferMode = MultiplayerPeer.TransferModeEnum.Unreliable)]
+	[Rpc(MultiplayerApi.RpcMode.Authority, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
 	public void ReceiveTick(byte[] bytes) =>
 		_matchClient?.ApplyUpdate(Miner49er.Core.Net.SnapshotCodec.Read(bytes));
 

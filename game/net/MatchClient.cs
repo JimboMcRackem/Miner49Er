@@ -62,13 +62,6 @@ public partial class MatchClient : Node2D
 		UpdateFog();
 	}
 
-	public Vector2 VisualPosOf(MinerSnapshot m)
-	{
-		var target = new Vector2(m.X * TileSize + TileSize / 2f, m.Y * TileSize + TileSize / 2f);
-		if (!_visualPos.TryGetValue(m.Id, out var cur)) { _visualPos[m.Id] = target; return target; }
-		return cur;
-	}
-
 	public override void _PhysicsProcess(double delta)
 	{
 		// Smooth each miner visual toward its authoritative tile position.
