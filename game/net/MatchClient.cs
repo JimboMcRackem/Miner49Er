@@ -19,6 +19,7 @@ public partial class MatchClient : Node2D
 	public IReadOnlyList<MinerSnapshot> Miners => _miners;
 	public IReadOnlyList<ChargeSnapshot> Charges => _charges;
 	public int LocalMinerId { get; private set; }
+	public event System.Action<Vector2>? Exploded; // world position of a detonation
 
 	private List<MinerSnapshot> _miners = new();
 	private List<ChargeSnapshot> _charges = new();
@@ -50,11 +51,23 @@ public partial class MatchClient : Node2D
 
 	public void ApplyUpdate(TickUpdate update)
 	{
+		float bx = 0f, by = 0f;
+		int blastCount = 0;
 		foreach (var t in update.TileChanges)
 		{
 			var p = new GridPos(t.X, t.Y);
 			if (Grid.InBounds(p)) Grid.Set(p, TileType.Floor);
-			if (t.FromBlast) _world?.AddExplosionFlash(p);
+			if (t.FromBlast)
+			{
+				_world?.AddExplosionFlash(p);
+				bx += t.X; by += t.Y; blastCount++;
+			}
+		}
+		if (blastCount > 0)
+		{
+			var c = new Vector2(bx / blastCount * TileSize + TileSize / 2f,
+								 by / blastCount * TileSize + TileSize / 2f);
+			Exploded?.Invoke(c);
 		}
 
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);

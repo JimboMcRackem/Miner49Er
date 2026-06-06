@@ -13,6 +13,7 @@ public partial class Main : Node2D
 	private InputSender? _input;
 	private Hud _hud = null!;
 	private ResultsOverlay? _results;
+	private MatchAudio _audio = null!;
 
 	public override void _Ready()
 	{
@@ -28,6 +29,10 @@ public partial class Main : Node2D
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
 		_client.Begin(map.Grid, localMinerId, this);
+
+		_audio = new MatchAudio { Name = "MatchAudio" };
+		AddChild(_audio);
+		_audio.Begin(_client);
 
 		if (nm.IsHost)
 		{
