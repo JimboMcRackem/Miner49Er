@@ -34,6 +34,6 @@ public partial class Splash : Control
 	{
 		if (_advancing) return;
 		_advancing = true;
-		GetTree().ChangeSceneToFile("res://game/Main.tscn");
+		GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");
 	}
 }
