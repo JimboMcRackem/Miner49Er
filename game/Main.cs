@@ -15,6 +15,7 @@ public partial class Main : Node2D
     private readonly FogState _fog = new();
 
     private WorldRenderer _world = null!;
+    private FogRenderer _fogRenderer = null!;
     private Node2D _playerVisual = null!;
     private Camera2D _camera = null!;
 
@@ -54,12 +55,19 @@ public partial class Main : Node2D
         }
         _playerVisual.Position = ToPixelCenter(_local.Pos);
 
+        if (_fogRenderer == null)
+        {
+            _fogRenderer = new FogRenderer { Name = "FogRenderer", ZIndex = -5 };
+            AddChild(_fogRenderer);
+            _fogRenderer.Init(this);
+        }
+
         UpdateFog();
     }
 
     private static Node2D BuildPlayerVisual()
     {
-        var root = new Node2D { Name = "PlayerVisual" };
+        var root = new Node2D { Name = "PlayerVisual", ZIndex = 10 };
         var body = new Polygon2D
         {
             Color = new Color("e8c34a"),
