@@ -1312,17 +1312,29 @@ In `src/Miner49er.Core/Sim/Simulation.cs`, add these methods inside the class
 
 - [ ] **Step 5: Advance charge fuses and detonate in Tick**
 
-In `src/Miner49er.Core/Sim/Simulation.cs`, replace the line
-`// Charge fuses are advanced in a later task.` with:
+> NOTE: charges must be snapshotted **before** activities are advanced, otherwise a
+> charge planted during this tick's activity-completion would have its fuse
+> decremented in the same tick (breaking `Plant_starts_planting_then_creates_charge_with_fuse`,
+> which asserts the fuse equals `FuseSeconds` right after planting).
+
+In `src/Miner49er.Core/Sim/Simulation.cs`, replace the entire `Tick` method (the one
+containing `// Charge fuses are advanced in a later task.`) with:
 ```csharp
-        AdvanceCharges(dt);
+    public void Tick(double dt)
+    {
+        // Snapshot charges before advancing activities so newly-planted charges
+        // (spawned this tick) are not advanced until the next tick.
+        var chargesThisTick = _charges.ToList();
+        AdvanceActivities(dt);
+        AdvanceCharges(chargesThisTick, dt);
+    }
 ```
 Then add these methods inside the class:
 ```csharp
-    private void AdvanceCharges(double dt)
+    private void AdvanceCharges(List<Charge> snapshot, double dt)
     {
-        // Snapshot because Detonate mutates the list.
-        foreach (var charge in _charges.ToList())
+        // Use pre-tick snapshot so newly-planted charges don't advance this tick.
+        foreach (var charge in snapshot)
         {
             charge.FuseRemaining -= dt;
             if (charge.FuseRemaining <= 0)
