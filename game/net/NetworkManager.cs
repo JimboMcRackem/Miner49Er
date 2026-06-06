@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Miner49er;
 
@@ -151,4 +152,98 @@ public partial class NetworkManager : Node
 			Players[ids[i]] = new PlayerInfo { Name = names[i], ColorIndex = colors[i], Ready = readys[i] != 0 };
 		LobbyChanged?.Invoke();
 	}
+
+	// Match bootstrap --------------------------------------------------------
+	public event System.Action? MatchStarting;
+	public event System.Action<long>? MatchEnded; // winner peerId, -1 = draw
+	public event System.Action? ReturnToLobbyRequested;
+
+	public int MatchSeed { get; private set; }
+	public int MatchPlayerCount { get; private set; }
+	public long[] PeerOrder { get; private set; } = System.Array.Empty<long>();
+
+	private MatchHost? _matchHost;
+	private MatchClient? _matchClient;
+
+	public void RegisterMatch(MatchHost? host, MatchClient client)
+	{
+		_matchHost = host;
+		_matchClient = client;
+	}
+
+	public void StartMatch()
+	{
+		if (!IsHost) return;
+		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
+		int seed = (int)(Time.GetUnixTimeFromSystem() % int.MaxValue);
+		Rpc(nameof(BeginMatch), seed, order.Length, order);
+		BeginMatch(seed, order.Length, order); // host applies locally too
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.Authority)]
+	public void BeginMatch(int seed, int playerCount, long[] peerOrder)
+	{
+		MatchSeed = seed;
+		MatchPlayerCount = playerCount;
+		PeerOrder = peerOrder;
+		MatchStarting?.Invoke();
+	}
+
+	public int LocalMinerId()
+	{
+		for (int i = 0; i < PeerOrder.Length; i++)
+			if (PeerOrder[i] == LocalId) return i + 1; // minerId = spawn index + 1
+		return -1;
+	}
+
+	// Input transport --------------------------------------------------------
+	public void SendDir(int dir)
+	{
+		if (IsHost) { _matchHost?.SetDir(LocalId, dir); return; }
+		RpcId(1, nameof(ReceiveDir), dir);
+	}
+
+	public void SendAction(bool mine, bool plant)
+	{
+		if (IsHost) { _matchHost?.SetAction(LocalId, mine, plant); return; }
+		RpcId(1, nameof(ReceiveAction), mine, plant);
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Unreliable)]
+	public void ReceiveDir(int dir) => _matchHost?.SetDir(Multiplayer.GetRemoteSenderId(), dir);
+
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+	public void ReceiveAction(bool mine, bool plant) =>
+		_matchHost?.SetAction(Multiplayer.GetRemoteSenderId(), mine, plant);
+
+	// Tick + result broadcast ------------------------------------------------
+	public void BroadcastTick(byte[] bytes)
+	{
+		Rpc(nameof(ReceiveTick), bytes);
+		ReceiveTick(bytes); // host renders its own view
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.Authority, TransferMode = MultiplayerPeer.TransferModeEnum.Unreliable)]
+	public void ReceiveTick(byte[] bytes) =>
+		_matchClient?.ApplyUpdate(Miner49er.Core.Net.SnapshotCodec.Read(bytes));
+
+	public void BroadcastResult(long winnerPeerId)
+	{
+		Rpc(nameof(ReceiveResult), winnerPeerId);
+		ReceiveResult(winnerPeerId);
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.Authority)]
+	public void ReceiveResult(long winnerPeerId) => MatchEnded?.Invoke(winnerPeerId);
+
+	// Return to lobby --------------------------------------------------------
+	public void ReturnToLobby()
+	{
+		if (!IsHost) return;
+		Rpc(nameof(GoToLobby));
+		GoToLobby();
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.Authority)]
+	public void GoToLobby() => ReturnToLobbyRequested?.Invoke();
 }
