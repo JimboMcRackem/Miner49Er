@@ -19,16 +19,23 @@ public partial class Main : Node2D
     private Node2D _playerVisual = null!;
     private Camera2D _camera = null!;
     private Hud _hud = null!;
+    private LoadingScreen? _loading;
 
     private bool _isMoving;
     private float _moveT;
     private Vector2 _moveFrom;
     private Vector2 _moveTo;
 
-    public override void _Ready()
+    public override async void _Ready()
     {
         InputBindings.EnsureDefaults();
+        _loading = new LoadingScreen { Name = "LoadingScreen" };
+        AddChild(_loading);
+        // Let the loading overlay render one frame before the (synchronous) generation runs.
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         StartNewGame(seed: 12345);
+        _loading.QueueFree();
+        _loading = null;
     }
 
     private void StartNewGame(int seed)
@@ -93,6 +100,7 @@ public partial class Main : Node2D
 
     public override void _PhysicsProcess(double delta)
     {
+        if (_sim == null) return; // still on the loading frame
         HandleActions();
         HandleMovement(delta);
         _sim.Tick(delta);
