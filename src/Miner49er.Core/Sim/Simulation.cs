@@ -57,5 +57,55 @@ public sealed class Simulation
         m.ActivitySecondsRemaining = 0;
     }
 
-    // Mining, planting, and Tick are added in later tasks.
+    public bool TryStartMining(int id)
+    {
+        var m = _miners[id];
+        if (!m.Alive) return false;
+
+        var target = m.Pos + m.Facing.ToOffset();
+        if (!Grid.InBounds(target) || !Grid.Get(target).IsMinable()) return false;
+
+        m.Activity = ActivityKind.Mining;
+        m.ActivityTarget = target;
+        m.ActivitySecondsRemaining = Config.PickaxeSeconds;
+        _events.Add(new ActivityStarted(id, ActivityKind.Mining, target));
+        return true;
+    }
+
+    public void Tick(double dt)
+    {
+        AdvanceActivities(dt);
+        // Charge fuses are advanced in a later task.
+    }
+
+    private void AdvanceActivities(double dt)
+    {
+        foreach (var m in _miners.Values)
+        {
+            if (!m.Alive || m.Activity == ActivityKind.None) continue;
+
+            m.ActivitySecondsRemaining -= dt;
+            if (m.ActivitySecondsRemaining > 0) continue;
+
+            CompleteActivity(m);
+        }
+    }
+
+    private void CompleteActivity(Miner m)
+    {
+        var kind = m.Activity;
+        var target = m.ActivityTarget;
+        m.Activity = ActivityKind.None;
+        m.ActivitySecondsRemaining = 0;
+
+        if (kind == ActivityKind.Mining)
+        {
+            if (!Grid.InBounds(target) || !Grid.Get(target).IsMinable()) return;
+            bool wasGold = Grid.Get(target) == TileType.GoldRock;
+            Grid.Set(target, TileType.Floor);
+            if (wasGold) m.GoldCollected++;
+            _events.Add(new RockMined(m.Id, target, wasGold));
+        }
+        // Planting completion handled in a later task.
+    }
 }
