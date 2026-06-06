@@ -19,6 +19,10 @@ config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 window/size/viewport_width=1280
 window/size/viewport_height=720
 
+[autoload]
+
+NetworkManager="*res://game/net/NetworkManager.cs"
+
 [dotnet]
 
 project/assembly_name="Miner49er"
