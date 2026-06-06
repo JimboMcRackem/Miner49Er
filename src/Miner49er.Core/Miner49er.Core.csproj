@@ -5,4 +5,9 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Miner49er.Core</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Miner49er.Core.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>
