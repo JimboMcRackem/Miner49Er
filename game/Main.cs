@@ -97,7 +97,8 @@ public partial class Main : Node2D
 						: m.Activity == (int)ActivityKind.Planting ? $"Planting… {m.ActivityRemaining:0.0}s"
 						: "Ready")
 					: "Dead — spectating";
-				_hud.SetText($"Gold: {m.Gold}    {status}");
+				string timeStr = _client.SecondsRemaining >= 0 ? $"    Time: {_client.SecondsRemaining:0}s" : "";
+				_hud.SetText($"Gold: {m.Gold}    {status}{timeStr}");
 			}
 		if (_input != null) _input.Enabled = !sawLocal || localAlive;
 
