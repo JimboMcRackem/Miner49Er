@@ -14,9 +14,14 @@ mono_crash.*
 [Oo]bj/
 *.user
 
-# Godot-generated desktop binaries (build output at repo root)
-/Miner49er.exe
-/Miner49er.console.exe
+# Godot-generated desktop binaries (exported build output at repo root)
+/*.exe
+
+# Local audio drop-ins (kept out of git; README manifest is tracked)
+/assets/audio/*.ogg
+/assets/audio/*.wav
+/assets/audio/*.mp3
+/assets/audio/*.import
 
 # OS / editor
 .DS_Store
