@@ -56,4 +56,67 @@ public class SimulationMovementTests
         sim.DrainEvents();
         Assert.Empty(sim.DrainEvents());
     }
+
+    [Fact]
+    public void Move_into_shallow_water_succeeds_and_miner_lives()
+    {
+        var grid = OpenGrid();
+        grid.Set(new GridPos(2, 1), TileType.ShallowWater);
+        var sim = new Simulation(grid, new SimConfig());
+        var m = sim.AddMiner(1, new GridPos(1, 1));
+
+        bool moved = sim.TryMove(1, Direction.East);
+
+        Assert.True(moved);
+        Assert.Equal(new GridPos(2, 1), m.Pos);
+        Assert.True(m.Alive);
+    }
+
+    [Fact]
+    public void Move_into_deep_water_drowns_the_miner()
+    {
+        var grid = OpenGrid();
+        grid.Set(new GridPos(2, 1), TileType.DeepWater);
+        var sim = new Simulation(grid, new SimConfig());
+        var m = sim.AddMiner(1, new GridPos(1, 1));
+
+        bool moved = sim.TryMove(1, Direction.East);
+
+        Assert.True(moved);                       // the step happens
+        Assert.Equal(new GridPos(2, 1), m.Pos);   // onto the deep tile
+        Assert.False(m.Alive);                    // then drowns
+        Assert.Equal(ActivityKind.None, m.Activity);
+    }
+
+    [Fact]
+    public void Drowning_emits_MinerMoved_then_MinerDrowned()
+    {
+        var grid = OpenGrid();
+        grid.Set(new GridPos(1, 0), TileType.DeepWater);
+        var sim = new Simulation(grid, new SimConfig());
+        sim.AddMiner(1, new GridPos(1, 1));
+
+        sim.TryMove(1, Direction.North);
+        var events = sim.DrainEvents();
+
+        Assert.Equal(2, events.Count);
+        Assert.IsType<MinerMoved>(events[0]);
+        var drowned = Assert.IsType<MinerDrowned>(events[1]);
+        Assert.Equal(1, drowned.MinerId);
+    }
+
+    [Fact]
+    public void Dead_miner_cannot_move()
+    {
+        var grid = OpenGrid();
+        grid.Set(new GridPos(2, 1), TileType.DeepWater);
+        var sim = new Simulation(grid, new SimConfig());
+        sim.AddMiner(1, new GridPos(1, 1));
+        sim.TryMove(1, Direction.East); // drowns
+        sim.DrainEvents();
+
+        bool moved = sim.TryMove(1, Direction.West);
+
+        Assert.False(moved);
+    }
 }
