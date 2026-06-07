@@ -32,7 +32,7 @@ public static class SnapshotCodec
         w.Write(update.TileChanges.Count);
         foreach (var t in update.TileChanges)
         {
-            w.Write(t.X); w.Write(t.Y); w.Write(t.FromBlast);
+            w.Write(t.X); w.Write(t.Y); w.Write(t.FromBlast); w.Write((int)t.NewType);
         }
 
         w.Flush();
@@ -62,7 +62,7 @@ public static class SnapshotCodec
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
-            changes.Add(new TileChange(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean()));
+            changes.Add(new TileChange(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean(), (TileType)r.ReadInt32()));
 
         return new TickUpdate(new WorldSnapshot(tick, miners, charges, secondsRemaining), changes);
     }

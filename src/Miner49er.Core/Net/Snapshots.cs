@@ -7,8 +7,9 @@ public readonly record struct MinerSnapshot(
 
 public readonly record struct ChargeSnapshot(int OwnerId, int X, int Y, double FuseRemaining);
 
-/// <summary>One floor cell that was just revealed; FromBlast drives the flash.</summary>
-public readonly record struct TileChange(int X, int Y, bool FromBlast);
+/// <summary>One floor cell that changed; FromBlast drives the flash, NewType is
+/// the tile it became (Floor for mining/blasts, water for the flood).</summary>
+public readonly record struct TileChange(int X, int Y, bool FromBlast, TileType NewType = TileType.Floor);
 
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,

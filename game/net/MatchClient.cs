@@ -57,7 +57,7 @@ public partial class MatchClient : Node2D
 		foreach (var t in update.TileChanges)
 		{
 			var p = new GridPos(t.X, t.Y);
-			if (Grid.InBounds(p)) Grid.Set(p, TileType.Floor);
+			if (Grid.InBounds(p)) Grid.Set(p, t.NewType);
 			if (t.FromBlast)
 			{
 				_world?.AddExplosionFlash(p);
