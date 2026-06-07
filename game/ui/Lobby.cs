@@ -11,6 +11,7 @@ public partial class Lobby : Control
 	private Button _startBtn = null!;
 	private Label _hint = null!;
 	private OptionButton _modePicker = null!;
+	private OptionButton _timePicker = null!;
 
 	public override void _Ready()
 	{
@@ -37,8 +38,18 @@ public partial class Lobby : Control
 		_modePicker.Visible = NetworkManager.Instance.IsHost; // only the host chooses
 		box.AddChild(_modePicker);
 
+		_timePicker = new OptionButton();
+		_timePicker.AddItem("No Time Limit", 0);
+		_timePicker.AddItem("1 min", 60);
+		_timePicker.AddItem("2 min", 120);
+		_timePicker.AddItem("3 min", 180);
+		_timePicker.AddItem("5 min", 300);
+		_timePicker.Select(1); // default 1 min
+		_timePicker.Visible = NetworkManager.Instance.IsHost; // only the host chooses
+		box.AddChild(_timePicker);
+
 		_startBtn = new Button { Text = "Start Match", Disabled = true };
-		_startBtn.Pressed += () => NetworkManager.Instance.StartMatch((GameMode)_modePicker.GetSelectedId());
+		_startBtn.Pressed += () => NetworkManager.Instance.StartMatch((GameMode)_modePicker.GetSelectedId(), _timePicker.GetSelectedId());
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_startBtn);
 
