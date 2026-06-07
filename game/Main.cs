@@ -46,7 +46,8 @@ public partial class Main : Node2D
 				MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount)).Grid,
 				new SimConfig(),
 				map.Center,
-				nm.MatchTimeLimitSeconds > 0 ? nm.MatchTimeLimitSeconds : (double?)null);
+				nm.MatchTimeLimitSeconds > 0 ? nm.MatchTimeLimitSeconds : (double?)null,
+				nm.MatchFlooding);
 			var peerToMiner = new System.Collections.Generic.Dictionary<long, int>();
 			for (int i = 0; i < nm.PeerOrder.Length; i++)
 			{

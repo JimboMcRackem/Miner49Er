@@ -21,6 +21,7 @@ public static class RoundResolver
         return mode switch
         {
             GameMode.ReachCenter when sim.FirstToReachCenter >= 0
+                                      && sim.GetMiner(sim.FirstToReachCenter).Alive
                 => new RoundResult(true, sim.FirstToReachCenter),
             GameMode.GoldRush when sim.TimeExpired
                 => new RoundResult(true, MostGoldWinner(alive)),

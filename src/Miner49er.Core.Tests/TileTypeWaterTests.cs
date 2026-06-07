@@ -45,4 +45,14 @@ public class TileTypeWaterTests
         Assert.Equal(expected, t.IsMinable());
         Assert.Equal(expected, t.IsBlastable());
     }
+
+    [Fact]
+    public void IsWater_is_true_only_for_water_tiles()
+    {
+        Assert.True(TileType.ShallowWater.IsWater());
+        Assert.True(TileType.DeepWater.IsWater());
+        Assert.False(TileType.Floor.IsWater());
+        Assert.False(TileType.Rock.IsWater());
+        Assert.False(TileType.ImpermeableRock.IsWater());
+    }
 }

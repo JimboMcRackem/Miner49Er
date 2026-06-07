@@ -16,17 +16,19 @@ public sealed class Simulation
     public int FirstToReachCenter { get; private set; } = -1;
 
     private readonly double? _timeLimit;
+    private readonly bool _flooding;
     public double Elapsed { get; private set; }
     public double SecondsRemaining => _timeLimit is { } lim ? Math.Max(0, lim - Elapsed) : -1;
     public bool TimeExpired => _timeLimit is { } lim && Elapsed >= lim;
 
     public Simulation(TileGrid grid, SimConfig config,
-        GridPos? center = null, double? timeLimitSeconds = null)
+        GridPos? center = null, double? timeLimitSeconds = null, bool flooding = false)
     {
         Grid = grid;
         Config = config;
         Center = center;
         _timeLimit = timeLimitSeconds;
+        _flooding = flooding;
     }
 
     public Miner AddMiner(int id, GridPos pos)
@@ -76,7 +78,7 @@ public sealed class Simulation
             _events.Add(new MinerDrowned(id));
         }
 
-        if (Center is { } c && target == c && FirstToReachCenter < 0)
+        if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive)
         {
             FirstToReachCenter = id;
             _events.Add(new MinerReachedCenter(id));
@@ -132,6 +134,7 @@ public sealed class Simulation
         var chargesThisTick = _charges.ToList();
         AdvanceActivities(dt);
         AdvanceCharges(chargesThisTick, dt);
+        AdvanceFlood();
     }
 
     private void AdvanceActivities(double dt)
@@ -156,6 +159,55 @@ public sealed class Simulation
             charge.FuseRemaining -= dt;
             if (charge.FuseRemaining <= 0)
                 Detonate(charge);
+        }
+    }
+
+    // --- Flood (rising-water modifier) -----------------------------------
+    // Deep water rises inward from the map edges, paced by the match clock: a
+    // tile floods when its edge-distance <= floor(progress * maxDist). The current
+    // front ring is shallow (a one-ring warning); everything behind it is deep
+    // (lethal). Only open space floods; rock stays a wall until mined. Idempotent
+    // on progress, so it also re-floods open tiles freshly exposed inside the zone.
+    private void AdvanceFlood()
+    {
+        if (!_flooding || _timeLimit is not { } lim) return;
+        int maxDist = (Math.Min(Grid.Width, Grid.Height) - 1) / 2;
+        if (maxDist < 1) return;
+        double progress = Math.Min(1.0, Elapsed / lim);
+        int floodedMaxDist = (int)(progress * maxDist);
+        if (floodedMaxDist < 1) return;
+
+        foreach (var p in Grid.Positions())
+        {
+            int d = EdgeDistance(p);
+            if (d < 1 || d > floodedMaxDist) continue;
+            var cur = Grid.Get(p);
+            if (cur != TileType.Floor && !cur.IsWater()) continue; // walls don't flood
+            var target = d == floodedMaxDist ? TileType.ShallowWater : TileType.DeepWater;
+            if (cur != target)
+            {
+                Grid.Set(p, target);
+                _events.Add(new TileFlooded(p, target));
+            }
+        }
+        DrownOccupants();
+    }
+
+    private int EdgeDistance(GridPos p) =>
+        Math.Min(Math.Min(p.X, p.Y), Math.Min(Grid.Width - 1 - p.X, Grid.Height - 1 - p.Y));
+
+    // Kills any living miner standing on a now-lethal (deep) tile. Covers water
+    // rising *under* a stationary miner; move-time drowning stays in TryMove.
+    private void DrownOccupants()
+    {
+        foreach (var m in _miners.Values)
+        {
+            if (m.Alive && Grid.Get(m.Pos).IsLethal())
+            {
+                m.Alive = false;
+                m.Activity = ActivityKind.None;
+                _events.Add(new MinerDrowned(m.Id));
+            }
         }
     }
 

@@ -100,7 +100,6 @@ public static class MapGenerator
         return region;
     }
 
-    private static bool IsWater(TileType t) => t is TileType.ShallowWater or TileType.DeepWater;
     private static bool IsTraversable(TileType t) => t is TileType.Floor or TileType.ShallowWater;
 
     private static void PlaceWater(TileGrid g, Random rng, MapConfig cfg)
@@ -164,7 +163,7 @@ public static class MapGenerator
             foreach (var d in Card)
             {
                 var n = p + d.ToOffset();
-                if (!g.InBounds(n) || !IsWater(g.Get(n))) { allWater = false; break; }
+                if (!g.InBounds(n) || !g.Get(n).IsWater()) { allWater = false; break; }
             }
             if (allWater) interior.Add(p);
         }
@@ -206,7 +205,7 @@ public static class MapGenerator
         foreach (var d in Card)
         {
             var n = p + d.ToOffset();
-            if (g.InBounds(n) && IsWater(g.Get(n))) return true;
+            if (g.InBounds(n) && g.Get(n).IsWater()) return true;
         }
         return false;
     }

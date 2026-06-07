@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Miner49er.Core;
 using Miner49er.Core.Net;
 using Xunit;
 
@@ -17,7 +18,7 @@ public class SnapshotCodecTests
                 },
                 Charges: new List<ChargeSnapshot> { new(1, 8, 8, 1.25) },
                 SecondsRemaining: 42.5f),
-            TileChanges: new List<TileChange> { new(8, 8, true), new(2, 2, false) });
+            TileChanges: new List<TileChange> { new(8, 8, true, TileType.DeepWater), new(2, 2, false) });
 
         byte[] bytes = SnapshotCodec.Write(update);
         TickUpdate back = SnapshotCodec.Read(bytes);
@@ -29,6 +30,7 @@ public class SnapshotCodecTests
         Assert.Equal(update.Snapshot.Miners[1], back.Snapshot.Miners[1]);
         Assert.Equal(update.Snapshot.Charges[0], back.Snapshot.Charges[0]);
         Assert.Equal(2, back.TileChanges.Count);
+        Assert.Equal(TileType.DeepWater, back.TileChanges[0].NewType);
         Assert.Equal(update.TileChanges[0], back.TileChanges[0]);
         Assert.Equal(update.TileChanges[1], back.TileChanges[1]);
     }
