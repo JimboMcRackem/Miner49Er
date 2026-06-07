@@ -52,11 +52,18 @@ public sealed class Simulation
         CancelActivity(m);
 
         var target = m.Pos + dir.ToOffset();
-        if (!Grid.IsWalkable(target)) return false;
+        if (!Grid.InBounds(target) || !Grid.Get(target).IsEnterable()) return false;
 
         var from = m.Pos;
         m.Pos = target;
         _events.Add(new MinerMoved(id, from, target));
+
+        if (Grid.Get(target).IsLethal())
+        {
+            m.Alive = false;
+            m.Activity = ActivityKind.None;
+            _events.Add(new MinerDrowned(id));
+        }
         return true;
     }
 
