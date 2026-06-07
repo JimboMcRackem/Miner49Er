@@ -114,6 +114,20 @@ public class RoundResolverTests
     }
 
     [Fact]
+    public void Reach_center_does_not_award_a_drowned_reacher()
+    {
+        var grid = new TileGrid(5, 5, TileType.Floor);
+        var sim = new Simulation(grid, new SimConfig(), center: new GridPos(1, 0));
+        sim.AddMiner(1, new GridPos(0, 0));
+        sim.AddMiner(2, new GridPos(4, 4));
+        sim.AddMiner(3, new GridPos(0, 4)); // a third so LMS doesn't fire when miner 1 dies
+        sim.TryMove(1, Direction.East);     // miner 1 reaches centre alive (latches)
+        sim.GetMiner(1).Alive = false;      // then dies (e.g. flooded)
+        var result = RoundResolver.Resolve(sim, GameMode.ReachCenter);
+        Assert.False(result.IsOver);        // a dead reacher does not win; 2 still alive
+    }
+
+    [Fact]
     public void Last_man_standing_timeout_is_a_draw()
     {
         var sim = TwoMinerSim(timeLimit: 5.0);

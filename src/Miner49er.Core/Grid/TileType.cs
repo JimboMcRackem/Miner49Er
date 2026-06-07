@@ -23,4 +23,7 @@ public static class TileTypeExtensions
 
     public static bool IsMinable(this TileType t) => t is TileType.Rock or TileType.GoldRock;
     public static bool IsBlastable(this TileType t) => t is TileType.Rock or TileType.GoldRock;
+
+    /// <summary>Shallow or deep water (used by water placement and the flood).</summary>
+    public static bool IsWater(this TileType t) => t is TileType.ShallowWater or TileType.DeepWater;
 }
