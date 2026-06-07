@@ -88,9 +88,27 @@ public partial class MatchAudio : Node2D
 			attempts++;
 			var gp = new GridPos(rng.Next(grid.Width), rng.Next(grid.Height));
 			if (!grid.IsWalkable(gp)) continue;
-			_dripEmitters.Add(MakeLoop(SfxLibrary.Drip, WorldOf(gp.X, gp.Y)));
+			var p = NewPlayer(SfxLibrary.Drip, WorldOf(gp.X, gp.Y));
+			AddChild(p);
+			_dripEmitters.Add(p);
+			ScheduleDrip(p, rng); // occasional drip with a randomized gap, not a continuous loop
 			placed++;
 		}
+	}
+
+	// Plays a drip, then reschedules itself after a random pause so the ambience
+	// is sparse (a drip every few seconds) rather than a continuous tone.
+	private void ScheduleDrip(AudioStreamPlayer2D p, System.Random rng)
+	{
+		if (!IsInstanceValid(p)) return;
+		float delay = 2f + (float)rng.NextDouble() * 5f; // 2–7s between drips
+		var timer = GetTree().CreateTimer(delay);
+		timer.Timeout += () =>
+		{
+			if (!IsInstanceValid(p)) return;
+			p.Play();
+			ScheduleDrip(p, rng);
+		};
 	}
 
 	private static Vector2 WorldOf(int x, int y) =>
