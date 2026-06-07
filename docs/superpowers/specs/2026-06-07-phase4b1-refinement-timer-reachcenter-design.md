@@ -13,7 +13,7 @@ Two play-test-driven refinements:
 ## 2. Match timer becomes a lobby option
 
 ### 2.1 Lobby control
-Add a second host-only `OptionButton` — **"Time limit"** — alongside the existing mode picker, with entries **None / 1 min / 2 min / 3 min / 5 min**, default **2 min**. Like the mode, the selection is the host's and rides the match-start RPC to all peers.
+Add a second host-only `OptionButton` — **"Time limit"** — alongside the existing mode picker, with entries **None / 1 min / 2 min / 3 min / 5 min**, default **1 min**. Like the mode, the selection is the host's and rides the match-start RPC to all peers.
 
 ### 2.2 Duration is decoupled; timeout *meaning* stays per-mode
 The selected duration applies to whatever mode is chosen. What happens *at* timeout remains mode-specific, which keeps the three modes distinct:
@@ -86,7 +86,7 @@ The center and all spawns are always placed in the same connected walkable regio
 ## 4. Decomposition (one cycle; ≈3 tasks)
 
 1. **Core** — resolver universal timeout→draw arm; remove dead `GameModeExtensions.TimeLimitSeconds()` + its test; add `MapConfig.For`; xUnit tests for the new resolver arm (LMS timeout → draw, Reach Center timeout → draw, Gold Rush timeout → gold still works) and for `MapConfig.For` (Reach Center overrides vs. default passthrough).
-2. **Netcode + lobby** — `MatchTimeLimitSeconds` threading through `StartMatch`/`BeginMatch`; the host-only "Time limit" `OptionButton` (None/1/2/3/5 min, default 2 min).
+2. **Netcode + lobby** — `MatchTimeLimitSeconds` threading through `StartMatch`/`BeginMatch`; the host-only "Time limit" `OptionButton` (None/1/2/3/5 min, default 1 min).
 3. **Main wiring** — both map generations use `MapConfig.For(mode, …)`; host sim time limit reads `nm.MatchTimeLimitSeconds`.
 
 ## 5. Verification
