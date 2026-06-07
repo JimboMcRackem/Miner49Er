@@ -19,6 +19,7 @@ public partial class MatchClient : Node2D
 	public IReadOnlyList<MinerSnapshot> Miners => _miners;
 	public IReadOnlyList<ChargeSnapshot> Charges => _charges;
 	public int LocalMinerId { get; private set; }
+	public float SecondsRemaining { get; private set; } = -1f;
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
 
 	private List<MinerSnapshot> _miners = new();
@@ -72,6 +73,7 @@ public partial class MatchClient : Node2D
 
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
+		SecondsRemaining = update.Snapshot.SecondsRemaining;
 		UpdateFog();
 	}
 

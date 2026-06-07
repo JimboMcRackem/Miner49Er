@@ -15,13 +15,15 @@ public class SnapshotCodecTests
                     new(1, 3, 4, 2, true, 5, 1, 2.5),
                     new(2, 9, 0, 0, false, 0, 0, 0.0),
                 },
-                Charges: new List<ChargeSnapshot> { new(1, 8, 8, 1.25) }),
+                Charges: new List<ChargeSnapshot> { new(1, 8, 8, 1.25) },
+                SecondsRemaining: 42.5f),
             TileChanges: new List<TileChange> { new(8, 8, true), new(2, 2, false) });
 
         byte[] bytes = SnapshotCodec.Write(update);
         TickUpdate back = SnapshotCodec.Read(bytes);
 
         Assert.Equal(7, back.Snapshot.Tick);
+        Assert.Equal(42.5f, back.Snapshot.SecondsRemaining);
         Assert.Equal(2, back.Snapshot.Miners.Count);
         Assert.Equal(update.Snapshot.Miners[0], back.Snapshot.Miners[0]);
         Assert.Equal(update.Snapshot.Miners[1], back.Snapshot.Miners[1]);

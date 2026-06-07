@@ -236,9 +236,13 @@ public static class MapGenerator
     private static GridPos NearestFloorToCenter(TileGrid g, HashSet<GridPos> region)
     {
         var c = new GridPos(g.Width / 2, g.Height / 2);
-        return region.Where(p => g.Get(p) == TileType.Floor)
+        var nearest = region.Where(p => g.Get(p) == TileType.Floor)
             .OrderBy(p => p.ManhattanTo(c))
-            .First();
+            .Cast<GridPos?>()
+            .FirstOrDefault();
+        // A traversable region always contains floor in practice; fall back to the
+        // raw geometric centre rather than throwing if a degenerate map has none.
+        return nearest ?? c;
     }
 
     private static void PlaceGold(TileGrid g, Random rng, int veins, HashSet<GridPos> region)

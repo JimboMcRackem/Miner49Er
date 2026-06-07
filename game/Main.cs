@@ -24,7 +24,7 @@ public partial class Main : Node2D
 
 		int seed = nm.MatchSeed;
 		int playerCount = nm.MatchPlayerCount;
-		var map = MapGenerator.Generate(new MapConfig { Seed = seed, PlayerCount = playerCount });
+		var map = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount));
 
 		int localMinerId = nm.LocalMinerId();
 
@@ -42,7 +42,11 @@ public partial class Main : Node2D
 
 		if (nm.IsHost)
 		{
-			var sim = new Simulation(MapGenerator.Generate(new MapConfig { Seed = seed, PlayerCount = playerCount }).Grid, new SimConfig());
+			var sim = new Simulation(
+				MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount)).Grid,
+				new SimConfig(),
+				map.Center,
+				nm.MatchTimeLimitSeconds > 0 ? nm.MatchTimeLimitSeconds : (double?)null);
 			var peerToMiner = new System.Collections.Generic.Dictionary<long, int>();
 			for (int i = 0; i < nm.PeerOrder.Length; i++)
 			{
@@ -92,7 +96,8 @@ public partial class Main : Node2D
 						: m.Activity == (int)ActivityKind.Planting ? $"Planting… {m.ActivityRemaining:0.0}s"
 						: "Ready")
 					: "Dead — spectating";
-				_hud.SetText($"Gold: {m.Gold}    {status}");
+				string timeStr = _client.SecondsRemaining >= 0 ? $"    Time: {_client.SecondsRemaining:0}s" : "";
+				_hud.SetText($"Gold: {m.Gold}    {status}{timeStr}");
 			}
 		if (_input != null) _input.Enabled = !sawLocal || localAlive;
 

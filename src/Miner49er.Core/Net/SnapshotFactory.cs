@@ -17,6 +17,6 @@ public static class SnapshotFactory
             .Select(c => new ChargeSnapshot(c.OwnerId, c.WallPos.X, c.WallPos.Y, c.FuseRemaining))
             .ToList();
 
-        return new WorldSnapshot(tick, miners, charges);
+        return new WorldSnapshot(tick, miners, charges, (float)sim.SecondsRemaining);
     }
 }
