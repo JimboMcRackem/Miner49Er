@@ -69,7 +69,11 @@ public partial class MatchHost : Node
 		foreach (var (minerId, dir) in _pendingDir)
 		{
 			if (dir < 0 || _moveCooldown[minerId] > 0) continue;
-			if (_sim.TryMove(minerId, (Direction)dir)) _moveCooldown[minerId] = MoveStepSeconds;
+			if (_sim.TryMove(minerId, (Direction)dir))
+			{
+				var tile = _sim.Grid.Get(_sim.GetMiner(minerId).Pos);
+				_moveCooldown[minerId] = MoveStepSeconds * (float)tile.MoveCostMultiplier();
+			}
 		}
 
 		foreach (var minerId in _pendingMine) _sim.TryStartMining(minerId);
