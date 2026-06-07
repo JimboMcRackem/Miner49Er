@@ -796,4 +796,8 @@ git commit -m "feat(audio): play a splash when a miner drowns"
 ## Notes carried forward (not built here)
 - **Flood mode** (rising water from the edges) and **type-aware tile-change sync** → sub-phase 4b. The water tiles are mutated via `TileGrid.Set`, so a host `FloodDriver` can drive them later; 4b will extend `TileChange` to carry a `TileType` (today `MatchClient.ApplyUpdate` hardcodes `Floor`).
 - **Water-plank item** (cross deep water) and the §3.5 status-effect system → 4c.
-- **Cave-ins** → 4d.
+- **Cave-ins** and **bottomless pit** → 4d. The pit is deep water's lethal twin
+  (another `IsLethal()` tile, same `TryMove` death path, `MinerFell` event +
+  falling-scream stinger) but with the **opposite of the shore rule**: a hard
+  edge against plain floor, *not* shallow-ringed — harsher and only telegraphed by
+  the radius fog. Deliberately deferred so 4a's scope stays fixed.

@@ -29,7 +29,7 @@ the same tiles later, but that mode is **not built here**.
 ### Out of scope (explicit)
 - **Flood mode** + rising-water driver and **type-aware tile-change sync** → **4b**.
 - **Water-plank** item (cross deep water) and the §3.5 status-effect system → **4c**.
-- **Cave-ins** → **4d**.
+- **Cave-ins** and **bottomless pit** → **4d** (see §10).
 - Currents, water physics, swimming, knockback — not planned.
 
 ## 2. Key architectural fact: no new netcode
@@ -187,3 +187,15 @@ No netcode changes in 4a (see §2). For 4b the seam is **documented, not built**
   before it is stepped on.
 - The §3.5 movement-speed/status-effect system stays independent future work (4c);
   shallow slowing here is a localized terrain cost, not that system.
+
+### Carried-forward idea: bottomless pit (4d)
+A **bottomless pit** is deep water's lethal twin and reuses almost everything 4a
+builds — it would be another `IsLethal()` tile whose `TryMove` death path is
+identical (move succeeds → `Alive = false` → death event), emitting a `MinerFell`
+event (vs `MinerDrowned`) and a falling-scream stinger (vs splash). The **key
+design difference is the opposite of deep water's shore rule**: a pit has **no
+warning margin — a hard edge directly against plain floor**, making it a harsher,
+more punishing hazard. So in map-gen it is *not* shallow-ringed. Fairness then
+rests on the existing radius fog (you see the edge before stepping); an optional
+1-tile "cracked floor" tell could soften it. This belongs in **4d**, not 4a
+(adding a third lethal tile now would widen this sub-phase mid-flight).
