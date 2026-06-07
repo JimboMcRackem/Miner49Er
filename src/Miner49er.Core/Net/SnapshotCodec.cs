@@ -14,6 +14,7 @@ public static class SnapshotCodec
 
         var snap = update.Snapshot;
         w.Write(snap.Tick);
+        w.Write(snap.SecondsRemaining);
 
         w.Write(snap.Miners.Count);
         foreach (var m in snap.Miners)
@@ -44,6 +45,7 @@ public static class SnapshotCodec
         using var r = new BinaryReader(ms);
 
         int tick = r.ReadInt32();
+        float secondsRemaining = r.ReadSingle();
 
         int minerCount = r.ReadInt32();
         var miners = new List<MinerSnapshot>(minerCount);
@@ -62,6 +64,6 @@ public static class SnapshotCodec
         for (int i = 0; i < changeCount; i++)
             changes.Add(new TileChange(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean()));
 
-        return new TickUpdate(new WorldSnapshot(tick, miners, charges), changes);
+        return new TickUpdate(new WorldSnapshot(tick, miners, charges, secondsRemaining), changes);
     }
 }

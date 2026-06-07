@@ -11,6 +11,7 @@ public readonly record struct ChargeSnapshot(int OwnerId, int X, int Y, double F
 public readonly record struct TileChange(int X, int Y, bool FromBlast);
 
 public sealed record WorldSnapshot(
-    int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges);
+    int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,
+    float SecondsRemaining = -1f);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);
