@@ -12,10 +12,21 @@ public sealed class Simulation
     public IReadOnlyCollection<Miner> Miners => _miners.Values;
     public IReadOnlyList<Charge> Charges => _charges;
 
-    public Simulation(TileGrid grid, SimConfig config)
+    public GridPos? Center { get; }
+    public int FirstToReachCenter { get; private set; } = -1;
+
+    private readonly double? _timeLimit;
+    public double Elapsed { get; private set; }
+    public double SecondsRemaining => _timeLimit is { } lim ? Math.Max(0, lim - Elapsed) : -1;
+    public bool TimeExpired => _timeLimit is { } lim && Elapsed >= lim;
+
+    public Simulation(TileGrid grid, SimConfig config,
+        GridPos? center = null, double? timeLimitSeconds = null)
     {
         Grid = grid;
         Config = config;
+        Center = center;
+        _timeLimit = timeLimitSeconds;
     }
 
     public Miner AddMiner(int id, GridPos pos)
@@ -64,6 +75,12 @@ public sealed class Simulation
             m.Activity = ActivityKind.None;
             _events.Add(new MinerDrowned(id));
         }
+
+        if (Center is { } c && target == c && FirstToReachCenter < 0)
+        {
+            FirstToReachCenter = id;
+            _events.Add(new MinerReachedCenter(id));
+        }
         return true;
     }
 
@@ -109,6 +126,7 @@ public sealed class Simulation
 
     public void Tick(double dt)
     {
+        Elapsed += dt;
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
