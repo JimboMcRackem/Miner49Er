@@ -1,5 +1,6 @@
 using Godot;
 using System.Linq;
+using Miner49er.Core;
 
 namespace Miner49er;
 
@@ -9,6 +10,7 @@ public partial class Lobby : Control
 	private Button _readyBtn = null!;
 	private Button _startBtn = null!;
 	private Label _hint = null!;
+	private OptionButton _modePicker = null!;
 
 	public override void _Ready()
 	{
@@ -27,8 +29,16 @@ public partial class Lobby : Control
 		_readyBtn.Pressed += () => NetworkManager.Instance.ToggleReady();
 		box.AddChild(_readyBtn);
 
+		_modePicker = new OptionButton();
+		_modePicker.AddItem("Last Man Standing", (int)GameMode.LastManStanding);
+		_modePicker.AddItem("Gold Rush", (int)GameMode.GoldRush);
+		_modePicker.AddItem("Reach Center", (int)GameMode.ReachCenter);
+		_modePicker.Select(0);
+		_modePicker.Visible = NetworkManager.Instance.IsHost; // only the host chooses
+		box.AddChild(_modePicker);
+
 		_startBtn = new Button { Text = "Start Match", Disabled = true };
-		_startBtn.Pressed += () => NetworkManager.Instance.StartMatch();
+		_startBtn.Pressed += () => NetworkManager.Instance.StartMatch((GameMode)_modePicker.GetSelectedId());
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_startBtn);
 

@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Miner49er.Core;
 
 namespace Miner49er;
 
@@ -161,6 +162,7 @@ public partial class NetworkManager : Node
 
 	public int MatchSeed { get; private set; }
 	public int MatchPlayerCount { get; private set; }
+	public GameMode MatchMode { get; private set; }
 	public long[] PeerOrder { get; private set; } = System.Array.Empty<long>();
 
 	private MatchHost? _matchHost;
@@ -172,20 +174,21 @@ public partial class NetworkManager : Node
 		_matchClient = client;
 	}
 
-	public void StartMatch()
+	public void StartMatch(GameMode mode)
 	{
 		if (!IsHost) return;
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
 		int seed = System.Random.Shared.Next();
-		Rpc(nameof(BeginMatch), seed, order.Length, order);
-		BeginMatch(seed, order.Length, order); // host applies locally too
+		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, order);
+		BeginMatch(seed, order.Length, (int)mode, order); // host applies locally too
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority)]
-	public void BeginMatch(int seed, int playerCount, long[] peerOrder)
+	public void BeginMatch(int seed, int playerCount, int mode, long[] peerOrder)
 	{
 		MatchSeed = seed;
 		MatchPlayerCount = playerCount;
+		MatchMode = (GameMode)mode;
 		PeerOrder = peerOrder;
 		MatchStarting?.Invoke();
 	}
