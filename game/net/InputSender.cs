@@ -9,10 +9,16 @@ namespace Miner49er;
 public partial class InputSender : Node
 {
 	public bool Enabled = true; // disabled when the local miner is dead (spectating)
+	public bool Listening = false; // true while the listen key is held
 
 	public override void _PhysicsProcess(double delta)
 	{
 		if (!Enabled) return;
+		if (Listening)
+		{
+			NetworkManager.Instance.SendDir(-1); // actively stand still; no actions
+			return;
+		}
 
 		int dir = ReadDir();
 		NetworkManager.Instance.SendDir(dir);

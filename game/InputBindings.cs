@@ -18,6 +18,7 @@ public static class InputBindings
 	public const string Listen = "listen";       // defined now, used in Phase 3
 	public const string UseItem = "use_item";     // defined now, used in Phase 4
 	public const string Restart = "restart";
+	public const string Mute = "mute";          // master mute (Phase 3)
 
 	public static void EnsureDefaults()
 	{
@@ -30,6 +31,7 @@ public static class InputBindings
 		Bind(Listen, Key.L, JoyButton.B);
 		Bind(UseItem, Key.Space, JoyButton.Y);
 		Bind(Restart, Key.R, JoyButton.Start);
+		Bind(Mute, Key.M, JoyButton.Back);
 	}
 
 	private static void Bind(string action, Key key, JoyButton button)

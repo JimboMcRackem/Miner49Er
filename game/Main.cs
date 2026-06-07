@@ -14,6 +14,8 @@ public partial class Main : Node2D
 	private Hud _hud = null!;
 	private ResultsOverlay? _results;
 	private MatchAudio _audio = null!;
+	private Compass _compass = null!;
+	private bool _wasListening;
 
 	public override void _Ready()
 	{
@@ -33,6 +35,10 @@ public partial class Main : Node2D
 		_audio = new MatchAudio { Name = "MatchAudio" };
 		AddChild(_audio);
 		_audio.Begin(_client);
+
+		_compass = new Compass { Name = "Compass" };
+		AddChild(_compass);
+		_compass.Init(_client);
 
 		if (nm.IsHost)
 		{
@@ -89,6 +95,19 @@ public partial class Main : Node2D
 				_hud.SetText($"Gold: {m.Gold}    {status}");
 			}
 		if (_input != null) _input.Enabled = !sawLocal || localAlive;
+
+		bool listening = localAlive && Input.IsActionPressed(InputBindings.Listen);
+		if (_input != null) _input.Listening = listening;
+		_compass.Active = listening;
+		if (listening != _wasListening)
+		{
+			AudioManager.Instance.SetListening(listening);
+			_audio.SetListening(listening);
+			_wasListening = listening;
+		}
+
+		if (Input.IsActionJustPressed(InputBindings.Mute))
+			AudioManager.Instance.ToggleMute();
 	}
 
 	private void OnMatchEnded(long winnerPeerId)
