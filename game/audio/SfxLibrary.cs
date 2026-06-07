@@ -19,6 +19,7 @@ public static class SfxLibrary
 	public static AudioStream Explosion => Get("explosion", () => Noise(0.40f, 120f, decay: true));
 	public static AudioStream Death => Get("death", () => Tone(0.30f, 300f, 120f));
 	public static AudioStream Drip => Get("drip", () => Tone(0.12f, 900f, 600f));
+	public static AudioStream Splash => Get("splash", () => Noise(0.25f, 700f, decay: true));
 	public static AudioStream? Music => GetOptional("music_loop");
 
 	private static AudioStream Get(string name, Func<AudioStream> placeholder)

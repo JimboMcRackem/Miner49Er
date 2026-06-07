@@ -14,6 +14,7 @@ silent until you add `music_loop.ogg`).
 | explosion      | explosion.ogg/.wav   | charge detonation               |
 | death          | death.ogg/.wav       | a miner is killed               |
 | drip           | drip.ogg/.wav        | ambient water drips             |
+| splash         | splash.ogg/.wav      | a miner drowns in deep water    |
 
 Suggested CC0 sources: freesound.org (filter License = Creative Commons 0),
 kenney.nl/assets (impact/footstep packs), sonniss.com GDC bundles.
