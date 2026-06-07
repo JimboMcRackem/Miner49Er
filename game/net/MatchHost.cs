@@ -102,7 +102,7 @@ public partial class MatchHost : Node
 		var update = new TickUpdate(SnapshotFactory.Capture(_sim, _tick), changes);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
 
-		var result = RoundResolver.Resolve(_sim);
+		var result = RoundResolver.Resolve(_sim, NetworkManager.Instance.MatchMode);
 		if (result.IsOver)
 		{
 			_running = false;

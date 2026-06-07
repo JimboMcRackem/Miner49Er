@@ -42,7 +42,12 @@ public partial class Main : Node2D
 
 		if (nm.IsHost)
 		{
-			var sim = new Simulation(MapGenerator.Generate(new MapConfig { Seed = seed, PlayerCount = playerCount }).Grid, new SimConfig());
+			var mode = nm.MatchMode;
+			var sim = new Simulation(
+				MapGenerator.Generate(new MapConfig { Seed = seed, PlayerCount = playerCount }).Grid,
+				new SimConfig(),
+				map.Center,
+				mode.TimeLimitSeconds());
 			var peerToMiner = new System.Collections.Generic.Dictionary<long, int>();
 			for (int i = 0; i < nm.PeerOrder.Length; i++)
 			{

@@ -38,4 +38,24 @@ public class SnapshotFactoryTests
         Assert.Equal(3, c.X);
         Assert.Equal(2, c.Y);
     }
+
+    [Fact]
+    public void Capture_includes_seconds_remaining_from_a_timed_sim()
+    {
+        var sim = new Simulation(new TileGrid(3, 3, TileType.Floor), new SimConfig(),
+            timeLimitSeconds: 30.0);
+        sim.Tick(10.0); // 20s left
+
+        var snap = SnapshotFactory.Capture(sim, tick: 1);
+
+        Assert.Equal(20f, snap.SecondsRemaining, 3);
+    }
+
+    [Fact]
+    public void Capture_reports_minus_one_for_an_untimed_sim()
+    {
+        var sim = new Simulation(new TileGrid(3, 3, TileType.Floor), new SimConfig());
+        var snap = SnapshotFactory.Capture(sim, tick: 1);
+        Assert.Equal(-1f, snap.SecondsRemaining);
+    }
 }
