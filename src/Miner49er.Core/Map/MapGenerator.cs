@@ -16,9 +16,11 @@ public static class MapGenerator
         for (int i = 0; i < config.SmoothingSteps; i++) Smooth(grid);
 
         KeepLargestRegion(grid);
-        var spawns = PlaceSpawns(grid, rng, config.PlayerCount, config.MinSpawnDistance);
-        var center = NearestFloorToCenter(grid);
-        PlaceGold(grid, rng, config.GoldVeinCount);
+        PlaceWater(grid, rng, config);
+        var region = LargestTraversableRegion(grid);
+        var spawns = PlaceSpawns(grid, rng, config.PlayerCount, config.MinSpawnDistance, region);
+        var center = NearestFloorToCenter(grid, region);
+        PlaceGold(grid, rng, config.GoldVeinCount, region);
 
         return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center };
     }
@@ -98,9 +100,122 @@ public static class MapGenerator
         return region;
     }
 
-    private static List<GridPos> PlaceSpawns(TileGrid g, Random rng, int count, int minDistance)
+    private static bool IsWater(TileType t) => t is TileType.ShallowWater or TileType.DeepWater;
+    private static bool IsTraversable(TileType t) => t is TileType.Floor or TileType.ShallowWater;
+
+    private static void PlaceWater(TileGrid g, Random rng, MapConfig cfg)
+    {
+        for (int i = 0; i < cfg.PoolCount; i++) CarvePool(g, rng, cfg);
+        for (int i = 0; i < cfg.RiverCount; i++) CarveRiver(g, rng, cfg);
+        PromoteDeep(g, rng, cfg);
+    }
+
+    private static GridPos? RandomFloor(TileGrid g, Random rng)
     {
         var floors = g.Positions().Where(p => g.Get(p) == TileType.Floor).ToList();
+        return floors.Count == 0 ? null : floors[rng.Next(floors.Count)];
+    }
+
+    private static void CarvePool(TileGrid g, Random rng, MapConfig cfg)
+    {
+        var c = RandomFloor(g, rng);
+        if (c is null) return;
+        int r = rng.Next(cfg.PoolRadiusMin, cfg.PoolRadiusMax + 1);
+        for (int dy = -r; dy <= r; dy++)
+            for (int dx = -r; dx <= r; dx++)
+            {
+                if (Math.Abs(dx) + Math.Abs(dy) > r) continue;
+                var p = new GridPos(c.Value.X + dx, c.Value.Y + dy);
+                if (g.InBounds(p) && g.Get(p) == TileType.Floor)
+                    g.Set(p, TileType.ShallowWater);
+            }
+    }
+
+    private static void CarveRiver(TileGrid g, Random rng, MapConfig cfg)
+    {
+        var start = RandomFloor(g, rng);
+        if (start is null) return;
+        var pos = start.Value;
+        int len = rng.Next(cfg.RiverLengthMin, cfg.RiverLengthMax + 1);
+        var dir = Card[rng.Next(Card.Length)];
+        for (int i = 0; i < len; i++)
+        {
+            if (g.InBounds(pos) && g.Get(pos) == TileType.Floor)
+                g.Set(pos, TileType.ShallowWater);
+            if (rng.NextDouble() < 0.3) dir = Card[rng.Next(Card.Length)];
+            var next = pos + dir.ToOffset();
+            if (!g.InBounds(next) || g.Get(next) == TileType.ImpermeableRock)
+                dir = Card[rng.Next(Card.Length)];
+            else
+                pos = next;
+        }
+    }
+
+    private static void PromoteDeep(TileGrid g, Random rng, MapConfig cfg)
+    {
+        // Decide on the pre-promotion grid so order is irrelevant: an interior
+        // shallow tile (all 4 neighbours water) may become deep. Boundary water
+        // stays shallow, guaranteeing every deep tile is ringed by water.
+        var interior = new List<GridPos>();
+        foreach (var p in g.Positions())
+        {
+            if (g.Get(p) != TileType.ShallowWater) continue;
+            bool allWater = true;
+            foreach (var d in Card)
+            {
+                var n = p + d.ToOffset();
+                if (!g.InBounds(n) || !IsWater(g.Get(n))) { allWater = false; break; }
+            }
+            if (allWater) interior.Add(p);
+        }
+        foreach (var p in interior)
+            if (rng.NextDouble() < cfg.DeepWaterChance)
+                g.Set(p, TileType.DeepWater);
+    }
+
+    private static HashSet<GridPos> LargestTraversableRegion(TileGrid g)
+    {
+        var visited = new HashSet<GridPos>();
+        HashSet<GridPos> largest = new();
+        foreach (var p in g.Positions())
+        {
+            if (!IsTraversable(g.Get(p)) || visited.Contains(p)) continue;
+            var region = new HashSet<GridPos>();
+            var stack = new Stack<GridPos>();
+            stack.Push(p); visited.Add(p); region.Add(p);
+            while (stack.Count > 0)
+            {
+                var cur = stack.Pop();
+                foreach (var d in Card)
+                {
+                    var n = cur + d.ToOffset();
+                    if (g.InBounds(n) && IsTraversable(g.Get(n)) && visited.Add(n))
+                    {
+                        region.Add(n);
+                        stack.Push(n);
+                    }
+                }
+            }
+            if (region.Count > largest.Count) largest = region;
+        }
+        return largest;
+    }
+
+    private static bool IsWaterAdjacent(TileGrid g, GridPos p)
+    {
+        foreach (var d in Card)
+        {
+            var n = p + d.ToOffset();
+            if (g.InBounds(n) && IsWater(g.Get(n))) return true;
+        }
+        return false;
+    }
+
+    private static List<GridPos> PlaceSpawns(TileGrid g, Random rng, int count, int minDistance, HashSet<GridPos> region)
+    {
+        var floors = region.Where(p => g.Get(p) == TileType.Floor && !IsWaterAdjacent(g, p)).ToList();
+        if (floors.Count < count) // fallback: relax the water-adjacency rule if too few
+            floors = region.Where(p => g.Get(p) == TileType.Floor).ToList();
         Shuffle(floors, rng);
         var spawns = new List<GridPos>();
         int distance = minDistance;
@@ -118,30 +233,29 @@ public static class MapGenerator
         return spawns;
     }
 
-    private static GridPos NearestFloorToCenter(TileGrid g)
+    private static GridPos NearestFloorToCenter(TileGrid g, HashSet<GridPos> region)
     {
         var c = new GridPos(g.Width / 2, g.Height / 2);
-        return g.Positions()
-            .Where(p => g.Get(p) == TileType.Floor)
+        return region.Where(p => g.Get(p) == TileType.Floor)
             .OrderBy(p => p.ManhattanTo(c))
             .First();
     }
 
-    private static void PlaceGold(TileGrid g, Random rng, int veins)
+    private static void PlaceGold(TileGrid g, Random rng, int veins, HashSet<GridPos> region)
     {
         var candidates = g.Positions()
-            .Where(p => g.Get(p) == TileType.Rock && HasFloorNeighbor(g, p))
+            .Where(p => g.Get(p) == TileType.Rock && HasRegionNeighbor(g, p, region))
             .ToList();
         Shuffle(candidates, rng);
         foreach (var p in candidates.Take(veins)) g.Set(p, TileType.GoldRock);
     }
 
-    private static bool HasFloorNeighbor(TileGrid g, GridPos p)
+    private static bool HasRegionNeighbor(TileGrid g, GridPos p, HashSet<GridPos> region)
     {
         foreach (var d in Card)
         {
             var n = p + d.ToOffset();
-            if (g.InBounds(n) && g.Get(n) == TileType.Floor) return true;
+            if (region.Contains(n)) return true;
         }
         return false;
     }
