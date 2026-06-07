@@ -12,6 +12,7 @@ public partial class Lobby : Control
 	private Label _hint = null!;
 	private OptionButton _modePicker = null!;
 	private OptionButton _timePicker = null!;
+	private CheckBox _floodCheck = null!;
 
 	public override void _Ready()
 	{
@@ -48,8 +49,14 @@ public partial class Lobby : Control
 		_timePicker.Visible = NetworkManager.Instance.IsHost; // only the host chooses
 		box.AddChild(_timePicker);
 
+		_floodCheck = new CheckBox { Text = "Flooding" };
+		_floodCheck.Visible = NetworkManager.Instance.IsHost;
+		// Flooding needs a clock: bump "No Time Limit" -> 1 min when enabled.
+		_floodCheck.Toggled += (bool on) => { if (on && _timePicker.Selected == 0) _timePicker.Select(1); };
+		box.AddChild(_floodCheck);
+
 		_startBtn = new Button { Text = "Start Match", Disabled = true };
-		_startBtn.Pressed += () => NetworkManager.Instance.StartMatch((GameMode)_modePicker.GetSelectedId(), _timePicker.GetSelectedId());
+		_startBtn.Pressed += () => NetworkManager.Instance.StartMatch((GameMode)_modePicker.GetSelectedId(), _timePicker.GetSelectedId(), _floodCheck.ButtonPressed);
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_startBtn);
 
