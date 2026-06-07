@@ -24,7 +24,7 @@ public partial class Main : Node2D
 
 		int seed = nm.MatchSeed;
 		int playerCount = nm.MatchPlayerCount;
-		var map = MapGenerator.Generate(new MapConfig { Seed = seed, PlayerCount = playerCount });
+		var map = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount));
 
 		int localMinerId = nm.LocalMinerId();
 
@@ -42,12 +42,11 @@ public partial class Main : Node2D
 
 		if (nm.IsHost)
 		{
-			var mode = nm.MatchMode;
 			var sim = new Simulation(
-				MapGenerator.Generate(new MapConfig { Seed = seed, PlayerCount = playerCount }).Grid,
+				MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount)).Grid,
 				new SimConfig(),
 				map.Center,
-				mode.TimeLimitSeconds());
+				nm.MatchTimeLimitSeconds > 0 ? nm.MatchTimeLimitSeconds : (double?)null);
 			var peerToMiner = new System.Collections.Generic.Dictionary<long, int>();
 			for (int i = 0; i < nm.PeerOrder.Length; i++)
 			{
