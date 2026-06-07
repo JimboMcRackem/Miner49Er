@@ -14,6 +14,8 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color RockColor = new("5a4a3a");
 	private static readonly Color GoldColor = new("c9a227");
 	private static readonly Color ImpermeableColor = new("20242b");
+	private static readonly Color ShallowWaterColor = new("2f6f8f");
+	private static readonly Color DeepWaterColor = new("16384f");
 	private static readonly Color ChargeColor = new("ff5530");
 	private static readonly Color FlashColor = new("ffd27f");
 
@@ -47,6 +49,8 @@ public partial class WorldRenderer : Node2D
 				TileType.Rock => RockColor,
 				TileType.GoldRock => GoldColor,
 				TileType.ImpermeableRock => ImpermeableColor,
+				TileType.ShallowWater => ShallowWaterColor,
+				TileType.DeepWater => DeepWaterColor,
 				_ => FloorColor,
 			};
 			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), color);
