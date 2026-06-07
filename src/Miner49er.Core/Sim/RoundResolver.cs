@@ -24,6 +24,8 @@ public static class RoundResolver
                 => new RoundResult(true, sim.FirstToReachCenter),
             GameMode.GoldRush when sim.TimeExpired
                 => new RoundResult(true, MostGoldWinner(alive)),
+            _ when sim.TimeExpired
+                => new RoundResult(true, -1),   // any timed mode whose clock ran out → draw
             _ => new RoundResult(false, -1),
         };
     }

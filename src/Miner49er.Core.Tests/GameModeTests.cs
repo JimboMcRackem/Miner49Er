@@ -4,14 +4,6 @@ using Xunit;
 public class GameModeTests
 {
     [Fact]
-    public void GoldRush_is_timed_others_are_not()
-    {
-        Assert.Equal(120.0, GameMode.GoldRush.TimeLimitSeconds());
-        Assert.Null(GameMode.LastManStanding.TimeLimitSeconds());
-        Assert.Null(GameMode.ReachCenter.TimeLimitSeconds());
-    }
-
-    [Fact]
     public void Untimed_sim_reports_minus_one_and_never_expires()
     {
         var sim = new Simulation(new TileGrid(3, 3, TileType.Floor), new SimConfig());

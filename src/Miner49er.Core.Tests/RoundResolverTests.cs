@@ -112,4 +112,24 @@ public class RoundResolverTests
         Assert.True(result.IsOver);
         Assert.Equal(1, result.WinnerId);
     }
+
+    [Fact]
+    public void Last_man_standing_timeout_is_a_draw()
+    {
+        var sim = TwoMinerSim(timeLimit: 5.0);
+        sim.Tick(5.0); // expire the clock; both miners still alive
+        var result = RoundResolver.Resolve(sim, GameMode.LastManStanding);
+        Assert.True(result.IsOver);
+        Assert.Equal(-1, result.WinnerId);
+    }
+
+    [Fact]
+    public void Reach_center_timeout_without_arrival_is_a_draw()
+    {
+        var sim = TwoMinerSim(center: new GridPos(2, 2), timeLimit: 5.0);
+        sim.Tick(5.0); // clock expires, nobody reached center
+        var result = RoundResolver.Resolve(sim, GameMode.ReachCenter);
+        Assert.True(result.IsOver);
+        Assert.Equal(-1, result.WinnerId);
+    }
 }

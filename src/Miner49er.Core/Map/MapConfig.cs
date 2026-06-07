@@ -20,4 +20,20 @@ public sealed class MapConfig
     public int RiverLengthMin { get; set; } = 12;
     public int RiverLengthMax { get; set; } = 30;
     public float DeepWaterChance { get; set; } = 0.6f;
+
+    /// <summary>Builds a map config tuned for the given mode. Reach Center gets a
+    /// larger, less-open map so the run to the centre is a real journey; other
+    /// modes keep the base settings. Deterministic from (mode, seed, playerCount),
+    /// so host and clients regenerate identical maps.</summary>
+    public static MapConfig For(GameMode mode, int seed, int playerCount)
+    {
+        var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount };
+        if (mode == GameMode.ReachCenter)
+        {
+            cfg.BaseWidth = 40;
+            cfg.BaseHeight = 40;
+            cfg.InitialFloorChance = 0.42f;
+        }
+        return cfg;
+    }
 }
