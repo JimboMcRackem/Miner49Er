@@ -19,6 +19,7 @@ public static class InputBindings
 	public const string UseItem = "use_item";     // defined now, used in Phase 4
 	public const string Restart = "restart";
 	public const string Mute = "mute";          // master mute (Phase 3)
+	public const string Exit = "exit";          // context back-out / quit (Phase 4)
 
 	public static void EnsureDefaults()
 	{
@@ -32,12 +33,21 @@ public static class InputBindings
 		Bind(UseItem, Key.Space, JoyButton.Y);
 		Bind(Restart, Key.R, JoyButton.Start);
 		Bind(Mute, Key.M, JoyButton.Back);
+		Bind(Exit, Key.Escape);
 	}
 
 	private static void Bind(string action, Key key, JoyButton button)
 	{
-		if (!InputMap.HasAction(action)) InputMap.AddAction(action);
+		if (InputMap.HasAction(action)) return; // idempotent: registered once, app-wide
+		InputMap.AddAction(action);
 		InputMap.ActionAddEvent(action, new InputEventKey { PhysicalKeycode = key });
 		InputMap.ActionAddEvent(action, new InputEventJoypadButton { ButtonIndex = button });
+	}
+
+	private static void Bind(string action, Key key)
+	{
+		if (InputMap.HasAction(action)) return; // keyboard-only (e.g. Exit/ESC)
+		InputMap.AddAction(action);
+		InputMap.ActionAddEvent(action, new InputEventKey { PhysicalKeycode = key });
 	}
 }

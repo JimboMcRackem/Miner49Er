@@ -111,6 +111,16 @@ public partial class Lobby : Control
 		_hint.Text = canStart ? "" : "Need ≥2 players, all ready.";
 	}
 
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (@event.IsActionPressed(InputBindings.Exit))
+		{
+			GetViewport().SetInputAsHandled();
+			NetworkManager.Instance.Leave(); // lobby: ESC backs out to the main menu
+			GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");
+		}
+	}
+
 	private void OnDisconnected()
 	{
 		GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");

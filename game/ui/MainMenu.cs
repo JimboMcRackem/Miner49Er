@@ -46,6 +46,15 @@ public partial class MainMenu : Control
 
 	private void OnJoinFailed() => _status.Text = "Connection failed.";
 
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (@event.IsActionPressed(InputBindings.Exit))
+		{
+			GetViewport().SetInputAsHandled();
+			GetTree().Quit(); // main menu: ESC exits the app
+		}
+	}
+
 	public override void _ExitTree() => NetworkManager.Instance.JoinFailed -= OnJoinFailed;
 
 	private void OnHost()
