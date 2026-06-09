@@ -23,6 +23,15 @@ public class SnapshotFactoryTests
     }
 
     [Fact]
+    public void Captures_effective_move_seconds()
+    {
+        var sim = new Simulation(new TileGrid(5, 5, TileType.Floor), new SimConfig());
+        sim.AddMiner(1, new GridPos(2, 2));
+        var snap = SnapshotFactory.Capture(sim, tick: 1);
+        Assert.Equal(0.12, Assert.Single(snap.Miners).MoveSeconds, 3); // standard floor cadence
+    }
+
+    [Fact]
     public void Captures_charges()
     {
         var grid = new TileGrid(5, 5, TileType.Floor);
