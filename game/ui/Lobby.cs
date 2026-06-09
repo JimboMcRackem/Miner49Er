@@ -16,9 +16,12 @@ public partial class Lobby : Control
 
 	public override void _Ready()
 	{
+		var center = new CenterContainer();
+		center.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(center);
+
 		var box = new VBoxContainer();
-		box.SetAnchorsPreset(LayoutPreset.Center);
-		AddChild(box);
+		center.AddChild(box);
 
 		var title = new Label { Text = "LOBBY" };
 		title.AddThemeFontSizeOverride("font_size", 32);
