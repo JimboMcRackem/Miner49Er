@@ -12,7 +12,6 @@ public partial class MatchClient : Node2D
 {
 	public const int TileSize = 32;
 	public const int VisionRadius = 5;
-	public static readonly float MoveSpeedPixels = TileSize / (float)MatchHost.MoveStepSeconds;
 
 	public TileGrid Grid { get; private set; } = null!;
 	public FogState Fog { get; } = new();
@@ -84,7 +83,8 @@ public partial class MatchClient : Node2D
 		{
 			var target = new Vector2(m.X * TileSize + TileSize / 2f, m.Y * TileSize + TileSize / 2f);
 			var cur = _visualPos.TryGetValue(m.Id, out var v) ? v : target;
-			_visualPos[m.Id] = cur.MoveToward(target, MoveSpeedPixels * (float)delta);
+			float pixelsPerSec = TileSize / (float)m.MoveSeconds;
+			_visualPos[m.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
 
 			if (m.Id == LocalMinerId)
 				_camera.Position = _visualPos[m.Id];

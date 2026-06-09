@@ -10,7 +10,8 @@ public static class SnapshotFactory
         var miners = sim.Miners
             .Select(m => new MinerSnapshot(
                 m.Id, m.Pos.X, m.Pos.Y, (int)m.Facing, m.Alive,
-                m.GoldCollected, (int)m.Activity, m.ActivitySecondsRemaining))
+                m.GoldCollected, (int)m.Activity, m.ActivitySecondsRemaining,
+                sim.EffectiveMoveSeconds(m.Id)))
             .ToList();
 
         var charges = sim.Charges

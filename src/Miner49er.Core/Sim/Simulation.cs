@@ -56,10 +56,65 @@ public sealed class Simulation
         return copy;
     }
 
+    public void ApplyEffect(int minerId, EffectKind kind, EffectChannel channel,
+        double magnitude, double durationSeconds)
+    {
+        var m = _miners[minerId];
+        if (!m.Alive) return;
+        var existing = m.EffectsInternal.FirstOrDefault(e => e.Kind == kind);
+        if (existing is not null)
+        {
+            existing.Channel = channel;
+            existing.Magnitude = magnitude;
+            existing.RemainingSeconds = durationSeconds;   // refresh, never compound
+        }
+        else
+        {
+            m.EffectsInternal.Add(new StatusEffect
+            {
+                Kind = kind, Channel = channel,
+                Magnitude = magnitude, RemainingSeconds = durationSeconds,
+            });
+        }
+    }
+
+    private void AdvanceEffects(double dt)
+    {
+        foreach (var m in _miners.Values)
+        {
+            var fx = m.EffectsInternal;
+            for (int i = fx.Count - 1; i >= 0; i--)
+            {
+                fx[i].RemainingSeconds -= dt;
+                if (fx[i].RemainingSeconds <= 0) fx.RemoveAt(i);
+            }
+        }
+    }
+
+    public double EffectiveMoveSeconds(int minerId) => EffectiveMoveSeconds(_miners[minerId]);
+
+    private double EffectiveMoveSeconds(Miner m)
+    {
+        double mult = 1.0;
+        foreach (var e in m.EffectsInternal)
+            if (e.Channel == EffectChannel.MoveSpeed) mult *= e.Magnitude;
+        double tile = Grid.Get(m.Pos).MoveCostMultiplier();   // shallow water = ×2
+        return Math.Clamp(Config.BaseMoveSeconds * tile * mult,
+                          Config.MinMoveSeconds, Config.MaxMoveSeconds);
+    }
+
+    private void AdvanceCooldowns(double dt)
+    {
+        foreach (var m in _miners.Values)
+            if (m.MoveCooldownRemaining > 0)
+                m.MoveCooldownRemaining = Math.Max(0, m.MoveCooldownRemaining - dt);
+    }
+
     public bool TryMove(int id, Direction dir)
     {
         var m = _miners[id];
         if (!m.Alive) return false;
+        if (m.MoveCooldownRemaining > 0) return false;   // gate before facing/activity
 
         m.Facing = dir;
         CancelActivity(m);
@@ -83,6 +138,8 @@ public sealed class Simulation
             FirstToReachCenter = id;
             _events.Add(new MinerReachedCenter(id));
         }
+
+        m.MoveCooldownRemaining = EffectiveMoveSeconds(m);   // set from destination tile
         return true;
     }
 
@@ -129,6 +186,8 @@ public sealed class Simulation
     public void Tick(double dt)
     {
         Elapsed += dt;
+        AdvanceEffects(dt);
+        AdvanceCooldowns(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
