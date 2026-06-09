@@ -220,6 +220,17 @@ public partial class NetworkManager : Node
 		RpcId(1, nameof(ReceiveAction), mine, plant);
 	}
 
+	// DEBUG(4c-1): remove in 4c-2
+	public void SendDebugSpeed()
+	{
+		if (IsHost) { _matchHost?.ApplyDebugSpeed(LocalId); return; }
+		RpcId(1, nameof(ReceiveDebugSpeed));
+	}
+
+	// DEBUG(4c-1): remove in 4c-2
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+	public void ReceiveDebugSpeed() => _matchHost?.ApplyDebugSpeed(Multiplayer.GetRemoteSenderId());
+
 	[Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Unreliable)]
 	public void ReceiveDir(int dir) => _matchHost?.SetDir(Multiplayer.GetRemoteSenderId(), dir);
 

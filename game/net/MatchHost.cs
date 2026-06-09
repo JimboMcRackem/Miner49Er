@@ -46,6 +46,13 @@ public partial class MatchHost : Node
 		if (plant) _pendingPlant.Add(minerId);
 	}
 
+	// DEBUG(4c-1): remove in 4c-2
+	public void ApplyDebugSpeed(long peerId)
+	{
+		if (_peerToMiner.TryGetValue(peerId, out int minerId))
+			_sim.ApplyEffect(minerId, EffectKind.DebugSpeed, EffectChannel.MoveSpeed, 0.6, 5.0);
+	}
+
 	public void EliminatePeer(long peerId)
 	{
 		if (_peerToMiner.TryGetValue(peerId, out int minerId)) _sim.KillMiner(minerId);
