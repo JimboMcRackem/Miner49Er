@@ -12,14 +12,12 @@ namespace Miner49er;
 public partial class MatchHost : Node
 {
 	public const double TickSeconds = 1.0 / 30.0;
-	public const double MoveStepSeconds = 0.12; // grid cadence; matches Phase 1 feel
 
 	private Simulation _sim = null!;
 	private readonly Dictionary<long, int> _peerToMiner = new();
 	private readonly Dictionary<int, int> _pendingDir = new();   // minerId -> Direction(int) or -1
 	private readonly HashSet<int> _pendingMine = new();
 	private readonly HashSet<int> _pendingPlant = new();
-	private readonly Dictionary<int, double> _moveCooldown = new();
 
 	private int _tick;
 	private double _accum;
@@ -32,7 +30,6 @@ public partial class MatchHost : Node
 		{
 			_peerToMiner[peer] = miner;
 			_pendingDir[miner] = -1;
-			_moveCooldown[miner] = 0;
 		}
 		_running = true;
 	}
@@ -63,17 +60,10 @@ public partial class MatchHost : Node
 
 	private void StepOnce()
 	{
-		foreach (var id in _moveCooldown.Keys.ToList())
-			_moveCooldown[id] = Mathf.Max(0, (float)(_moveCooldown[id] - TickSeconds));
-
 		foreach (var (minerId, dir) in _pendingDir)
 		{
-			if (dir < 0 || _moveCooldown[minerId] > 0) continue;
-			if (_sim.TryMove(minerId, (Direction)dir))
-			{
-				var tile = _sim.Grid.Get(_sim.GetMiner(minerId).Pos);
-				_moveCooldown[minerId] = MoveStepSeconds * (float)tile.MoveCostMultiplier();
-			}
+			if (dir < 0) continue;
+			_sim.TryMove(minerId, (Direction)dir);
 		}
 
 		foreach (var minerId in _pendingMine) _sim.TryStartMining(minerId);
