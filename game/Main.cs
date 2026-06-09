@@ -82,6 +82,16 @@ public partial class Main : Node2D
 		nm.RegisterMatch(null, null);
 	}
 
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (@event.IsActionPressed(InputBindings.Exit))
+		{
+			GetViewport().SetInputAsHandled();
+			NetworkManager.Instance.Leave(); // in-match: ESC backs out to the main menu
+			GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");
+		}
+	}
+
 	public override void _PhysicsProcess(double delta)
 	{
 		// Disable input + HUD activity once the local miner is dead (spectate).

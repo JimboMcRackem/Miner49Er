@@ -35,6 +35,7 @@ public partial class NetworkManager : Node
 
 	public override void _Ready()
 	{
+		InputBindings.EnsureDefaults(); // register actions app-wide (menu/lobby/match), incl. Exit
 		Multiplayer.PeerConnected += OnPeerConnected;
 		Multiplayer.PeerDisconnected += OnPeerDisconnected;
 		Multiplayer.ConnectedToServer += OnConnectedToServer;
