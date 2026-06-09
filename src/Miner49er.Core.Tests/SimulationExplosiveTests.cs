@@ -61,10 +61,12 @@ public class SimulationExplosiveTests
         var sim = new Simulation(grid, new SimConfig { MaxLiveChargesPerMiner = 2, PlantSeconds = 0.0 });
         var m = sim.AddMiner(1, new GridPos(1, 1));
 
-        sim.TryMove(1, Direction.North); sim.TryStartPlanting(1); sim.Tick(0.0);
-        sim.TryMove(1, Direction.East); sim.TryMove(1, Direction.East);
-        sim.TryMove(1, Direction.North); sim.TryStartPlanting(1); sim.Tick(0.0);
-        sim.TryMove(1, Direction.East); sim.TryMove(1, Direction.East);
+        sim.TryMove(1, Direction.North); sim.TryStartPlanting(1); sim.Tick(0.2);
+        sim.TryMove(1, Direction.East); sim.Tick(0.2);
+        sim.TryMove(1, Direction.East); sim.Tick(0.2);
+        sim.TryMove(1, Direction.North); sim.TryStartPlanting(1); sim.Tick(0.2);
+        sim.TryMove(1, Direction.East); sim.Tick(0.2);
+        sim.TryMove(1, Direction.East); sim.Tick(0.2);
         sim.TryMove(1, Direction.North);
         Assert.False(sim.TryStartPlanting(1));
         Assert.Equal(2, sim.Charges.Count);

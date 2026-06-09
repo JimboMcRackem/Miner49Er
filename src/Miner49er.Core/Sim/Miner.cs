@@ -14,6 +14,8 @@ public sealed class Miner
     public GridPos ActivityTarget { get; internal set; }
     public double ActivitySecondsRemaining { get; internal set; }
 
+    public double MoveCooldownRemaining { get; internal set; }
+
     private readonly List<StatusEffect> _effects = new();
     public IReadOnlyList<StatusEffect> Effects => _effects;
     internal List<StatusEffect> EffectsInternal => _effects;
