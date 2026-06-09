@@ -56,6 +56,41 @@ public sealed class Simulation
         return copy;
     }
 
+    public void ApplyEffect(int minerId, EffectKind kind, EffectChannel channel,
+        double magnitude, double durationSeconds)
+    {
+        var m = _miners[minerId];
+        if (!m.Alive) return;
+        var existing = m.EffectsInternal.FirstOrDefault(e => e.Kind == kind);
+        if (existing is not null)
+        {
+            existing.Channel = channel;
+            existing.Magnitude = magnitude;
+            existing.RemainingSeconds = durationSeconds;   // refresh, never compound
+        }
+        else
+        {
+            m.EffectsInternal.Add(new StatusEffect
+            {
+                Kind = kind, Channel = channel,
+                Magnitude = magnitude, RemainingSeconds = durationSeconds,
+            });
+        }
+    }
+
+    private void AdvanceEffects(double dt)
+    {
+        foreach (var m in _miners.Values)
+        {
+            var fx = m.EffectsInternal;
+            for (int i = fx.Count - 1; i >= 0; i--)
+            {
+                fx[i].RemainingSeconds -= dt;
+                if (fx[i].RemainingSeconds <= 0) fx.RemoveAt(i);
+            }
+        }
+    }
+
     public bool TryMove(int id, Direction dir)
     {
         var m = _miners[id];
@@ -129,6 +164,7 @@ public sealed class Simulation
     public void Tick(double dt)
     {
         Elapsed += dt;
+        AdvanceEffects(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
