@@ -44,7 +44,7 @@ public partial class Main : Node2D
 		{
 			var sim = new Simulation(
 				MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount)).Grid,
-				new SimConfig(),
+				new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds },
 				map.Center,
 				nm.MatchTimeLimitSeconds > 0 ? nm.MatchTimeLimitSeconds : (double?)null,
 				nm.MatchFlooding);

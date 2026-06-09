@@ -165,6 +165,7 @@ public partial class NetworkManager : Node
 	public GameMode MatchMode { get; private set; }
 	public int MatchTimeLimitSeconds { get; private set; }
 	public bool MatchFlooding { get; private set; }
+	public float MatchBaseMoveSeconds { get; private set; } = 0.12f;
 	public long[] PeerOrder { get; private set; } = System.Array.Empty<long>();
 
 	private MatchHost? _matchHost;
@@ -176,24 +177,25 @@ public partial class NetworkManager : Node
 		_matchClient = client;
 	}
 
-	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding)
+	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, float baseMoveSeconds)
 	{
 		if (!IsHost) return;
 		if (flooding && timeLimitSeconds <= 0) timeLimitSeconds = 60; // a flooded match needs a clock
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
 		int seed = System.Random.Shared.Next();
-		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, order);
-		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, order); // host applies locally too
+		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, baseMoveSeconds, order);
+		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, baseMoveSeconds, order); // host applies locally too
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority)]
-	public void BeginMatch(int seed, int playerCount, int mode, int timeLimitSeconds, bool flooding, long[] peerOrder)
+	public void BeginMatch(int seed, int playerCount, int mode, int timeLimitSeconds, bool flooding, float baseMoveSeconds, long[] peerOrder)
 	{
 		MatchSeed = seed;
 		MatchPlayerCount = playerCount;
 		MatchMode = (GameMode)mode;
 		MatchTimeLimitSeconds = timeLimitSeconds;
 		MatchFlooding = flooding;
+		MatchBaseMoveSeconds = baseMoveSeconds;
 		PeerOrder = peerOrder;
 		MatchStarting?.Invoke();
 	}
