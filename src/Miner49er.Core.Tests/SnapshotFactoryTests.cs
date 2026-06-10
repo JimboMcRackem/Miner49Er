@@ -67,4 +67,21 @@ public class SnapshotFactoryTests
         var snap = SnapshotFactory.Capture(sim, tick: 1);
         Assert.Equal(-1f, snap.SecondsRemaining);
     }
+
+    [Fact]
+    public void Captures_items_and_effective_vision_radius()
+    {
+        var sim = new Simulation(new TileGrid(5, 5, TileType.Floor), new SimConfig());
+        sim.AddMiner(1, new GridPos(2, 2));
+        sim.AddItem(new Item(new GridPos(4, 1), ItemKind.LongerVision));
+        sim.ApplyEffect(1, EffectKind.LongerVision, EffectChannel.VisionRadius, 3, 5.0);
+
+        var snap = SnapshotFactory.Capture(sim, tick: 3);
+
+        Assert.Equal(8, Assert.Single(snap.Miners).VisionRadius); // 5 + 3
+        var item = Assert.Single(snap.Items);
+        Assert.Equal(4, item.X);
+        Assert.Equal(1, item.Y);
+        Assert.Equal(ItemKind.LongerVision, item.Kind);
+    }
 }
