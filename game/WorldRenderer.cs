@@ -1,5 +1,6 @@
 using Godot;
 using Miner49er.Core;
+using Miner49er.Core.Net;
 
 namespace Miner49er;
 
@@ -18,6 +19,9 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color DeepWaterColor = new("16384f");
 	private static readonly Color ChargeColor = new("ff5530");
 	private static readonly Color FlashColor = new("ffd27f");
+	private static readonly Color SpeedItemColor = new("4ad06a");  // green
+	private static readonly Color VisionItemColor = new("4ad0d0"); // cyan
+	private static readonly Color BlastItemColor = new("e08a2f");  // orange
 
 	public void Init(MatchClient client) => _client = client;
 
@@ -60,6 +64,21 @@ public partial class WorldRenderer : Node2D
 		{
 			var center = new Vector2(c.X * ts + ts / 2f, c.Y * ts + ts / 2f);
 			DrawCircle(center, ts * 0.25f, ChargeColor);
+		}
+
+		foreach (var it in _client.Items)
+		{
+			var ip = new GridPos(it.X, it.Y);
+			if (!_client.Fog.IsVisible(ip)) continue; // hidden in the dark, like tiles
+			var icol = it.Kind switch
+			{
+				ItemKind.SpeedPotion => SpeedItemColor,
+				ItemKind.LongerVision => VisionItemColor,
+				ItemKind.BiggerBlast => BlastItemColor,
+				_ => SpeedItemColor,
+			};
+			var icenter = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
+			DrawCircle(icenter, ts * 0.22f, icol);
 		}
 
 		foreach (var (pos, life) in _flashes)

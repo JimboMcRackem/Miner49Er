@@ -11,18 +11,19 @@ namespace Miner49er;
 public partial class MatchClient : Node2D
 {
 	public const int TileSize = 32;
-	public const int VisionRadius = 5;
 
 	public TileGrid Grid { get; private set; } = null!;
 	public FogState Fog { get; } = new();
 	public IReadOnlyList<MinerSnapshot> Miners => _miners;
 	public IReadOnlyList<ChargeSnapshot> Charges => _charges;
+	public IReadOnlyList<ItemSnapshot> Items => _items;
 	public int LocalMinerId { get; private set; }
 	public float SecondsRemaining { get; private set; } = -1f;
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
 
 	private List<MinerSnapshot> _miners = new();
 	private List<ChargeSnapshot> _charges = new();
+	private List<ItemSnapshot> _items = new();
 	private readonly Dictionary<int, Vector2> _visualPos = new(); // minerId -> smoothed pixels
 
 	private WorldRenderer _world = null!;
@@ -72,6 +73,7 @@ public partial class MatchClient : Node2D
 
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
+		_items = new List<ItemSnapshot>(update.Snapshot.Items);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;
 		UpdateFog();
 	}
@@ -114,6 +116,6 @@ public partial class MatchClient : Node2D
 	{
 		foreach (var m in _miners)
 			if (m.Id == LocalMinerId && m.Alive)
-				Fog.Update(Visibility.Compute(Grid, new GridPos(m.X, m.Y), VisionRadius));
+				Fog.Update(Visibility.Compute(Grid, new GridPos(m.X, m.Y), m.VisionRadius));
 	}
 }
