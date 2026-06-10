@@ -52,7 +52,7 @@ public class MovementCadenceTests
     public void Speed_effect_reduces_the_cadence()
     {
         var sim = FloorSim();
-        sim.ApplyEffect(1, EffectKind.DebugSpeed, EffectChannel.MoveSpeed, 0.6, 5.0);
+        sim.ApplyEffect(1, EffectKind.SpeedPotion, EffectChannel.MoveSpeed, 0.6, 5.0);
         sim.TryMove(1, Direction.East);
         Assert.Equal(0.072, sim.GetMiner(1).MoveCooldownRemaining, 3); // 0.12 * 0.6
     }
@@ -61,8 +61,8 @@ public class MovementCadenceTests
     public void Two_move_speed_effects_multiply()
     {
         var sim = FloorSim();
-        sim.ApplyEffect(1, EffectKind.DebugSpeed, EffectChannel.MoveSpeed, 0.5, 5.0);
-        sim.ApplyEffect(1, EffectKind.DebugSlow,  EffectChannel.MoveSpeed, 1.5, 5.0);
+        sim.ApplyEffect(1, EffectKind.SpeedPotion, EffectChannel.MoveSpeed, 0.5, 5.0);
+        sim.ApplyEffect(1, EffectKind.BiggerBlast,  EffectChannel.MoveSpeed, 1.5, 5.0);
         Assert.Equal(0.09, sim.EffectiveMoveSeconds(1), 3); // 0.12 * 0.5 * 1.5
     }
 
@@ -70,7 +70,7 @@ public class MovementCadenceTests
     public void Cadence_is_clamped_to_min()
     {
         var sim = FloorSim(new SimConfig { MinMoveSeconds = 0.05 });
-        sim.ApplyEffect(1, EffectKind.DebugSpeed, EffectChannel.MoveSpeed, 0.1, 5.0); // 0.012 < 0.05
+        sim.ApplyEffect(1, EffectKind.SpeedPotion, EffectChannel.MoveSpeed, 0.1, 5.0); // 0.012 < 0.05
         Assert.Equal(0.05, sim.EffectiveMoveSeconds(1), 3);
     }
 
@@ -78,7 +78,7 @@ public class MovementCadenceTests
     public void Cadence_is_clamped_to_max()
     {
         var sim = FloorSim(new SimConfig { MaxMoveSeconds = 0.40 });
-        sim.ApplyEffect(1, EffectKind.DebugSlow, EffectChannel.MoveSpeed, 5.0, 5.0); // 0.6 > 0.40
+        sim.ApplyEffect(1, EffectKind.BiggerBlast, EffectChannel.MoveSpeed, 5.0, 5.0); // 0.6 > 0.40
         Assert.Equal(0.40, sim.EffectiveMoveSeconds(1), 3);
     }
 }

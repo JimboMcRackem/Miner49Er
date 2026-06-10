@@ -103,6 +103,26 @@ public sealed class Simulation
                           Config.MinMoveSeconds, Config.MaxMoveSeconds);
     }
 
+    public int EffectiveVisionRadius(int minerId) => EffectiveVisionRadius(_miners[minerId]);
+
+    private int EffectiveVisionRadius(Miner m)
+    {
+        int bonus = 0;
+        foreach (var e in m.EffectsInternal)
+            if (e.Channel == EffectChannel.VisionRadius) bonus += (int)e.Magnitude;
+        return Config.VisionRadius + bonus;
+    }
+
+    public int EffectiveBlastBonus(int minerId) => EffectiveBlastBonus(_miners[minerId]);
+
+    private int EffectiveBlastBonus(Miner m)
+    {
+        int bonus = 0;
+        foreach (var e in m.EffectsInternal)
+            if (e.Channel == EffectChannel.BlastRadius) bonus += (int)e.Magnitude;
+        return bonus;
+    }
+
     private void AdvanceCooldowns(double dt)
     {
         foreach (var m in _miners.Values)
