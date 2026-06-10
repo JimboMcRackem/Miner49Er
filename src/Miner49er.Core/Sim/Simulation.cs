@@ -335,7 +335,7 @@ public sealed class Simulation
         _charges.Remove(charge);
 
         var destroyed = new List<GridPos>();
-        int r = Config.BlastRockRadius;
+        int r = Config.BlastRockRadius + charge.BlastBonus;
         for (int dy = -r; dy <= r; dy++)
             for (int dx = -r; dx <= r; dx++)
             {
@@ -354,7 +354,7 @@ public sealed class Simulation
 
         foreach (var m in _miners.Values)
         {
-            if (m.Alive && m.Pos.ChebyshevTo(charge.WallPos) <= Config.BlastKillRadius)
+            if (m.Alive && m.Pos.ChebyshevTo(charge.WallPos) <= Config.BlastKillRadius + charge.BlastBonus)
             {
                 m.Alive = false;
                 m.Activity = ActivityKind.None;
@@ -385,7 +385,7 @@ public sealed class Simulation
             if (!Grid.InBounds(target) || !Grid.Get(target).IsBlastable()) return;
             if (LiveChargeCount(m.Id) >= Config.MaxLiveChargesPerMiner) return;
             if (_charges.Any(c => c.WallPos == target)) return;
-            _charges.Add(new Charge(m.Id, target, Config.FuseSeconds));
+            _charges.Add(new Charge(m.Id, target, Config.FuseSeconds, EffectiveBlastBonus(m.Id)));
             _events.Add(new ChargePlanted(m.Id, target));
         }
     }
