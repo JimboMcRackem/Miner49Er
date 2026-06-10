@@ -123,4 +123,45 @@ public class SimulationExplosiveTests
         Assert.True(bystander.Alive);
         Assert.Contains(sim.DrainEvents(), e => e is MinerKilled k && k.MinerId == 1);
     }
+
+    // A vertical rock column at x=2; miner at (1,3) faces it. Returns a sim ready to plant.
+    private static Simulation FacingRockColumnEast(SimConfig cfg)
+    {
+        var grid = new TileGrid(7, 7, TileType.Floor);
+        for (int y = 0; y < 7; y++) grid.Set(new GridPos(2, y), TileType.Rock);
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(1, 3));
+        sim.TryMove(1, Direction.East); // blocked by rock, faces east toward (2,3)
+        sim.DrainEvents();
+        return sim;
+    }
+
+    [Fact]
+    public void Charge_planted_with_blast_buff_captures_the_bonus_and_blasts_wider()
+    {
+        var sim = FacingRockColumnEast(
+            new SimConfig { PlantSeconds = 0.0, FuseSeconds = 3.0, BlastRockRadius = 1 });
+        sim.ApplyEffect(1, EffectKind.BiggerBlast, EffectChannel.BlastRadius, 1, 12.0);
+
+        sim.TryStartPlanting(1);
+        sim.Tick(0.0); // create charge at (2,3)
+        Assert.Equal(1, Assert.Single(sim.Charges).BlastBonus);
+
+        sim.Tick(3.0); // detonate, Manhattan radius 1+1 = 2
+        Assert.Equal(TileType.Floor, sim.Grid.Get(new GridPos(2, 1))); // distance-2 rock gone
+        Assert.Equal(TileType.Floor, sim.Grid.Get(new GridPos(2, 5)));
+    }
+
+    [Fact]
+    public void Charge_planted_without_blast_buff_uses_the_base_radius()
+    {
+        var sim = FacingRockColumnEast(
+            new SimConfig { PlantSeconds = 0.0, FuseSeconds = 3.0, BlastRockRadius = 1 });
+        sim.TryStartPlanting(1);
+        sim.Tick(0.0);
+        Assert.Equal(0, Assert.Single(sim.Charges).BlastBonus);
+
+        sim.Tick(3.0); // Manhattan radius 1 only
+        Assert.Equal(TileType.Rock, sim.Grid.Get(new GridPos(2, 1))); // distance-2 rock survives
+    }
 }

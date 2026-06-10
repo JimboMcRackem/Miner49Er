@@ -21,13 +21,19 @@ public static class SnapshotCodec
         {
             w.Write(m.Id); w.Write(m.X); w.Write(m.Y); w.Write(m.Facing);
             w.Write(m.Alive); w.Write(m.Gold); w.Write(m.Activity); w.Write(m.ActivityRemaining);
-            w.Write(m.MoveSeconds);
+            w.Write(m.MoveSeconds); w.Write(m.VisionRadius);
         }
 
         w.Write(snap.Charges.Count);
         foreach (var c in snap.Charges)
         {
             w.Write(c.OwnerId); w.Write(c.X); w.Write(c.Y); w.Write(c.FuseRemaining);
+        }
+
+        w.Write(snap.Items.Count);
+        foreach (var it in snap.Items)
+        {
+            w.Write(it.X); w.Write(it.Y); w.Write((int)it.Kind);
         }
 
         w.Write(update.TileChanges.Count);
@@ -53,18 +59,23 @@ public static class SnapshotCodec
         for (int i = 0; i < minerCount; i++)
             miners.Add(new MinerSnapshot(
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
-                r.ReadBoolean(), r.ReadInt32(), r.ReadInt32(), r.ReadDouble(), r.ReadDouble()));
+                r.ReadBoolean(), r.ReadInt32(), r.ReadInt32(), r.ReadDouble(), r.ReadDouble(), r.ReadInt32()));
 
         int chargeCount = r.ReadInt32();
         var charges = new List<ChargeSnapshot>(chargeCount);
         for (int i = 0; i < chargeCount; i++)
             charges.Add(new ChargeSnapshot(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadDouble()));
 
+        int itemCount = r.ReadInt32();
+        var items = new List<ItemSnapshot>(itemCount);
+        for (int i = 0; i < itemCount; i++)
+            items.Add(new ItemSnapshot(r.ReadInt32(), r.ReadInt32(), (ItemKind)r.ReadInt32()));
+
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
             changes.Add(new TileChange(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean(), (TileType)r.ReadInt32()));
 
-        return new TickUpdate(new WorldSnapshot(tick, miners, charges, secondsRemaining), changes);
+        return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, secondsRemaining), changes);
     }
 }

@@ -19,6 +19,7 @@ public partial class MatchAudio : Node2D
 	private readonly Dictionary<int, (int x, int y)> _prevPos = new();
 	private readonly Dictionary<int, int> _prevActivity = new();
 	private readonly Dictionary<int, bool> _prevAlive = new();
+	private readonly HashSet<(int x, int y)> _prevItems = new();
 	private readonly Dictionary<int, AudioStreamPlayer2D> _pickaxeLoops = new();
 	private readonly List<AudioStreamPlayer2D> _dripEmitters = new();
 
@@ -79,6 +80,20 @@ public partial class MatchAudio : Node2D
 			}
 			_prevAlive[m.Id] = m.Alive;
 		}
+
+		var localTile = LocalTile();
+		foreach (var prev in _prevItems)
+		{
+			bool stillThere = false;
+			foreach (var it in _client.Items)
+				if (it.X == prev.x && it.Y == prev.y) { stillThere = true; break; }
+			// An item that vanished next to the local miner = a pickup; play near it.
+			if (!stillThere && localTile is { } lt
+				&& System.Math.Abs(lt.x - prev.x) <= 1 && System.Math.Abs(lt.y - prev.y) <= 1)
+				OneShot(SfxLibrary.Pickup, WorldOf(prev.x, prev.y));
+		}
+		_prevItems.Clear();
+		foreach (var it in _client.Items) _prevItems.Add((it.X, it.Y));
 	}
 
 	private void OnExploded(Vector2 worldPos) => OneShot(SfxLibrary.Explosion, worldPos);
@@ -114,6 +129,13 @@ public partial class MatchAudio : Node2D
 			p.Play();
 			ScheduleDrip(p, rng);
 		};
+	}
+
+	private (int x, int y)? LocalTile()
+	{
+		foreach (var m in _client.Miners)
+			if (m.Id == _client.LocalMinerId && m.Alive) return (m.X, m.Y);
+		return null;
 	}
 
 	private static Vector2 WorldOf(int x, int y) =>

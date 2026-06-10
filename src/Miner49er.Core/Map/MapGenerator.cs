@@ -21,8 +21,10 @@ public static class MapGenerator
         var spawns = PlaceSpawns(grid, rng, config.PlayerCount, config.MinSpawnDistance, region);
         var center = NearestFloorToCenter(grid, region);
         PlaceGold(grid, rng, config.GoldVeinCount, region);
+        int itemCount = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
+        var items = PlaceItems(grid, rng, itemCount, region, spawns);
 
-        return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center };
+        return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center, Items = items };
     }
 
     private static bool IsBorder(TileGrid g, GridPos p) =>
@@ -251,6 +253,27 @@ public static class MapGenerator
             .ToList();
         Shuffle(candidates, rng);
         foreach (var p in candidates.Take(veins)) g.Set(p, TileType.GoldRock);
+    }
+
+    // Items sit on Floor tiles inside the traversable region, never on a spawn.
+    // Candidates are drawn in deterministic grid order, then seed-shuffled, so the
+    // result is identical on host and every client. Kinds cycle round-robin over
+    // ItemKind in placement order for a balanced, predictable spread.
+    private static List<Item> PlaceItems(TileGrid g, Random rng, int count,
+        HashSet<GridPos> region, List<GridPos> spawns)
+    {
+        var spawnSet = new HashSet<GridPos>(spawns);
+        var candidates = g.Positions()
+            .Where(p => region.Contains(p) && g.Get(p) == TileType.Floor && !spawnSet.Contains(p))
+            .ToList();
+        Shuffle(candidates, rng);
+
+        var kinds = Enum.GetValues<ItemKind>();
+        var items = new List<Item>();
+        int take = Math.Min(count, candidates.Count);
+        for (int i = 0; i < take; i++)
+            items.Add(new Item(candidates[i], kinds[i % kinds.Length]));
+        return items;
     }
 
     private static bool HasRegionNeighbor(TileGrid g, GridPos p, HashSet<GridPos> region)

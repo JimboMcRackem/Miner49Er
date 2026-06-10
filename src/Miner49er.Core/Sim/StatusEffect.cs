@@ -1,7 +1,7 @@
 namespace Miner49er.Core;
 
-public enum EffectChannel { MoveSpeed }            // 4c-2 adds MiningSpeed, VisionRadius, …
-public enum EffectKind { DebugSpeed, DebugSlow }   // 4c-2 replaces these with SpeedPotion, SlowMold, …
+public enum EffectChannel { MoveSpeed, VisionRadius, BlastRadius }
+public enum EffectKind { SpeedPotion, LongerVision, BiggerBlast }  // 4c-2b appends SlowMold
 
 public sealed class StatusEffect
 {

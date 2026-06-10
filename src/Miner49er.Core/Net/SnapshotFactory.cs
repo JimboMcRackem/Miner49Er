@@ -11,13 +11,17 @@ public static class SnapshotFactory
             .Select(m => new MinerSnapshot(
                 m.Id, m.Pos.X, m.Pos.Y, (int)m.Facing, m.Alive,
                 m.GoldCollected, (int)m.Activity, m.ActivitySecondsRemaining,
-                sim.EffectiveMoveSeconds(m.Id)))
+                sim.EffectiveMoveSeconds(m.Id), sim.EffectiveVisionRadius(m.Id)))
             .ToList();
 
         var charges = sim.Charges
             .Select(c => new ChargeSnapshot(c.OwnerId, c.WallPos.X, c.WallPos.Y, c.FuseRemaining))
             .ToList();
 
-        return new WorldSnapshot(tick, miners, charges, (float)sim.SecondsRemaining);
+        var items = sim.Items
+            .Select(it => new ItemSnapshot(it.Pos.X, it.Pos.Y, it.Kind))
+            .ToList();
+
+        return new WorldSnapshot(tick, miners, charges, items, (float)sim.SecondsRemaining);
     }
 }

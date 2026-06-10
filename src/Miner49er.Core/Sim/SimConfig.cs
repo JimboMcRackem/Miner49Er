@@ -12,4 +12,13 @@ public sealed class SimConfig
     public double BaseMoveSeconds { get; set; } = 0.12;  // Standard preset (seconds per tile)
     public double MinMoveSeconds { get; set; } = 0.05;   // clamp floor — no teleporting
     public double MaxMoveSeconds { get; set; } = 0.40;   // clamp ceiling — never frozen
+
+    public int VisionRadius { get; set; } = 5;   // base fog radius (migrated from MatchClient)
+
+    public double SpeedPotionFactor { get; set; } = 0.6;   // move-cadence multiplier while active
+    public double SpeedPotionSeconds { get; set; } = 8.0;
+    public int VisionBonus { get; set; } = 3;              // +tiles of fog radius while active
+    public double VisionSeconds { get; set; } = 12.0;
+    public int BlastBonus { get; set; } = 1;               // +radius on charges planted while active
+    public double BlastSeconds { get; set; } = 12.0;
 }

@@ -16,7 +16,6 @@ public partial class Main : Node2D
 	private MatchAudio _audio = null!;
 	private Compass _compass = null!;
 	private bool _wasListening;
-	private bool _debugBoostPressed; // DEBUG(4c-1): remove in 4c-2
 
 	public override void _Ready()
 	{
@@ -43,17 +42,20 @@ public partial class Main : Node2D
 
 		if (nm.IsHost)
 		{
+			var hostMap = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount));
 			var sim = new Simulation(
-				MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount)).Grid,
+				hostMap.Grid,
 				new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds },
-				map.Center,
+				hostMap.Center,
 				nm.MatchTimeLimitSeconds > 0 ? nm.MatchTimeLimitSeconds : (double?)null,
 				nm.MatchFlooding);
+			foreach (var item in hostMap.Items)
+				sim.AddItem(item);
 			var peerToMiner = new System.Collections.Generic.Dictionary<long, int>();
 			for (int i = 0; i < nm.PeerOrder.Length; i++)
 			{
 				int minerId = i + 1;
-				sim.AddMiner(minerId, map.Spawns[i]);
+				sim.AddMiner(minerId, hostMap.Spawns[i]);
 				peerToMiner[nm.PeerOrder[i]] = minerId;
 			}
 			_host = new MatchHost { Name = "MatchHost" };
@@ -125,11 +127,6 @@ public partial class Main : Node2D
 
 		if (Input.IsActionJustPressed(InputBindings.Mute))
 			AudioManager.Instance.ToggleMute();
-
-		// DEBUG(4c-1): remove in 4c-2 — press B to self-apply a ×0.6 speed buff for 5s
-		bool boost = Input.IsPhysicalKeyPressed(Key.B);
-		if (boost && !_debugBoostPressed) NetworkManager.Instance.SendDebugSpeed();
-		_debugBoostPressed = boost;
 	}
 
 	private void OnMatchEnded(long winnerPeerId)

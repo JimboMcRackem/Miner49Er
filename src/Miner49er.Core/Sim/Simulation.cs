@@ -7,10 +7,14 @@ public sealed class Simulation
 
     private readonly Dictionary<int, Miner> _miners = new();
     private readonly List<Charge> _charges = new();
+    private readonly List<Item> _items = new();
     private readonly List<SimEvent> _events = new();
 
     public IReadOnlyCollection<Miner> Miners => _miners.Values;
     public IReadOnlyList<Charge> Charges => _charges;
+    public IReadOnlyList<Item> Items => _items;
+
+    public void AddItem(Item item) => _items.Add(item);   // host seeds these from GeneratedMap.Items
 
     public GridPos? Center { get; }
     public int FirstToReachCenter { get; private set; } = -1;
@@ -103,6 +107,26 @@ public sealed class Simulation
                           Config.MinMoveSeconds, Config.MaxMoveSeconds);
     }
 
+    public int EffectiveVisionRadius(int minerId) => EffectiveVisionRadius(_miners[minerId]);
+
+    private int EffectiveVisionRadius(Miner m)
+    {
+        int bonus = 0;
+        foreach (var e in m.EffectsInternal)
+            if (e.Channel == EffectChannel.VisionRadius) bonus += (int)e.Magnitude;
+        return Config.VisionRadius + bonus;
+    }
+
+    public int EffectiveBlastBonus(int minerId) => EffectiveBlastBonus(_miners[minerId]);
+
+    private int EffectiveBlastBonus(Miner m)
+    {
+        int bonus = 0;
+        foreach (var e in m.EffectsInternal)
+            if (e.Channel == EffectChannel.BlastRadius) bonus += (int)e.Magnitude;
+        return bonus;
+    }
+
     private void AdvanceCooldowns(double dt)
     {
         foreach (var m in _miners.Values)
@@ -192,6 +216,7 @@ public sealed class Simulation
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
         AdvanceActivities(dt);
+        PickUpItems();
         AdvanceCharges(chargesThisTick, dt);
         AdvanceFlood();
     }
@@ -206,6 +231,41 @@ public sealed class Simulation
             if (m.ActivitySecondsRemaining > 0) continue;
 
             CompleteActivity(m);
+        }
+    }
+
+    private void PickUpItems()
+    {
+        for (int i = _items.Count - 1; i >= 0; i--)
+        {
+            var item = _items[i];
+            foreach (var m in _miners.Values)
+            {
+                if (!m.Alive || m.Pos != item.Pos) continue;
+                _items.RemoveAt(i);
+                ApplyBuff(m.Id, item.Kind);
+                _events.Add(new ItemPickedUp(m.Id, item.Pos, item.Kind));
+                break; // one miner collects it
+            }
+        }
+    }
+
+    private void ApplyBuff(int minerId, ItemKind kind)
+    {
+        switch (kind)
+        {
+            case ItemKind.SpeedPotion:
+                ApplyEffect(minerId, EffectKind.SpeedPotion, EffectChannel.MoveSpeed,
+                            Config.SpeedPotionFactor, Config.SpeedPotionSeconds);
+                break;
+            case ItemKind.LongerVision:
+                ApplyEffect(minerId, EffectKind.LongerVision, EffectChannel.VisionRadius,
+                            Config.VisionBonus, Config.VisionSeconds);
+                break;
+            case ItemKind.BiggerBlast:
+                ApplyEffect(minerId, EffectKind.BiggerBlast, EffectChannel.BlastRadius,
+                            Config.BlastBonus, Config.BlastSeconds);
+                break;
         }
     }
 
@@ -275,7 +335,7 @@ public sealed class Simulation
         _charges.Remove(charge);
 
         var destroyed = new List<GridPos>();
-        int r = Config.BlastRockRadius;
+        int r = Config.BlastRockRadius + charge.BlastBonus;
         for (int dy = -r; dy <= r; dy++)
             for (int dx = -r; dx <= r; dx++)
             {
@@ -294,7 +354,7 @@ public sealed class Simulation
 
         foreach (var m in _miners.Values)
         {
-            if (m.Alive && m.Pos.ChebyshevTo(charge.WallPos) <= Config.BlastKillRadius)
+            if (m.Alive && m.Pos.ChebyshevTo(charge.WallPos) <= Config.BlastKillRadius + charge.BlastBonus)
             {
                 m.Alive = false;
                 m.Activity = ActivityKind.None;
@@ -325,7 +385,7 @@ public sealed class Simulation
             if (!Grid.InBounds(target) || !Grid.Get(target).IsBlastable()) return;
             if (LiveChargeCount(m.Id) >= Config.MaxLiveChargesPerMiner) return;
             if (_charges.Any(c => c.WallPos == target)) return;
-            _charges.Add(new Charge(m.Id, target, Config.FuseSeconds));
+            _charges.Add(new Charge(m.Id, target, Config.FuseSeconds, EffectiveBlastBonus(m.Id)));
             _events.Add(new ChargePlanted(m.Id, target));
         }
     }
