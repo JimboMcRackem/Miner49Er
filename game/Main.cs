@@ -16,7 +16,6 @@ public partial class Main : Node2D
 	private MatchAudio _audio = null!;
 	private Compass _compass = null!;
 	private bool _wasListening;
-	private bool _debugBoostPressed; // DEBUG(4c-1): remove in 4c-2
 
 	public override void _Ready()
 	{
@@ -125,11 +124,6 @@ public partial class Main : Node2D
 
 		if (Input.IsActionJustPressed(InputBindings.Mute))
 			AudioManager.Instance.ToggleMute();
-
-		// DEBUG(4c-1): remove in 4c-2 — press B to self-apply a ×0.6 speed buff for 5s
-		bool boost = Input.IsPhysicalKeyPressed(Key.B);
-		if (boost && !_debugBoostPressed) NetworkManager.Instance.SendDebugSpeed();
-		_debugBoostPressed = boost;
 	}
 
 	private void OnMatchEnded(long winnerPeerId)
