@@ -17,7 +17,12 @@ public class SnapshotCodecTests
                     new(2, 9, 0, 0, false, 0, 0, 0.0, 0.24, 5),
                 },
                 Charges: new List<ChargeSnapshot> { new(1, 8, 8, 1.25) },
-                Items: new List<ItemSnapshot> { new(6, 1, ItemKind.SpeedPotion), new(2, 5, ItemKind.BiggerBlast) },
+                Items: new List<ItemSnapshot>
+                {
+                    new(6, 1, ItemKind.SpeedPotion, ItemPlacement.Toolbox),
+                    new(2, 5, ItemKind.BiggerBlast, ItemPlacement.Buried),
+                    new(3, 3, ItemKind.LongerVision, ItemPlacement.Loose),
+                },
                 SecondsRemaining: 42.5f),
             TileChanges: new List<TileChange> { new(8, 8, true, TileType.DeepWater), new(2, 2, false) });
 
@@ -37,9 +42,11 @@ public class SnapshotCodecTests
         Assert.Equal(update.TileChanges[1], back.TileChanges[1]);
         Assert.Equal(8, back.Snapshot.Miners[0].VisionRadius);
         Assert.Equal(5, back.Snapshot.Miners[1].VisionRadius);
-        Assert.Equal(2, back.Snapshot.Items.Count);
+        Assert.Equal(3, back.Snapshot.Items.Count);
         Assert.Equal(update.Snapshot.Items[0], back.Snapshot.Items[0]);
         Assert.Equal(update.Snapshot.Items[1], back.Snapshot.Items[1]);
+        Assert.Equal(update.Snapshot.Items[2], back.Snapshot.Items[2]);
+        Assert.Equal(ItemPlacement.Buried, back.Snapshot.Items[1].Placement);
     }
 
     [Fact]
