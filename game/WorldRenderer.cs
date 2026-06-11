@@ -22,6 +22,9 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color SpeedItemColor = new("4ad06a");  // green
 	private static readonly Color VisionItemColor = new("4ad0d0"); // cyan
 	private static readonly Color BlastItemColor = new("e08a2f");  // orange
+	private static readonly Color ToolboxColor = new("9a7b4f");  // muted box outline behind a visible item
+	private static readonly Color ShimmerColor = new("f5f0c0");  // neutral pale glow — NO kind tell
+	private const int ListenItemRevealRadius = 6;                // tiles; Chebyshev radius for sensing through rock
 
 	public void Init(MatchClient client) => _client = client;
 
@@ -68,6 +71,7 @@ public partial class WorldRenderer : Node2D
 
 		foreach (var it in _client.Items)
 		{
+			if (it.Placement == ItemPlacement.Buried) continue; // buried items only show under Listen (below)
 			var ip = new GridPos(it.X, it.Y);
 			if (!_client.Fog.IsVisible(ip)) continue; // hidden in the dark, like tiles
 			var icol = it.Kind switch
@@ -78,7 +82,27 @@ public partial class WorldRenderer : Node2D
 				_ => SpeedItemColor,
 			};
 			var icenter = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
+			if (it.Placement == ItemPlacement.Toolbox)
+			{
+				float bs = ts * 0.5f; // a small box behind the dot for visible toolbox items
+				DrawRect(new Rect2(icenter.X - bs / 2f, icenter.Y - bs / 2f, bs, bs), ToolboxColor, false, 2f);
+			}
 			DrawCircle(icenter, ts * 0.22f, icol);
+		}
+
+		// Listen reveal: buried items and decoys shimmer IDENTICALLY (sensed through rock) while the
+		// local miner holds Listen, within ListenItemRevealRadius. Neutral color, drawn regardless of fog.
+		if (_client.Listening && TryLocalTile(out var lt))
+		{
+			float t = (float)Time.GetTicksMsec() / 1000f;
+			float a = 0.18f + 0.22f * (0.5f + 0.5f * Mathf.Sin(t * Mathf.Pi * 2f / 0.8f)); // ~0.8s pulse
+			var shimmer = ShimmerColor with { A = a };
+			foreach (var it in _client.Items)
+				if (it.Placement == ItemPlacement.Buried && WithinReveal(lt, it.X, it.Y))
+					DrawShimmer(it.X, it.Y, shimmer, ts);
+			foreach (var d in _client.Decoys)
+				if (_client.Grid.Get(d) == TileType.Rock && WithinReveal(lt, d.X, d.Y))
+					DrawShimmer(d.X, d.Y, shimmer, ts);
 		}
 
 		foreach (var (pos, life) in _flashes)
@@ -86,5 +110,22 @@ public partial class WorldRenderer : Node2D
 			var col = FlashColor with { A = Mathf.Clamp(life / 0.4f, 0f, 1f) };
 			DrawRect(new Rect2(pos.X * ts, pos.Y * ts, ts, ts), col);
 		}
+	}
+
+	private bool TryLocalTile(out GridPos tile)
+	{
+		foreach (var m in _client.Miners)
+			if (m.Id == _client.LocalMinerId && m.Alive) { tile = new GridPos(m.X, m.Y); return true; }
+		tile = default;
+		return false;
+	}
+
+	private static bool WithinReveal(GridPos local, int x, int y) =>
+		Mathf.Max(Mathf.Abs(local.X - x), Mathf.Abs(local.Y - y)) <= ListenItemRevealRadius;
+
+	private void DrawShimmer(int x, int y, Color col, int ts)
+	{
+		var c = new Vector2(x * ts + ts / 2f, y * ts + ts / 2f);
+		DrawCircle(c, ts * 0.42f, col); // soft diffuse glow; identical for items and decoys
 	}
 }
