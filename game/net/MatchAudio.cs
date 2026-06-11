@@ -20,6 +20,7 @@ public partial class MatchAudio : Node2D
 	private readonly Dictionary<int, int> _prevActivity = new();
 	private readonly Dictionary<int, bool> _prevAlive = new();
 	private readonly HashSet<(int x, int y)> _prevItems = new();
+	private readonly Dictionary<(int x, int y), ItemPlacement> _prevPlacement = new();
 	private readonly Dictionary<int, AudioStreamPlayer2D> _pickaxeLoops = new();
 	private readonly List<AudioStreamPlayer2D> _dripEmitters = new();
 
@@ -92,8 +93,24 @@ public partial class MatchAudio : Node2D
 				&& System.Math.Abs(lt.x - prev.x) <= 1 && System.Math.Abs(lt.y - prev.y) <= 1)
 				OneShot(SfxLibrary.Pickup, WorldOf(prev.x, prev.y));
 		}
+
+		// An item that flipped Buried -> Loose at the same tile = freshly unburied; spill near the local miner.
+		foreach (var it in _client.Items)
+		{
+			if (it.Placement == ItemPlacement.Loose
+				&& _prevPlacement.TryGetValue((it.X, it.Y), out var prevP) && prevP == ItemPlacement.Buried
+				&& localTile is { } lt2
+				&& System.Math.Abs(lt2.x - it.X) <= 1 && System.Math.Abs(lt2.y - it.Y) <= 1)
+				OneShot(SfxLibrary.Spill, WorldOf(it.X, it.Y));
+		}
+
 		_prevItems.Clear();
-		foreach (var it in _client.Items) _prevItems.Add((it.X, it.Y));
+		_prevPlacement.Clear();
+		foreach (var it in _client.Items)
+		{
+			_prevItems.Add((it.X, it.Y));
+			_prevPlacement[(it.X, it.Y)] = it.Placement;
+		}
 	}
 
 	private void OnExploded(Vector2 worldPos) => OneShot(SfxLibrary.Explosion, worldPos);
