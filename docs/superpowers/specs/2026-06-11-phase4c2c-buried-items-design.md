@@ -10,11 +10,17 @@ Split map items into two flavors. Most items are **buried** inside ordinary rock
 until the rock that holds them is **mined or blasted**, at which point the item drops onto the
 now-open floor as a normal pickup. A few items stay **visible** on the floor in old toolboxes,
 exactly as 4c-2a ships them today. Buried items can be **sensed through stone** by holding the
-existing **Listen** action: nearby buried items shimmer (and softly chime) while you listen.
+existing **Listen** action: nearby suspicious spots shimmer (and softly chime) while you listen.
+
+The shimmer is **deliberately vague** — it marks a *suspicious spot* without revealing what (or
+whether anything) is there. A few suspicious spots are **decoys** that hold nothing, so the only
+way to learn the truth is to dig. Listen becomes a gamble, not a map.
 
 This adds *findability and reward-for-digging* on top of the 4c-2a pickup system. It introduces
-no new netcode beyond one field on the item snapshot — the reveal is a client-side presentation
-gate over already-synced data, the same trust model as fog.
+no new netcode: buried items reuse the existing per-tick item snapshot (one extra field), and
+decoys are a deterministic map-gen output every client regenerates from the shared seed. The
+whole reveal is a client-side presentation gate over already-synced/regenerated data, the same
+trust model as fog.
 
 ## Non-goals
 
@@ -29,9 +35,11 @@ The feature reuses every 4c-2a seam. An item gains a **placement state**; map-ge
 on floor and the rest inside rock; the existing `PickUpItems` pass is taught to ignore buried
 items; and the two existing rock-destruction sites (`CompleteActivity` mining branch,
 `Detonate` blast loop) call a new `UnburyItemsAt` that flips a buried item to a loose floor
-pickup. The placement state rides the existing per-tick item snapshot as one extra field. The
-Listen reveal is pure Godot-side rendering/audio keyed off the local miner's Listening state and
-the already-synced item list.
+pickup. The placement state rides the existing per-tick item snapshot as one extra field.
+Map-gen also emits a set of **decoys** — empty rock spots that look exactly like buried caches
+under Listen — as a deterministic, un-synced output every client regenerates from the seed. The
+Listen reveal is pure Godot-side rendering/audio keyed off the local miner's Listening state, the
+already-synced item list, and the regenerated decoy set; it never reveals an item's kind.
 
 ### Placement state machine
 
@@ -53,23 +61,23 @@ under Listen.
 ### Data flow
 
 ```
-MapGenerator.PlaceItems (seeded)
-        │  GeneratedMap.Items  (Toolbox on Floor, Buried in Rock)
-        ▼
-Simulation._items
+MapGenerator (seeded)
+   ├─ PlaceItems  → GeneratedMap.Items   (Toolbox on Floor, Buried in Rock)   ── synced ──┐
+   └─ PlaceDecoys → GeneratedMap.Decoys  (empty rock spots)  ── NOT synced; client regens ─┤
+                                                                                           │
+Simulation._items  (host: items only; decoys are never in the sim)                        │
    ├─ Tick: PickUpItems()  — skips Buried; Toolbox/Loose on a miner's tile → ApplyBuff + ItemPickedUp
-   ├─ CompleteActivity (mine) ─┐
-   └─ Detonate (blast) ────────┴─► UnburyItemsAt(pos): Buried → Loose  + ItemUnburied event
-        │
-        │ SnapshotFactory.Capture
-        ▼
-WorldSnapshot.Items[]  (ItemSnapshot gains Placement)
-        │ SnapshotCodec
-        ▼
-MatchClient.Items  (full list incl. Buried)
-   ├─ WorldRenderer: Toolbox/Loose drawn under fog as today; Buried drawn ONLY while the local
-   │                 miner is Listening AND within ListenItemRevealRadius (shimmer, through rock)
-   └─ MatchAudio: while Listening with a Buried item in range → soft chime panned to nearest
+   ├─ CompleteActivity (mine) ─┐                                                           │
+   └─ Detonate (blast) ────────┴─► UnburyItemsAt(pos): Buried → Loose  + ItemUnburied event│
+        │ SnapshotFactory.Capture → WorldSnapshot.Items[] (ItemSnapshot gains Placement)   │
+        ▼ SnapshotCodec                                                                    ▼
+MatchClient.Items (full list incl. Buried)              MatchClient.Decoys (from client's map regen)
+   ├─ WorldRenderer: Toolbox/Loose drawn under fog as today. Buried items AND decoys draw a
+   │                 NEUTRAL shimmer (identical, no kind) ONLY while Listening AND within
+   │                 ListenItemRevealRadius — through rock. A buried item shimmers while its
+   │                 Placement==Buried; a decoy shimmers while its tile is still Rock.
+   └─ MatchAudio: spill SFX on Buried→Loose; while Listening with any suspicious spot
+                  (buried item OR decoy) in range → soft neutral chime panned to nearest
 ```
 
 ---
@@ -105,11 +113,15 @@ site (and 4c-2a tests) meaning "visible, collectible floor item."
 public int BaseItemCount  { get; set; } = 9;   // TOTAL items on the base 24×24 map (unchanged)
 public int ItemsPerPlayer { get; set; } = 1;   // light scaling with player count (unchanged)
 public int VisibleItemCount { get; set; } = 2;  // of the total, this many are visible toolboxes; rest are buried
+public int DecoyCount { get; set; } = 4;        // empty "suspicious spots" that shimmer under Listen but hold nothing
 ```
 
 Total stays `BaseItemCount + ItemsPerPlayer * (PlayerCount - 1)`. Of that total,
 `min(VisibleItemCount, …)` are toolboxes and the remainder are buried — "mostly buried, few
-toolboxes." (At 1 player: 2 toolboxes + 7 buried; at 8 players: 2 + 14.)
+toolboxes." (At 1 player: 2 toolboxes + 7 buried; at 8 players: 2 + 14.) On top of the items,
+`DecoyCount` empty suspicious spots are placed in rock (see below); with ~7 buried at 1 player
+that's roughly a third false signals — enough that Listen is a gamble, not a treasure map.
+`DecoyCount` is a single fixed knob for now (tunable; could scale with players later).
 
 **`MapGenerator.PlaceItems`** is rewritten to place both flavors (still called after `PlaceGold`,
 still returns the list assigned to `GeneratedMap.Items`):
@@ -153,17 +165,47 @@ private static List<Item> PlaceItems(TileGrid g, Random rng, int total, int visi
 }
 ```
 
-`Generate` computes the counts and calls it:
-
-```csharp
-int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
-var items = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
-```
-
 `HasRegionNeighbor` already exists (used by `PlaceGold`). Buried items therefore sit on the same
 rim-rock band as gold; since the candidate filter is `== TileType.Rock`, gold tiles (already
 `GoldRock`) are naturally excluded, and two items can never share a tile (floor vs. rock pools
 are disjoint).
+
+**`MapGenerator.PlaceDecoys`** — a new sibling pass placing empty suspicious spots. It draws from
+the **same rim-rock pool** as buried items so a decoy is indistinguishable from a real cache, and
+excludes tiles already holding an item:
+
+```csharp
+// "Suspicious spots" with no item: deterministic rock positions that shimmer under Listen exactly
+// like buried items, so the only way to tell a real cache from a decoy is to dig. Same rim-rock
+// candidate pool as buried items, minus tiles already holding a (buried) item.
+private static List<GridPos> PlaceDecoys(TileGrid g, Random rng, int count,
+    HashSet<GridPos> region, IEnumerable<Item> items)
+{
+    var taken = new HashSet<GridPos>(items.Select(it => it.Pos));
+    var cands = g.Positions()
+        .Where(p => g.Get(p) == TileType.Rock && !taken.Contains(p) && HasRegionNeighbor(g, p, region))
+        .ToList();
+    Shuffle(cands, rng);
+    return cands.Take(Math.Min(count, cands.Count)).ToList();
+}
+```
+
+**`GeneratedMap`** gains `public required IReadOnlyList<GridPos> Decoys { get; init; }`.
+
+`Generate` computes the counts and calls both passes (decoys after items, sharing the same `rng`
+so the whole map stays deterministic for a seed):
+
+```csharp
+int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
+var items  = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
+var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
+
+return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys };
+```
+
+Decoys are **map-gen output only** — never added to `Simulation` (the host seeds the sim from
+`map.Items` alone), never synced. They never change state, so each client's deterministic map
+regen (which already happens for tiles/fog) reproduces the identical decoy set for free.
 
 ---
 
@@ -267,45 +309,62 @@ No pickup or unbury event crosses the wire. The client derives both from the syn
 vanishing = picked up (existing 4c-2a SFX); an item whose `Placement` flips `Buried → Loose` =
 unburied (new spill SFX, Section 4).
 
+**Decoys cross no wire at all.** They aren't items and aren't in the sim — they're a deterministic
+`MapGenerator` output (`GeneratedMap.Decoys`) that every client reproduces from the shared
+`MatchSeed` during its existing map regen. Nothing about a decoy ever changes, so there is no state
+to sync.
+
 **Trust note.** Buried-item positions are already on the wire (full-state sync, like the whole
-grid). The Listen reveal is a *presentation* gate, identical to how fog ships the full grid but
-renders only what's lit. This stays within the established naive-sync model; hardening client
-trust is out of scope for the whole project tier.
+grid), and decoy positions are derivable from the seed. The Listen reveal is a *presentation*
+gate, identical to how fog ships the full grid but renders only what's lit. This stays within the
+established naive-sync model; hardening client trust is out of scope for the whole project tier.
 
 ---
 
 ## Section 4 — Godot layer (toolbox render, Listen reveal, SFX)
 
-**Expose Listening to the renderer.** `MatchClient` gains `public bool Listening;`. In
-`Main._PhysicsProcess`, where `listening` is already computed, also set `_client.Listening = listening;`.
+**Plumb Listening and decoys to the renderer.** `MatchClient` gains `public bool Listening;` (set
+each frame in `Main._PhysicsProcess`, where `listening` is already computed:
+`_client.Listening = listening;`) and `public IReadOnlyList<GridPos> Decoys` (set once in `Begin`
+from the client's regenerated `map.Decoys`; thread it through `Main._Ready`'s `_client.Begin(...)`
+call).
 
 **Render (`WorldRenderer._Draw`):**
 
 - **`Toolbox` items:** the existing fog-gated colored dot, plus a small square "toolbox" outline
   (`DrawRect` border) behind it so visible items read as sitting in a box.
 - **`Loose` items:** the existing fog-gated colored dot, no box (spilled rubble).
-- **`Buried` items:** drawn **only** when `_client.Listening` **and** the tile is within
-  `ListenItemRevealRadius` (Chebyshev) of the local miner — rendered as a **pulsing shimmer** in
-  the item's kind color (semi-transparent, alpha oscillating over time), drawn **regardless of
-  fog** (you sense it through the stone). Outside Listen or beyond the radius, buried items draw
-  nothing.
+- **Suspicious spots — `Buried` items AND decoys:** drawn **only** when `_client.Listening`
+  **and** the tile is within `ListenItemRevealRadius` (Chebyshev) of the local miner — rendered as
+  a **neutral pulsing shimmer**: a single muted color (e.g. pale yellow/white), a soft diffuse glow
+  over the tile (not a sharp icon), alpha oscillating over time, drawn **regardless of fog** (you
+  sense it through the stone). **Crucially, buried items and decoys render identically** — no kind
+  color, no shape difference — so the player cannot tell a real cache from an empty spot without
+  digging. A **buried item** shimmers while its synced `Placement == Buried`; a **decoy** shimmers
+  while its tile is still `TileType.Rock`. Once the rock is destroyed, a real item drops as a
+  colored `Loose` dot (its kind finally revealed) and a decoy simply stops shimmering with nothing
+  there. Outside Listen or beyond the radius, nothing draws.
 
-Add a client-side tunable near the other render consts:
-`private const int ListenItemRevealRadius = 6;` (tiles) — and the pulse period (e.g. ~0.8 s).
+Add client-side tunables near the other render consts:
+`private const int ListenItemRevealRadius = 6;` (tiles) and the pulse period (e.g. ~0.8 s).
 Drive the pulse from `Time.GetTicksMsec()`; while `Listening`, `WorldRenderer` calls `QueueRedraw()`
 each `_Process` frame so the shimmer animates (it otherwise redraws on snapshot apply ~30 Hz).
 
-Revealing the kind *color* (not just "something here") is intentional — Listen becomes a scouting
-tool worth standing still for. Tunable to a neutral shimmer if play-test finds it too strong.
+The kind is **never** revealed by Listen — only by actually surfacing the item (drop or toolbox).
+That keeps the signal honest-but-ambiguous: you learn *where to consider digging*, not *what you'll
+get* or even *whether there's anything*.
 
 **Spill SFX (`MatchAudio`):** alongside the existing `_prevItems` pickup diff, track each item's
 `Placement`. A position whose placement went `Buried → Loose` between frames is a fresh unbury;
-if near the local miner, play a short "spill/chime" `SfxLibrary` tone positionally at that tile.
-(Add a `Spill`/`Unbury` placeholder tone to `SfxLibrary`, like `Pickup` but lower/grittier.)
+if near the local miner, play a short "spill" `SfxLibrary` tone positionally at that tile. (Add a
+`Spill`/`Unbury` placeholder tone to `SfxLibrary`, like `Pickup` but lower/grittier.) This fires
+only for **real** items — mining a decoy makes only the ordinary rock-mined sound, which is itself
+the "nothing here" feedback.
 
-**Listen chime (`MatchAudio`, optional polish):** while `Listening`, if ≥1 `Buried` item is within
-`ListenItemRevealRadius` of the local miner, emit a soft periodic ping (~every 0.8 s) panned
-toward and scaled by proximity to the nearest such item. This rides the existing listen-audio path
+**Listen chime (`MatchAudio`, optional polish):** while `Listening`, if ≥1 suspicious spot — a
+`Buried` item **or** a still-rock decoy — is within `ListenItemRevealRadius` of the local miner,
+emit a soft periodic ping (~every 0.8 s) panned toward and scaled by proximity to the nearest such
+spot. The chime is the same for items and decoys (no tell). It rides the existing listen-audio path
 (`SetListening` already toggles listen audio state). Mark as cuttable if it feels noisy in
 play-test — the visual shimmer is the primary reveal.
 
@@ -323,6 +382,15 @@ chime layer over the same Listen state, not a second compass arrow.
 - No buried item sits on `GoldRock` or `ImpermeableRock`; toolbox and buried positions are disjoint.
 - Deterministic: same seed twice → identical `Items` (positions, kinds, **placements**).
 - Kinds are round-robin balanced over the combined ordered list.
+
+**Decoys (`MapGeneratorItemsTests`):**
+- `map.Decoys.Count == min(DecoyCount, candidate count)`.
+- Every decoy is on an ordinary `Rock` tile bordering the traversable region — never `GoldRock`,
+  `ImpermeableRock`, `Floor`, or a spawn.
+- Decoys are **disjoint** from all item positions (no decoy on a real buried item).
+- Deterministic: same seed twice → identical `Decoys`.
+- Decoys are **not** items: building a `Simulation` from `map` (seeding only `map.Items`) leaves
+  `sim.Items` free of any decoy position.
 
 **Pickup guard (`SimulationItemsTests`):**
 - A `Buried` item is **not** collected: with a buried item present, ticking with miners around it
@@ -361,6 +429,14 @@ no Core test.
 - **`ItemSnapshot` is positional in the codec** — adding `Placement` means updating both the
   `Write` loop and the `Read` constructor (3 → 4 ints per item). Same edit shape as 4c-2a's
   original item block.
-- **Reveal is client-side** — no new RPC. The buried positions already ride the snapshot; Listen
-  only gates *rendering* them. Consistent with fog and the project's naive full-state-sync tier.
+- **Reveal is client-side** — no new RPC. The buried positions already ride the snapshot, decoys
+  ride the seed; Listen only gates *rendering* them. Consistent with fog and the project's naive
+  full-state-sync tier.
+- **Decoys are honest red herrings, not netcode** — they self-resolve (stop shimmering) the moment
+  their rock is gone, needing zero state: the renderer just checks the live grid. The false-signal
+  rate is `DecoyCount` against the buried count; tune so Listen stays a *useful gamble* — too few
+  and it's a treasure map, too many and players stop trusting it. Default ~4 decoys vs. ~7 buried.
+- **Decoys must read identically to buried items** — same shimmer, same chime, no kind/shape tell.
+  If they ever diverge visually the bluff collapses; this is the one client-side invariant worth a
+  careful play-test.
 - **ReachCenter sparsity** carries over from 4c-2a (larger map, same base count) — unchanged here.
