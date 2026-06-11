@@ -13,6 +13,7 @@ public sealed class MapConfig
     public int GoldVeinCount { get; set; } = 8;
     public int BaseItemCount { get; set; } = 9;   // items on the base map
     public int ItemsPerPlayer { get; set; } = 1;  // light scaling with player count / map growth
+    public int VisibleItemCount { get; set; } = 2;  // of the total, this many are visible toolboxes; rest are buried
 
     // Water generation (Phase 4a).
     public int PoolCount { get; set; } = 3;
