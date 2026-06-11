@@ -23,8 +23,9 @@ public static class MapGenerator
         PlaceGold(grid, rng, config.GoldVeinCount, region);
         int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
         var items = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
+        var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
 
-        return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center, Items = items };
+        return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys };
     }
 
     private static bool IsBorder(TileGrid g, GridPos p) =>
@@ -289,6 +290,20 @@ public static class MapGenerator
         for (int i = 0; i < placed.Count; i++)
             items.Add(new Item(placed[i].Pos, kinds[i % kinds.Length], placed[i].Placement));
         return items;
+    }
+
+    // "Suspicious spots" with no item: deterministic rock positions that shimmer under Listen
+    // exactly like buried items, so the only way to tell a real cache from a decoy is to dig. Same
+    // rim-rock candidate pool as buried items, minus tiles already holding a (buried) item.
+    private static List<GridPos> PlaceDecoys(TileGrid g, Random rng, int count,
+        HashSet<GridPos> region, IEnumerable<Item> items)
+    {
+        var taken = new HashSet<GridPos>(items.Select(it => it.Pos));
+        var cands = g.Positions()
+            .Where(p => g.Get(p) == TileType.Rock && !taken.Contains(p) && HasRegionNeighbor(g, p, region))
+            .ToList();
+        Shuffle(cands, rng);
+        return cands.Take(Math.Min(count, cands.Count)).ToList();
     }
 
     private static bool HasRegionNeighbor(TileGrid g, GridPos p, HashSet<GridPos> region)
