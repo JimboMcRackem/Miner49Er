@@ -12,27 +12,46 @@ public class MapGeneratorItemsTests
     {
         var a = MapGenerator.Generate(Cfg());
         var b = MapGenerator.Generate(Cfg());
-        Assert.Equal(a.Items, b.Items); // same positions and kinds, same order
+        Assert.Equal(a.Items, b.Items); // same positions, kinds, and placements, same order
     }
 
     [Fact]
-    public void Items_land_on_floor_and_never_on_a_spawn()
+    public void Total_item_count_scales_with_player_count()
+    {
+        Assert.Equal(9, MapGenerator.Generate(Cfg(players: 1)).Items.Count);  // 9 + 1*0
+        Assert.Equal(12, MapGenerator.Generate(Cfg(players: 4)).Items.Count); // 9 + 1*3
+    }
+
+    [Fact]
+    public void Exactly_VisibleItemCount_are_toolboxes_on_floor_never_a_spawn()
     {
         var map = MapGenerator.Generate(Cfg(players: 4));
         var spawns = map.Spawns.ToHashSet();
-        Assert.NotEmpty(map.Items);
-        foreach (var item in map.Items)
+        var toolboxes = map.Items.Where(it => it.Placement == ItemPlacement.Toolbox).ToList();
+        Assert.Equal(2, toolboxes.Count); // VisibleItemCount default
+        foreach (var it in toolboxes)
         {
-            Assert.Equal(TileType.Floor, map.Grid.Get(item.Pos));
-            Assert.DoesNotContain(item.Pos, spawns);
+            Assert.Equal(TileType.Floor, map.Grid.Get(it.Pos));
+            Assert.DoesNotContain(it.Pos, spawns);
         }
     }
 
     [Fact]
-    public void Item_count_scales_with_player_count()
+    public void The_rest_are_buried_in_ordinary_rock()
     {
-        Assert.Equal(9, MapGenerator.Generate(Cfg(players: 1)).Items.Count);  // 9 + 1*0
-        Assert.Equal(12, MapGenerator.Generate(Cfg(players: 4)).Items.Count); // 9 + 1*3
+        var map = MapGenerator.Generate(Cfg(players: 4));
+        var buried = map.Items.Where(it => it.Placement == ItemPlacement.Buried).ToList();
+        Assert.Equal(map.Items.Count - 2, buried.Count);
+        Assert.NotEmpty(buried);
+        foreach (var it in buried)
+            Assert.Equal(TileType.Rock, map.Grid.Get(it.Pos)); // plain rock, never GoldRock/Impermeable/Floor
+    }
+
+    [Fact]
+    public void Toolbox_and_buried_positions_are_disjoint()
+    {
+        var map = MapGenerator.Generate(Cfg(players: 4));
+        Assert.Equal(map.Items.Count, map.Items.Select(it => it.Pos).Distinct().Count());
     }
 
     [Fact]

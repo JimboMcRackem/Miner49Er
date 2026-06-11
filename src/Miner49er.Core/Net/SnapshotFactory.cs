@@ -19,7 +19,7 @@ public static class SnapshotFactory
             .ToList();
 
         var items = sim.Items
-            .Select(it => new ItemSnapshot(it.Pos.X, it.Pos.Y, it.Kind))
+            .Select(it => new ItemSnapshot(it.Pos.X, it.Pos.Y, it.Kind, it.Placement))
             .ToList();
 
         return new WorldSnapshot(tick, miners, charges, items, (float)sim.SecondsRemaining);

@@ -8,7 +8,7 @@ public readonly record struct MinerSnapshot(
 
 public readonly record struct ChargeSnapshot(int OwnerId, int X, int Y, double FuseRemaining);
 
-public readonly record struct ItemSnapshot(int X, int Y, ItemKind Kind);
+public readonly record struct ItemSnapshot(int X, int Y, ItemKind Kind, ItemPlacement Placement);
 
 /// <summary>One floor cell that changed; FromBlast drives the flash, NewType is
 /// the tile it became (Floor for mining/blasts, water for the flood).</summary>

@@ -18,6 +18,8 @@ public partial class MatchClient : Node2D
 	public IReadOnlyList<ChargeSnapshot> Charges => _charges;
 	public IReadOnlyList<ItemSnapshot> Items => _items;
 	public int LocalMinerId { get; private set; }
+	public bool Listening; // set by Main each frame; gates the buried-item shimmer
+	public IReadOnlyList<GridPos> Decoys { get; private set; } = System.Array.Empty<GridPos>();
 	public float SecondsRemaining { get; private set; } = -1f;
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
 
@@ -30,10 +32,11 @@ public partial class MatchClient : Node2D
 	private FogRenderer _fogRenderer = null!;
 	private Node2D _camera = null!;
 
-	public void Begin(TileGrid grid, int localMinerId, Node2D sceneRoot)
+	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot)
 	{
 		Grid = grid;
 		LocalMinerId = localMinerId;
+		Decoys = decoys;
 
 		_world = new WorldRenderer { Name = "WorldRenderer", ZIndex = -10 };
 		sceneRoot.AddChild(_world);

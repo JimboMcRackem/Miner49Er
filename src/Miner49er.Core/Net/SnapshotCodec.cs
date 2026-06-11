@@ -33,7 +33,7 @@ public static class SnapshotCodec
         w.Write(snap.Items.Count);
         foreach (var it in snap.Items)
         {
-            w.Write(it.X); w.Write(it.Y); w.Write((int)it.Kind);
+            w.Write(it.X); w.Write(it.Y); w.Write((int)it.Kind); w.Write((int)it.Placement);
         }
 
         w.Write(update.TileChanges.Count);
@@ -69,7 +69,7 @@ public static class SnapshotCodec
         int itemCount = r.ReadInt32();
         var items = new List<ItemSnapshot>(itemCount);
         for (int i = 0; i < itemCount; i++)
-            items.Add(new ItemSnapshot(r.ReadInt32(), r.ReadInt32(), (ItemKind)r.ReadInt32()));
+            items.Add(new ItemSnapshot(r.ReadInt32(), r.ReadInt32(), (ItemKind)r.ReadInt32(), (ItemPlacement)r.ReadInt32()));
 
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);

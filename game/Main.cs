@@ -30,7 +30,7 @@ public partial class Main : Node2D
 
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
-		_client.Begin(map.Grid, localMinerId, this);
+		_client.Begin(map.Grid, map.Decoys, localMinerId, this);
 
 		_audio = new MatchAudio { Name = "MatchAudio" };
 		AddChild(_audio);
@@ -118,6 +118,7 @@ public partial class Main : Node2D
 		bool listening = localAlive && Input.IsActionPressed(InputBindings.Listen);
 		if (_input != null) _input.Listening = listening;
 		_compass.Active = listening;
+		_client.Listening = listening;
 		if (listening != _wasListening)
 		{
 			AudioManager.Instance.SetListening(listening);

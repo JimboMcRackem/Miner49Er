@@ -21,6 +21,7 @@ public static class SfxLibrary
 	public static AudioStream Drip => Get("drip", () => Tone(0.12f, 900f, 600f));
 	public static AudioStream Splash => Get("splash", () => Noise(0.25f, 700f, decay: true));
 	public static AudioStream Pickup => Get("pickup", () => Tone(0.12f, 700f, 1200f)); // bright rising blip
+	public static AudioStream Spill => Get("spill", () => Tone(0.18f, 500f, 160f)); // gritty falling — rubble spilling an item
 	public static AudioStream? Music => GetOptional("music_loop");
 
 	private static AudioStream Get(string name, Func<AudioStream> placeholder)

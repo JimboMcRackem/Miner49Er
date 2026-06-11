@@ -21,10 +21,11 @@ public static class MapGenerator
         var spawns = PlaceSpawns(grid, rng, config.PlayerCount, config.MinSpawnDistance, region);
         var center = NearestFloorToCenter(grid, region);
         PlaceGold(grid, rng, config.GoldVeinCount, region);
-        int itemCount = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
-        var items = PlaceItems(grid, rng, itemCount, region, spawns);
+        int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
+        var items = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
+        var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
 
-        return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center, Items = items };
+        return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys };
     }
 
     private static bool IsBorder(TileGrid g, GridPos p) =>
@@ -255,25 +256,54 @@ public static class MapGenerator
         foreach (var p in candidates.Take(veins)) g.Set(p, TileType.GoldRock);
     }
 
-    // Items sit on Floor tiles inside the traversable region, never on a spawn.
-    // Candidates are drawn in deterministic grid order, then seed-shuffled, so the
-    // result is identical on host and every client. Kinds cycle round-robin over
-    // ItemKind in placement order for a balanced, predictable spread.
-    private static List<Item> PlaceItems(TileGrid g, Random rng, int count,
+    // Items come in two flavors. A few sit visibly in toolboxes on Floor tiles; the rest are buried
+    // in ordinary Rock and only surface when that rock is destroyed. Both passes draw candidates in
+    // deterministic grid order then seed-shuffle, so host and every client agree. Kinds cycle
+    // round-robin over the COMBINED ordered list (toolboxes first, then buried) for a balanced spread.
+    private static List<Item> PlaceItems(TileGrid g, Random rng, int total, int visibleWanted,
         HashSet<GridPos> region, List<GridPos> spawns)
     {
         var spawnSet = new HashSet<GridPos>(spawns);
-        var candidates = g.Positions()
+
+        // Visible (toolbox) candidates: Floor in the traversable region, never a spawn tile.
+        var floorCands = g.Positions()
             .Where(p => region.Contains(p) && g.Get(p) == TileType.Floor && !spawnSet.Contains(p))
             .ToList();
-        Shuffle(candidates, rng);
+        Shuffle(floorCands, rng);
+
+        // Buried candidates: ordinary Rock (never GoldRock / ImpermeableRock) bordering the play
+        // area, so every buried item is reachable by mining/blasting the rim.
+        var rockCands = g.Positions()
+            .Where(p => g.Get(p) == TileType.Rock && HasRegionNeighbor(g, p, region))
+            .ToList();
+        Shuffle(rockCands, rng);
+
+        int visible = Math.Min(Math.Min(visibleWanted, floorCands.Count), total);
+        int buried = Math.Min(total - visible, rockCands.Count);
+
+        var placed = new List<(GridPos Pos, ItemPlacement Placement)>();
+        for (int i = 0; i < visible; i++) placed.Add((floorCands[i], ItemPlacement.Toolbox));
+        for (int i = 0; i < buried; i++) placed.Add((rockCands[i], ItemPlacement.Buried));
 
         var kinds = Enum.GetValues<ItemKind>();
         var items = new List<Item>();
-        int take = Math.Min(count, candidates.Count);
-        for (int i = 0; i < take; i++)
-            items.Add(new Item(candidates[i], kinds[i % kinds.Length]));
+        for (int i = 0; i < placed.Count; i++)
+            items.Add(new Item(placed[i].Pos, kinds[i % kinds.Length], placed[i].Placement));
         return items;
+    }
+
+    // "Suspicious spots" with no item: deterministic rock positions that shimmer under Listen
+    // exactly like buried items, so the only way to tell a real cache from a decoy is to dig. Same
+    // rim-rock candidate pool as buried items, minus tiles already holding a (buried) item.
+    private static List<GridPos> PlaceDecoys(TileGrid g, Random rng, int count,
+        HashSet<GridPos> region, IEnumerable<Item> items)
+    {
+        var taken = new HashSet<GridPos>(items.Select(it => it.Pos));
+        var cands = g.Positions()
+            .Where(p => g.Get(p) == TileType.Rock && !taken.Contains(p) && HasRegionNeighbor(g, p, region))
+            .ToList();
+        Shuffle(cands, rng);
+        return cands.Take(Math.Min(count, cands.Count)).ToList();
     }
 
     private static bool HasRegionNeighbor(TileGrid g, GridPos p, HashSet<GridPos> region)

@@ -239,6 +239,7 @@ public sealed class Simulation
         for (int i = _items.Count - 1; i >= 0; i--)
         {
             var item = _items[i];
+            if (item.Placement == ItemPlacement.Buried) continue;   // not collectible until unburied
             foreach (var m in _miners.Values)
             {
                 if (!m.Alive || m.Pos != item.Pos) continue;
@@ -247,6 +248,19 @@ public sealed class Simulation
                 _events.Add(new ItemPickedUp(m.Id, item.Pos, item.Kind));
                 break; // one miner collects it
             }
+        }
+    }
+
+    // Flips any buried item on a tile to a loose floor pickup. Called wherever rock becomes floor
+    // (mining completes, blast disc) so a destroyed cache spills its item onto the open tile.
+    private void UnburyItemsAt(GridPos pos)
+    {
+        for (int i = 0; i < _items.Count; i++)
+        {
+            var it = _items[i];
+            if (it.Placement != ItemPlacement.Buried || it.Pos != pos) continue;
+            _items[i] = it with { Placement = ItemPlacement.Loose };
+            _events.Add(new ItemUnburied(it.Pos, it.Kind));
         }
     }
 
@@ -349,6 +363,7 @@ public sealed class Simulation
                     var owner = _miners[charge.OwnerId];
                     if (owner.Alive) owner.GoldCollected++;
                 }
+                UnburyItemsAt(p);
                 destroyed.Add(p);
             }
 
@@ -378,6 +393,7 @@ public sealed class Simulation
             bool wasGold = Grid.Get(target) == TileType.GoldRock;
             Grid.Set(target, TileType.Floor);
             if (wasGold) m.GoldCollected++;
+            UnburyItemsAt(target);
             _events.Add(new RockMined(m.Id, target, wasGold));
         }
         else if (kind == ActivityKind.Planting)
