@@ -1,6 +1,6 @@
 namespace Miner49er.Core;
 
-public enum TileType { Floor, Rock, GoldRock, ImpermeableRock, ShallowWater, DeepWater }
+public enum TileType { Floor, Rock, GoldRock, ImpermeableRock, ShallowWater, DeepWater, Plank }
 
 public static class TileTypeExtensions
 {
@@ -8,11 +8,11 @@ public static class TileTypeExtensions
     public const double ShallowSlowFactor = 2.0;
 
     /// <summary>Safe to stand on (used for spawns, fog, drip placement, reachability).</summary>
-    public static bool IsWalkable(this TileType t) => t is TileType.Floor or TileType.ShallowWater;
+    public static bool IsWalkable(this TileType t) => t is TileType.Floor or TileType.ShallowWater or TileType.Plank;
 
     /// <summary>A miner may move onto this tile. Deep water is enterable but lethal.</summary>
     public static bool IsEnterable(this TileType t) =>
-        t is TileType.Floor or TileType.ShallowWater or TileType.DeepWater;
+        t is TileType.Floor or TileType.ShallowWater or TileType.DeepWater or TileType.Plank;
 
     /// <summary>Entering this tile kills the miner (drowning).</summary>
     public static bool IsLethal(this TileType t) => t == TileType.DeepWater;
