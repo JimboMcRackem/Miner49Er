@@ -8,11 +8,13 @@ public sealed class Simulation
     private readonly Dictionary<int, Miner> _miners = new();
     private readonly List<Charge> _charges = new();
     private readonly List<Item> _items = new();
+    private readonly List<MoldPatch> _molds = new();
     private readonly List<SimEvent> _events = new();
 
     public IReadOnlyCollection<Miner> Miners => _miners.Values;
     public IReadOnlyList<Charge> Charges => _charges;
     public IReadOnlyList<Item> Items => _items;
+    public IReadOnlyList<MoldPatch> Molds => _molds;
 
     public void AddItem(Item item) => _items.Add(item);   // host seeds these from GeneratedMap.Items
 
@@ -127,6 +129,19 @@ public sealed class Simulation
         return bonus;
     }
 
+    private void AdvanceMolds(double dt)
+    {
+        for (int i = _molds.Count - 1; i >= 0; i--)
+        {
+            _molds[i].RemainingSeconds -= dt;
+            if (_molds[i].RemainingSeconds <= 0)
+            {
+                _events.Add(new MoldExpired(_molds[i].Pos));
+                _molds.RemoveAt(i);
+            }
+        }
+    }
+
     private void AdvanceCooldowns(double dt)
     {
         foreach (var m in _miners.Values)
@@ -162,6 +177,10 @@ public sealed class Simulation
             FirstToReachCenter = id;
             _events.Add(new MinerReachedCenter(id));
         }
+
+        if (m.Alive && _molds.Any(mo => mo.Pos == target))
+            ApplyEffect(id, EffectKind.SlowMold, EffectChannel.MoveSpeed,
+                        Config.MoldSlowFactor, Config.MoldSlowSeconds);
 
         m.MoveCooldownRemaining = EffectiveMoveSeconds(m);   // set from destination tile
         return true;
@@ -211,6 +230,7 @@ public sealed class Simulation
     {
         Elapsed += dt;
         AdvanceEffects(dt);
+        AdvanceMolds(dt);
         AdvanceCooldowns(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
@@ -277,8 +297,20 @@ public sealed class Simulation
         return held switch
         {
             ItemKind.WaterPlank => TryPlacePlank(m),
-            _ => false,   // SlowMold wired in Task 4
+            ItemKind.SlowMold   => DropMold(m),
+            _ => false,
         };
+    }
+
+    // Drops a timed trap patch on the miner's own tile (refreshing an existing one).
+    private bool DropMold(Miner m)
+    {
+        var existing = _molds.FirstOrDefault(mo => mo.Pos == m.Pos);
+        if (existing is not null) existing.RemainingSeconds = Config.MoldSeconds;
+        else _molds.Add(new MoldPatch(m.Pos, Config.MoldSeconds));
+        m.Held = null;
+        _events.Add(new MoldDropped(m.Pos));
+        return true;
     }
 
     // Lays a permanent, flood-immune Plank tile on the faced water tile (shallow or deep).
