@@ -14,15 +14,19 @@ public class SimulationMoldTests
     }
 
     [Fact]
-    public void Dropping_a_mold_places_a_patch_and_empties_the_hand()
+    public void Dropping_a_mold_spreads_patches_over_a_manhattan_disc()
     {
         var sim = MoldSim(out var placer);
         Assert.True(sim.TryUseItem(1));     // empty hand, on empty tile -> use held -> drop mold
         Assert.Null(placer.Held);
-        var patch = Assert.Single(sim.Molds);
-        Assert.Equal(new GridPos(3, 3), patch.Pos);
-        Assert.Equal(sim.Config.MoldSeconds, patch.RemainingSeconds, 3);
-        Assert.Single(sim.DrainEvents().OfType<MoldDropped>());
+
+        // On a 7x7 all-floor grid centred at (3,3), the whole radius-r disc is in bounds.
+        int r = sim.Config.MoldRadius;
+        int expected = 2 * r * (r + 1) + 1; // tiles within Manhattan distance r
+        Assert.Equal(expected, sim.Molds.Count);
+        Assert.Contains(sim.Molds, mo => mo.Pos == new GridPos(3, 3));         // includes the centre
+        Assert.All(sim.Molds, mo => Assert.Equal(sim.Config.MoldSeconds, mo.RemainingSeconds, 3));
+        Assert.Single(sim.DrainEvents().OfType<MoldDropped>());                // one event, at the centre
     }
 
     [Fact]
@@ -54,19 +58,20 @@ public class SimulationMoldTests
         sim.TryUseItem(1);
         sim.Tick(sim.Config.MoldSeconds + 0.01);
         Assert.Empty(sim.Molds);
-        Assert.Single(sim.DrainEvents().OfType<MoldExpired>());
+        Assert.NotEmpty(sim.DrainEvents().OfType<MoldExpired>()); // one per patch in the spread
     }
 
     [Fact]
     public void Re_dropping_on_an_existing_patch_refreshes_without_duplicating()
     {
         var sim = MoldSim(out var placer);
-        sim.TryUseItem(1);                 // drop #1
-        sim.Tick(5.0);                     // patch down to ~15s
+        sim.TryUseItem(1);                 // drop #1 (a disc)
+        int countAfterFirst = sim.Molds.Count;
+        sim.Tick(5.0);                     // patches down to ~15s
         sim.AddItem(new Item(new GridPos(3, 3), ItemKind.SlowMold));
         sim.TryUseItem(1);                 // pick up the new one
-        sim.TryUseItem(1);                 // drop #2 on the same tile -> refresh
-        var patch = Assert.Single(sim.Molds);
-        Assert.Equal(sim.Config.MoldSeconds, patch.RemainingSeconds, 3);
+        sim.TryUseItem(1);                 // drop #2 on the same centre -> refresh the same disc
+        Assert.Equal(countAfterFirst, sim.Molds.Count); // no growth: same tiles refreshed
+        Assert.All(sim.Molds, mo => Assert.Equal(sim.Config.MoldSeconds, mo.RemainingSeconds, 3));
     }
 }

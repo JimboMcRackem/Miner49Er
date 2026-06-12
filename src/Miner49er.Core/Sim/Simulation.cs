@@ -302,12 +302,21 @@ public sealed class Simulation
         };
     }
 
-    // Drops a timed trap patch on the miner's own tile (refreshing an existing one).
+    // Drops a spread of timed trap patches in a Manhattan disc around the miner's tile
+    // (refreshing any that already exist), so the slow-zone is harder to skirt.
     private bool DropMold(Miner m)
     {
-        var existing = _molds.FirstOrDefault(mo => mo.Pos == m.Pos);
-        if (existing is not null) existing.RemainingSeconds = Config.MoldSeconds;
-        else _molds.Add(new MoldPatch(m.Pos, Config.MoldSeconds));
+        int r = Config.MoldRadius;
+        for (int dy = -r; dy <= r; dy++)
+            for (int dx = -r; dx <= r; dx++)
+            {
+                if (Math.Abs(dx) + Math.Abs(dy) > r) continue;
+                var p = new GridPos(m.Pos.X + dx, m.Pos.Y + dy);
+                if (!Grid.InBounds(p) || !Grid.Get(p).IsEnterable()) continue;
+                var existing = _molds.FirstOrDefault(mo => mo.Pos == p);
+                if (existing is not null) existing.RemainingSeconds = Config.MoldSeconds;
+                else _molds.Add(new MoldPatch(p, Config.MoldSeconds));
+            }
         m.Held = null;
         _events.Add(new MoldDropped(m.Pos));
         return true;

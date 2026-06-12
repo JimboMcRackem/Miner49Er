@@ -87,10 +87,9 @@ public class SnapshotFactoryTests
 
         Assert.Equal((int)ItemKind.WaterPlank, snap.Miners.Single(m => m.Id == 1).Held);
         Assert.Equal(-1, snap.Miners.Single(m => m.Id == 2).Held); // empty hand
-        var patch = Assert.Single(snap.Molds);
-        Assert.Equal(1, patch.X);
-        Assert.Equal(1, patch.Y);
-        Assert.Equal(sim.Config.MoldSeconds, patch.RemainingSeconds, 3);
+        Assert.NotEmpty(snap.Molds);
+        Assert.Contains(snap.Molds, mo => mo.X == 1 && mo.Y == 1); // the drop centre
+        Assert.All(snap.Molds, mo => Assert.Equal(sim.Config.MoldSeconds, mo.RemainingSeconds, 3));
     }
 
     [Fact]

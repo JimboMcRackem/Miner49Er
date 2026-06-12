@@ -123,10 +123,14 @@ public partial class MatchAudio : Node2D
 		// New mold patches (not present last frame) -> squelch near the local miner.
 		var moldNow = new HashSet<(int x, int y)>();
 		foreach (var mo in _client.Molds) moldNow.Add((mo.X, mo.Y));
+		bool squelched = false; // one squelch per drop, not one per patch in the spread
 		foreach (var key in moldNow)
-			if (!_prevMolds.Contains(key) && localTile is { } lt3
+			if (!squelched && !_prevMolds.Contains(key) && localTile is { } lt3
 				&& System.Math.Abs(lt3.x - key.x) <= 8 && System.Math.Abs(lt3.y - key.y) <= 8)
+			{
 				OneShot(SfxLibrary.Squelch, WorldOf(key.x, key.y));
+				squelched = true;
+			}
 		_prevMolds.Clear();
 		foreach (var key in moldNow) _prevMolds.Add(key);
 

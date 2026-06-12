@@ -350,9 +350,13 @@ in `GeneratedMap.Items` and the host seeds them via the existing `AddItem` loop.
 
 ```csharp
 public double MoldSeconds     { get; set; } = 20.0;  // patch lifetime before it decays
+public int    MoldRadius      { get; set; } = 2;     // Manhattan radius of the dropped patch spread
 public double MoldSlowFactor  { get; set; } = 1.6;   // move-cadence ×1.6 (slower) when stepped on
 public double MoldSlowSeconds { get; set; } = 3.0;   // how long the slow lingers after stepping on
 ```
+
+A drop spreads patches over a Manhattan disc of `MoldRadius` (enterable tiles only),
+making the slow-zone a real area to route around rather than a single dodgeable tile.
 
 `MoldSlowFactor > 1` slows (consistent with shallow-water's 2.0, opposite the speed-potion's
 0.6). Plank has no tunables — placement is binary and the tile is permanent.
