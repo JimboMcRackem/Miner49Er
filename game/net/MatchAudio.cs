@@ -21,6 +21,8 @@ public partial class MatchAudio : Node2D
 	private readonly Dictionary<int, bool> _prevAlive = new();
 	private readonly HashSet<(int x, int y)> _prevItems = new();
 	private readonly Dictionary<(int x, int y), ItemPlacement> _prevPlacement = new();
+	private readonly Dictionary<int, int> _prevHeld = new();
+	private readonly HashSet<(int x, int y)> _prevMolds = new();
 	private readonly Dictionary<int, AudioStreamPlayer2D> _pickaxeLoops = new();
 	private readonly List<AudioStreamPlayer2D> _dripEmitters = new();
 
@@ -80,6 +82,20 @@ public partial class MatchAudio : Node2D
 				OneShot(drowned ? SfxLibrary.Splash : SfxLibrary.Death, WorldOf(m.X, m.Y));
 			}
 			_prevAlive[m.Id] = m.Alive;
+
+			if (m.Id == _client.LocalMinerId)
+			{
+				int prevHeld = _prevHeld.TryGetValue(m.Id, out var ph) ? ph : -1;
+				if (m.Held != prevHeld)
+				{
+					if (m.Held != -1)
+						OneShot(SfxLibrary.Grab, WorldOf(m.X, m.Y));        // picked up / swapped
+					else if (prevHeld == (int)ItemKind.WaterPlank)
+						OneShot(SfxLibrary.Plank, WorldOf(m.X, m.Y));       // laid a plank (hand emptied)
+					// SlowMold -> empty (mold dropped) is covered by the new-patch Squelch below
+				}
+				_prevHeld[m.Id] = m.Held;
+			}
 		}
 
 		var localTile = LocalTile();
@@ -103,6 +119,16 @@ public partial class MatchAudio : Node2D
 				&& System.Math.Abs(lt2.x - it.X) <= 1 && System.Math.Abs(lt2.y - it.Y) <= 1)
 				OneShot(SfxLibrary.Spill, WorldOf(it.X, it.Y));
 		}
+
+		// New mold patches (not present last frame) -> squelch near the local miner.
+		var moldNow = new HashSet<(int x, int y)>();
+		foreach (var mo in _client.Molds) moldNow.Add((mo.X, mo.Y));
+		foreach (var key in moldNow)
+			if (!_prevMolds.Contains(key) && localTile is { } lt3
+				&& System.Math.Abs(lt3.x - key.x) <= 8 && System.Math.Abs(lt3.y - key.y) <= 8)
+				OneShot(SfxLibrary.Squelch, WorldOf(key.x, key.y));
+		_prevMolds.Clear();
+		foreach (var key in moldNow) _prevMolds.Add(key);
 
 		_prevItems.Clear();
 		_prevPlacement.Clear();
