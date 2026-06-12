@@ -5,7 +5,7 @@ namespace Miner49er;
 
 /// <summary>Reads local input each frame and forwards it to the host:
 /// the current desired direction (or -1) every frame, and edge-triggered
-/// mine/plant actions on key-down.</summary>
+/// mine/plant/use actions on key-down.</summary>
 public partial class InputSender : Node
 {
 	public bool Enabled = true; // disabled when the local miner is dead (spectating)
@@ -25,7 +25,8 @@ public partial class InputSender : Node
 
 		bool mine = Input.IsActionJustPressed(InputBindings.Pickaxe);
 		bool plant = Input.IsActionJustPressed(InputBindings.Plant);
-		if (mine || plant) NetworkManager.Instance.SendAction(mine, plant);
+		bool use = Input.IsActionJustPressed(InputBindings.UseItem);
+		if (mine || plant || use) NetworkManager.Instance.SendAction(mine, plant, use);
 	}
 
 	private static int ReadDir()

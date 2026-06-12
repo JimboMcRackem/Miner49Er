@@ -215,18 +215,18 @@ public partial class NetworkManager : Node
 		RpcId(1, nameof(ReceiveDir), dir);
 	}
 
-	public void SendAction(bool mine, bool plant)
+	public void SendAction(bool mine, bool plant, bool use)
 	{
-		if (IsHost) { _matchHost?.SetAction(LocalId, mine, plant); return; }
-		RpcId(1, nameof(ReceiveAction), mine, plant);
+		if (IsHost) { _matchHost?.SetAction(LocalId, mine, plant, use); return; }
+		RpcId(1, nameof(ReceiveAction), mine, plant, use);
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Unreliable)]
 	public void ReceiveDir(int dir) => _matchHost?.SetDir(Multiplayer.GetRemoteSenderId(), dir);
 
 	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
-	public void ReceiveAction(bool mine, bool plant) =>
-		_matchHost?.SetAction(Multiplayer.GetRemoteSenderId(), mine, plant);
+	public void ReceiveAction(bool mine, bool plant, bool use) =>
+		_matchHost?.SetAction(Multiplayer.GetRemoteSenderId(), mine, plant, use);
 
 	// Tick + result broadcast ------------------------------------------------
 	public void BroadcastTick(byte[] bytes)
