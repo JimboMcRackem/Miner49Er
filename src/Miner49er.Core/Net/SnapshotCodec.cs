@@ -21,7 +21,7 @@ public static class SnapshotCodec
         {
             w.Write(m.Id); w.Write(m.X); w.Write(m.Y); w.Write(m.Facing);
             w.Write(m.Alive); w.Write(m.Gold); w.Write(m.Activity); w.Write(m.ActivityRemaining);
-            w.Write(m.MoveSeconds); w.Write(m.VisionRadius);
+            w.Write(m.MoveSeconds); w.Write(m.VisionRadius); w.Write(m.Held);
         }
 
         w.Write(snap.Charges.Count);
@@ -34,6 +34,12 @@ public static class SnapshotCodec
         foreach (var it in snap.Items)
         {
             w.Write(it.X); w.Write(it.Y); w.Write((int)it.Kind); w.Write((int)it.Placement);
+        }
+
+        w.Write(snap.Molds.Count);
+        foreach (var mo in snap.Molds)
+        {
+            w.Write(mo.X); w.Write(mo.Y); w.Write(mo.RemainingSeconds);
         }
 
         w.Write(update.TileChanges.Count);
@@ -59,7 +65,8 @@ public static class SnapshotCodec
         for (int i = 0; i < minerCount; i++)
             miners.Add(new MinerSnapshot(
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
-                r.ReadBoolean(), r.ReadInt32(), r.ReadInt32(), r.ReadDouble(), r.ReadDouble(), r.ReadInt32()));
+                r.ReadBoolean(), r.ReadInt32(), r.ReadInt32(), r.ReadDouble(), r.ReadDouble(),
+                r.ReadInt32(), r.ReadInt32()));
 
         int chargeCount = r.ReadInt32();
         var charges = new List<ChargeSnapshot>(chargeCount);
@@ -71,11 +78,16 @@ public static class SnapshotCodec
         for (int i = 0; i < itemCount; i++)
             items.Add(new ItemSnapshot(r.ReadInt32(), r.ReadInt32(), (ItemKind)r.ReadInt32(), (ItemPlacement)r.ReadInt32()));
 
+        int moldCount = r.ReadInt32();
+        var molds = new List<MoldSnapshot>(moldCount);
+        for (int i = 0; i < moldCount; i++)
+            molds.Add(new MoldSnapshot(r.ReadInt32(), r.ReadInt32(), r.ReadDouble()));
+
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
             changes.Add(new TileChange(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean(), (TileType)r.ReadInt32()));
 
-        return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, secondsRemaining), changes);
+        return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds, secondsRemaining), changes);
     }
 }

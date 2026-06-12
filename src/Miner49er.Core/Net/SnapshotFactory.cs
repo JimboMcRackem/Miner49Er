@@ -11,7 +11,8 @@ public static class SnapshotFactory
             .Select(m => new MinerSnapshot(
                 m.Id, m.Pos.X, m.Pos.Y, (int)m.Facing, m.Alive,
                 m.GoldCollected, (int)m.Activity, m.ActivitySecondsRemaining,
-                sim.EffectiveMoveSeconds(m.Id), sim.EffectiveVisionRadius(m.Id)))
+                sim.EffectiveMoveSeconds(m.Id), sim.EffectiveVisionRadius(m.Id),
+                m.Held is { } h ? (int)h : -1))
             .ToList();
 
         var charges = sim.Charges
@@ -22,6 +23,10 @@ public static class SnapshotFactory
             .Select(it => new ItemSnapshot(it.Pos.X, it.Pos.Y, it.Kind, it.Placement))
             .ToList();
 
-        return new WorldSnapshot(tick, miners, charges, items, (float)sim.SecondsRemaining);
+        var molds = sim.Molds
+            .Select(mo => new MoldSnapshot(mo.Pos.X, mo.Pos.Y, mo.RemainingSeconds))
+            .ToList();
+
+        return new WorldSnapshot(tick, miners, charges, items, molds, (float)sim.SecondsRemaining);
     }
 }
