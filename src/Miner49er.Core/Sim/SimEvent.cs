@@ -12,3 +12,4 @@ public sealed record MinerReachedCenter(int MinerId) : SimEvent;
 public sealed record TileFlooded(GridPos Pos, TileType Type) : SimEvent;
 public sealed record ItemPickedUp(int MinerId, GridPos Pos, ItemKind Kind) : SimEvent;
 public sealed record ItemUnburied(GridPos Pos, ItemKind Kind) : SimEvent;
+public sealed record PlankPlaced(GridPos Pos) : SimEvent;

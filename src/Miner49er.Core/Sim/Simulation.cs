@@ -252,6 +252,46 @@ public sealed class Simulation
         }
     }
 
+    /// <summary>The Use verb (Space). Context-sensitive: if the miner stands on a carried
+    /// ground item, pick it up (swapping with whatever is held); otherwise use the held item.</summary>
+    public bool TryUseItem(int id)
+    {
+        var m = _miners[id];
+        if (!m.Alive) return false;
+
+        // 1. pickup / swap when standing on a carried ground item
+        for (int i = _items.Count - 1; i >= 0; i--)
+        {
+            var it = _items[i];
+            if (it.Pos != m.Pos || it.Placement == ItemPlacement.Buried || !it.Kind.IsCarried()) continue;
+            var taken = it.Kind;
+            if (m.Held is { } heldKind) _items[i] = new Item(m.Pos, heldKind, ItemPlacement.Loose);
+            else                        _items.RemoveAt(i);
+            m.Held = taken;
+            _events.Add(new ItemPickedUp(m.Id, m.Pos, taken));
+            return true;
+        }
+
+        // 2. use what is held
+        if (m.Held is not { } held) return false;
+        return held switch
+        {
+            ItemKind.WaterPlank => TryPlacePlank(m),
+            _ => false,   // SlowMold wired in Task 4
+        };
+    }
+
+    // Lays a permanent, flood-immune Plank tile on the faced water tile (shallow or deep).
+    private bool TryPlacePlank(Miner m)
+    {
+        var target = m.Pos + m.Facing.ToOffset();
+        if (!Grid.InBounds(target) || !Grid.Get(target).IsWater()) return false;
+        Grid.Set(target, TileType.Plank);
+        m.Held = null;
+        _events.Add(new PlankPlaced(target));
+        return true;
+    }
+
     // Flips any buried item on a tile to a loose floor pickup. Called wherever rock becomes floor
     // (mining completes, blast disc) so a destroyed cache spills its item onto the open tile.
     private void UnburyItemsAt(GridPos pos)
