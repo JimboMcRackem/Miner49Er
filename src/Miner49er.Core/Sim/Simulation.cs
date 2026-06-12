@@ -240,6 +240,7 @@ public sealed class Simulation
         {
             var item = _items[i];
             if (item.Placement == ItemPlacement.Buried) continue;   // not collectible until unburied
+            if (item.Kind.IsCarried()) continue;        // grabbed via the Use verb, not walk-over
             foreach (var m in _miners.Values)
             {
                 if (!m.Alive || m.Pos != item.Pos) continue;

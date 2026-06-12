@@ -10,6 +10,8 @@ public sealed class Miner
     public bool Alive { get; internal set; } = true;
     public int GoldCollected { get; internal set; }
 
+    public ItemKind? Held { get; internal set; }   // null = empty hand (1-slot inventory)
+
     public ActivityKind Activity { get; internal set; } = ActivityKind.None;
     public GridPos ActivityTarget { get; internal set; }
     public double ActivitySecondsRemaining { get; internal set; }
