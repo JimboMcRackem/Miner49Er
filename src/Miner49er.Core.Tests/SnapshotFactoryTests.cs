@@ -69,6 +69,30 @@ public class SnapshotFactoryTests
     }
 
     [Fact]
+    public void Captures_held_item_and_mold_patches()
+    {
+        var sim = new Simulation(new TileGrid(7, 7, TileType.Floor), new SimConfig());
+        sim.AddMiner(1, new GridPos(3, 3));
+        sim.AddItem(new Item(new GridPos(3, 3), ItemKind.SlowMold));
+        sim.TryUseItem(1);   // hand = SlowMold
+        sim.AddItem(new Item(new GridPos(3, 3), ItemKind.WaterPlank));
+        sim.TryUseItem(1);   // swap: hand = WaterPlank
+        // drop a mold from a second miner so a patch exists:
+        sim.AddMiner(2, new GridPos(1, 1));
+        sim.AddItem(new Item(new GridPos(1, 1), ItemKind.SlowMold));
+        sim.TryUseItem(2);   // hand2 = SlowMold
+        sim.TryUseItem(2);   // drop -> patch at (1,1)
+
+        var snap = SnapshotFactory.Capture(sim, tick: 5);
+
+        Assert.Equal((int)ItemKind.WaterPlank, snap.Miners.Single(m => m.Id == 1).Held);
+        Assert.Equal(-1, snap.Miners.Single(m => m.Id == 2).Held); // empty hand
+        Assert.NotEmpty(snap.Molds);
+        Assert.Contains(snap.Molds, mo => mo.X == 1 && mo.Y == 1); // the drop centre
+        Assert.All(snap.Molds, mo => Assert.Equal(sim.Config.MoldSeconds, mo.RemainingSeconds, 3));
+    }
+
+    [Fact]
     public void Captures_items_and_effective_vision_radius()
     {
         var sim = new Simulation(new TileGrid(5, 5, TileType.Floor), new SimConfig());

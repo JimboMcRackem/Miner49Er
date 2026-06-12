@@ -111,7 +111,13 @@ public partial class Main : Node2D
 						: "Ready")
 					: "Dead — spectating";
 				string timeStr = _client.SecondsRemaining >= 0 ? $"    Time: {_client.SecondsRemaining:0}s" : "";
-				_hud.SetText($"Gold: {m.Gold}    {status}{timeStr}");
+				string heldStr = m.Held switch
+					{
+						(int)ItemKind.WaterPlank => "    Held: Plank",
+						(int)ItemKind.SlowMold => "    Held: Mold",
+						_ => "",
+					};
+					_hud.SetText($"Gold: {m.Gold}    {status}{timeStr}{heldStr}");
 			}
 		if (_input != null) _input.Enabled = !sawLocal || localAlive;
 

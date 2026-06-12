@@ -21,4 +21,9 @@ public sealed class SimConfig
     public double VisionSeconds { get; set; } = 12.0;
     public int BlastBonus { get; set; } = 1;               // +radius on charges planted while active
     public double BlastSeconds { get; set; } = 12.0;
+
+    public double MoldSeconds { get; set; } = 20.0;      // patch lifetime before it decays
+    public int MoldRadius { get; set; } = 2;             // Manhattan radius of the dropped patch spread
+    public double MoldSlowFactor { get; set; } = 1.6;    // move-cadence multiplier when stepped on (>1 = slower)
+    public double MoldSlowSeconds { get; set; } = 3.0;   // how long the slow lingers after stepping on
 }

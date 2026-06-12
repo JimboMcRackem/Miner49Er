@@ -8,11 +8,13 @@ public sealed class Simulation
     private readonly Dictionary<int, Miner> _miners = new();
     private readonly List<Charge> _charges = new();
     private readonly List<Item> _items = new();
+    private readonly List<MoldPatch> _molds = new();
     private readonly List<SimEvent> _events = new();
 
     public IReadOnlyCollection<Miner> Miners => _miners.Values;
     public IReadOnlyList<Charge> Charges => _charges;
     public IReadOnlyList<Item> Items => _items;
+    public IReadOnlyList<MoldPatch> Molds => _molds;
 
     public void AddItem(Item item) => _items.Add(item);   // host seeds these from GeneratedMap.Items
 
@@ -127,6 +129,19 @@ public sealed class Simulation
         return bonus;
     }
 
+    private void AdvanceMolds(double dt)
+    {
+        for (int i = _molds.Count - 1; i >= 0; i--)
+        {
+            _molds[i].RemainingSeconds -= dt;
+            if (_molds[i].RemainingSeconds <= 0)
+            {
+                _events.Add(new MoldExpired(_molds[i].Pos));
+                _molds.RemoveAt(i);
+            }
+        }
+    }
+
     private void AdvanceCooldowns(double dt)
     {
         foreach (var m in _miners.Values)
@@ -162,6 +177,10 @@ public sealed class Simulation
             FirstToReachCenter = id;
             _events.Add(new MinerReachedCenter(id));
         }
+
+        if (m.Alive && _molds.Any(mo => mo.Pos == target))
+            ApplyEffect(id, EffectKind.SlowMold, EffectChannel.MoveSpeed,
+                        Config.MoldSlowFactor, Config.MoldSlowSeconds);
 
         m.MoveCooldownRemaining = EffectiveMoveSeconds(m);   // set from destination tile
         return true;
@@ -211,6 +230,7 @@ public sealed class Simulation
     {
         Elapsed += dt;
         AdvanceEffects(dt);
+        AdvanceMolds(dt);
         AdvanceCooldowns(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
@@ -240,6 +260,7 @@ public sealed class Simulation
         {
             var item = _items[i];
             if (item.Placement == ItemPlacement.Buried) continue;   // not collectible until unburied
+            if (item.Kind.IsCarried()) continue;        // grabbed via the Use verb, not walk-over
             foreach (var m in _miners.Values)
             {
                 if (!m.Alive || m.Pos != item.Pos) continue;
@@ -249,6 +270,67 @@ public sealed class Simulation
                 break; // one miner collects it
             }
         }
+    }
+
+    /// <summary>The Use verb (Space). Context-sensitive: if the miner stands on a carried
+    /// ground item, pick it up (swapping with whatever is held); otherwise use the held item.</summary>
+    public bool TryUseItem(int id)
+    {
+        var m = _miners[id];
+        if (!m.Alive) return false;
+
+        // 1. pickup / swap when standing on a carried ground item
+        for (int i = _items.Count - 1; i >= 0; i--)
+        {
+            var it = _items[i];
+            if (it.Pos != m.Pos || it.Placement == ItemPlacement.Buried || !it.Kind.IsCarried()) continue;
+            var taken = it.Kind;
+            if (m.Held is { } heldKind) _items[i] = new Item(m.Pos, heldKind, ItemPlacement.Loose);
+            else                        _items.RemoveAt(i);
+            m.Held = taken;
+            _events.Add(new ItemPickedUp(m.Id, m.Pos, taken));
+            return true;
+        }
+
+        // 2. use what is held
+        if (m.Held is not { } held) return false;
+        return held switch
+        {
+            ItemKind.WaterPlank => TryPlacePlank(m),
+            ItemKind.SlowMold   => DropMold(m),
+            _ => false,
+        };
+    }
+
+    // Drops a spread of timed trap patches in a Manhattan disc around the miner's tile
+    // (refreshing any that already exist), so the slow-zone is harder to skirt.
+    private bool DropMold(Miner m)
+    {
+        int r = Config.MoldRadius;
+        for (int dy = -r; dy <= r; dy++)
+            for (int dx = -r; dx <= r; dx++)
+            {
+                if (Math.Abs(dx) + Math.Abs(dy) > r) continue;
+                var p = new GridPos(m.Pos.X + dx, m.Pos.Y + dy);
+                if (!Grid.InBounds(p) || !Grid.Get(p).IsEnterable()) continue;
+                var existing = _molds.FirstOrDefault(mo => mo.Pos == p);
+                if (existing is not null) existing.RemainingSeconds = Config.MoldSeconds;
+                else _molds.Add(new MoldPatch(p, Config.MoldSeconds));
+            }
+        m.Held = null;
+        _events.Add(new MoldDropped(m.Pos));
+        return true;
+    }
+
+    // Lays a permanent, flood-immune Plank tile on the faced water tile (shallow or deep).
+    private bool TryPlacePlank(Miner m)
+    {
+        var target = m.Pos + m.Facing.ToOffset();
+        if (!Grid.InBounds(target) || !Grid.Get(target).IsWater()) return false;
+        Grid.Set(target, TileType.Plank);
+        m.Held = null;
+        _events.Add(new PlankPlaced(target));
+        return true;
     }
 
     // Flips any buried item on a tile to a loose floor pickup. Called wherever rock becomes floor

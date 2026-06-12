@@ -17,6 +17,7 @@ public partial class MatchClient : Node2D
 	public IReadOnlyList<MinerSnapshot> Miners => _miners;
 	public IReadOnlyList<ChargeSnapshot> Charges => _charges;
 	public IReadOnlyList<ItemSnapshot> Items => _items;
+	public IReadOnlyList<MoldSnapshot> Molds => _molds;
 	public int LocalMinerId { get; private set; }
 	public bool Listening; // set by Main each frame; gates the buried-item shimmer
 	public IReadOnlyList<GridPos> Decoys { get; private set; } = System.Array.Empty<GridPos>();
@@ -26,6 +27,7 @@ public partial class MatchClient : Node2D
 	private List<MinerSnapshot> _miners = new();
 	private List<ChargeSnapshot> _charges = new();
 	private List<ItemSnapshot> _items = new();
+	private List<MoldSnapshot> _molds = new();
 	private readonly Dictionary<int, Vector2> _visualPos = new(); // minerId -> smoothed pixels
 
 	private WorldRenderer _world = null!;
@@ -77,6 +79,7 @@ public partial class MatchClient : Node2D
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
 		_items = new List<ItemSnapshot>(update.Snapshot.Items);
+		_molds = new List<MoldSnapshot>(update.Snapshot.Molds);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;
 		UpdateFog();
 	}

@@ -15,6 +15,8 @@ public sealed class MapConfig
     public int ItemsPerPlayer { get; set; } = 1;  // light scaling with player count / map growth
     public int VisibleItemCount { get; set; } = 2;  // of the total, this many are visible toolboxes; rest are buried
     public int DecoyCount { get; set; } = 4;        // empty "suspicious spots" that shimmer under Listen but hold nothing
+    public int WaterPlankCount { get; set; } = 3;   // visible carried water-planks scattered on Floor
+    public int SlowMoldCount { get; set; } = 3;     // visible carried slow-molds scattered on Floor
 
     // Water generation (Phase 4a).
     public int PoolCount { get; set; } = 3;

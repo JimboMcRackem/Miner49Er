@@ -4,11 +4,13 @@ namespace Miner49er.Core.Net;
 
 public readonly record struct MinerSnapshot(
     int Id, int X, int Y, int Facing, bool Alive, int Gold, int Activity,
-    double ActivityRemaining, double MoveSeconds, int VisionRadius);
+    double ActivityRemaining, double MoveSeconds, int VisionRadius, int Held);
 
 public readonly record struct ChargeSnapshot(int OwnerId, int X, int Y, double FuseRemaining);
 
 public readonly record struct ItemSnapshot(int X, int Y, ItemKind Kind, ItemPlacement Placement);
+
+public readonly record struct MoldSnapshot(int X, int Y, double RemainingSeconds);
 
 /// <summary>One floor cell that changed; FromBlast drives the flash, NewType is
 /// the tile it became (Floor for mining/blasts, water for the flood).</summary>
@@ -16,6 +18,6 @@ public readonly record struct TileChange(int X, int Y, bool FromBlast, TileType 
 
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,
-    IReadOnlyList<ItemSnapshot> Items, float SecondsRemaining = -1f);
+    IReadOnlyList<ItemSnapshot> Items, IReadOnlyList<MoldSnapshot> Molds, float SecondsRemaining = -1f);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);

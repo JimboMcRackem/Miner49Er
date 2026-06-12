@@ -18,6 +18,7 @@ public partial class MatchHost : Node
 	private readonly Dictionary<int, int> _pendingDir = new();   // minerId -> Direction(int) or -1
 	private readonly HashSet<int> _pendingMine = new();
 	private readonly HashSet<int> _pendingPlant = new();
+	private readonly HashSet<int> _pendingUse = new();
 
 	private int _tick;
 	private double _accum;
@@ -39,11 +40,12 @@ public partial class MatchHost : Node
 		if (_peerToMiner.TryGetValue(peerId, out int minerId)) _pendingDir[minerId] = dir;
 	}
 
-	public void SetAction(long peerId, bool mine, bool plant)
+	public void SetAction(long peerId, bool mine, bool plant, bool use)
 	{
 		if (!_peerToMiner.TryGetValue(peerId, out int minerId)) return;
 		if (mine) _pendingMine.Add(minerId);
 		if (plant) _pendingPlant.Add(minerId);
+		if (use) _pendingUse.Add(minerId);
 	}
 
 	public void EliminatePeer(long peerId)
@@ -70,6 +72,8 @@ public partial class MatchHost : Node
 		_pendingMine.Clear();
 		foreach (var minerId in _pendingPlant) _sim.TryStartPlanting(minerId);
 		_pendingPlant.Clear();
+		foreach (var minerId in _pendingUse) _sim.TryUseItem(minerId);
+		_pendingUse.Clear();
 
 		_sim.Tick(TickSeconds);
 		_tick++;
@@ -88,6 +92,9 @@ public partial class MatchHost : Node
 					break;
 				case TileFlooded tf:
 					changes.Add(new TileChange(tf.Pos.X, tf.Pos.Y, false, tf.Type));
+					break;
+				case PlankPlaced pp:
+					changes.Add(new TileChange(pp.Pos.X, pp.Pos.Y, false, TileType.Plank));
 					break;
 			}
 		}

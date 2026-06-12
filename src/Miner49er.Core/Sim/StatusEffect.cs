@@ -1,7 +1,7 @@
 namespace Miner49er.Core;
 
 public enum EffectChannel { MoveSpeed, VisionRadius, BlastRadius }
-public enum EffectKind { SpeedPotion, LongerVision, BiggerBlast }  // 4c-2b appends SlowMold
+public enum EffectKind { SpeedPotion, LongerVision, BiggerBlast, SlowMold }
 
 public sealed class StatusEffect
 {

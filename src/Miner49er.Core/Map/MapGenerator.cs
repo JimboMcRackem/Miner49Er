@@ -23,6 +23,7 @@ public static class MapGenerator
         PlaceGold(grid, rng, config.GoldVeinCount, region);
         int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
         var items = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
+        items.AddRange(PlaceCarriedItems(grid, rng, config.WaterPlankCount, config.SlowMoldCount, region, spawns, items));
         var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
 
         return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys };
@@ -285,11 +286,34 @@ public static class MapGenerator
         for (int i = 0; i < visible; i++) placed.Add((floorCands[i], ItemPlacement.Toolbox));
         for (int i = 0; i < buried; i++) placed.Add((rockCands[i], ItemPlacement.Buried));
 
-        var kinds = Enum.GetValues<ItemKind>();
+        var kinds = Enum.GetValues<ItemKind>().Where(k => !k.IsCarried()).ToArray();
         var items = new List<Item>();
         for (int i = 0; i < placed.Count; i++)
             items.Add(new Item(placed[i].Pos, kinds[i % kinds.Length], placed[i].Placement));
         return items;
+    }
+
+    // Carried items (water-plank, slow-mold) sit visibly on Floor tiles in the traversable region,
+    // never on a spawn or a tile already holding an item. Deterministic: ordered grid scan then
+    // seed-shuffle, planks first then molds, so host and every client agree.
+    private static List<Item> PlaceCarriedItems(TileGrid g, Random rng, int plankCount, int moldCount,
+        HashSet<GridPos> region, List<GridPos> spawns, IEnumerable<Item> existing)
+    {
+        var taken = new HashSet<GridPos>(existing.Select(it => it.Pos));
+        var spawnSet = new HashSet<GridPos>(spawns);
+        var cands = g.Positions()
+            .Where(p => region.Contains(p) && g.Get(p) == TileType.Floor
+                        && !spawnSet.Contains(p) && !taken.Contains(p))
+            .ToList();
+        Shuffle(cands, rng);
+
+        var result = new List<Item>();
+        int idx = 0;
+        for (int i = 0; i < plankCount && idx < cands.Count; i++, idx++)
+            result.Add(new Item(cands[idx], ItemKind.WaterPlank, ItemPlacement.Toolbox));
+        for (int i = 0; i < moldCount && idx < cands.Count; i++, idx++)
+            result.Add(new Item(cands[idx], ItemKind.SlowMold, ItemPlacement.Toolbox));
+        return result;
     }
 
     // "Suspicious spots" with no item: deterministic rock positions that shimmer under Listen

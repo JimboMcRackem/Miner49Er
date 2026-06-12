@@ -24,6 +24,10 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color BlastItemColor = new("e08a2f");  // orange
 	private static readonly Color ToolboxColor = new("9a7b4f");  // muted box outline behind a visible item
 	private static readonly Color ShimmerColor = new("f5f0c0");  // neutral pale glow — NO kind tell
+	private static readonly Color PlankColor = new("b5803a");      // laid water-plank bridge
+	private static readonly Color MoldColor = new("6f8f3a");       // slow-mold trap patch
+	private static readonly Color PlankItemColor = new("c8a060");  // carried water-plank pickup
+	private static readonly Color MoldItemColor = new("8fae4f");   // carried slow-mold pickup
 	private const int ListenItemRevealRadius = 6;                // tiles; Chebyshev radius for sensing through rock
 
 	public void Init(MatchClient client) => _client = client;
@@ -58,6 +62,7 @@ public partial class WorldRenderer : Node2D
 				TileType.ImpermeableRock => ImpermeableColor,
 				TileType.ShallowWater => ShallowWaterColor,
 				TileType.DeepWater => DeepWaterColor,
+				TileType.Plank => PlankColor,
 				_ => FloorColor,
 			};
 			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), color);
@@ -79,6 +84,8 @@ public partial class WorldRenderer : Node2D
 				ItemKind.SpeedPotion => SpeedItemColor,
 				ItemKind.LongerVision => VisionItemColor,
 				ItemKind.BiggerBlast => BlastItemColor,
+				ItemKind.WaterPlank => PlankItemColor,
+				ItemKind.SlowMold => MoldItemColor,
 				_ => SpeedItemColor,
 			};
 			var icenter = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
@@ -88,6 +95,16 @@ public partial class WorldRenderer : Node2D
 				DrawRect(new Rect2(icenter.X - bs / 2f, icenter.Y - bs / 2f, bs, bs), ToolboxColor, false, 2f);
 			}
 			DrawCircle(icenter, ts * 0.22f, icol);
+		}
+
+		// Slow-mold patches: drawn within fog, fading out over their last second as they decay.
+		foreach (var mo in _client.Molds)
+		{
+			var mp = new GridPos(mo.X, mo.Y);
+			if (!_client.Fog.IsVisible(mp)) continue;
+			float alpha = Mathf.Clamp((float)mo.RemainingSeconds, 0f, 1f) * 0.5f + 0.25f;
+			var col = MoldColor with { A = alpha };
+			DrawRect(new Rect2(mo.X * ts, mo.Y * ts, ts, ts), col);
 		}
 
 		// Listen reveal: buried items and decoys shimmer IDENTICALLY (sensed through rock) while the
