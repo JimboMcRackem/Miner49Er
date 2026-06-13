@@ -167,6 +167,7 @@ public partial class NetworkManager : Node
 	public int MatchTimeLimitSeconds { get; private set; }
 	public bool MatchFlooding { get; private set; }
 	public bool MatchPits { get; private set; }
+	public bool MatchCaveIns { get; private set; }
 	public float MatchBaseMoveSeconds { get; private set; } = 0.12f;
 	public long[] PeerOrder { get; private set; } = System.Array.Empty<long>();
 
@@ -179,18 +180,18 @@ public partial class NetworkManager : Node
 		_matchClient = client;
 	}
 
-	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, float baseMoveSeconds)
+	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, float baseMoveSeconds)
 	{
 		if (!IsHost) return;
 		if (flooding && timeLimitSeconds <= 0) timeLimitSeconds = 60; // a flooded match needs a clock
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
 		int seed = System.Random.Shared.Next();
-		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, baseMoveSeconds, order);
-		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, baseMoveSeconds, order); // host applies locally too
+		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, baseMoveSeconds, order);
+		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, baseMoveSeconds, order); // host applies locally too
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority)]
-	public void BeginMatch(int seed, int playerCount, int mode, int timeLimitSeconds, bool flooding, bool pits, float baseMoveSeconds, long[] peerOrder)
+	public void BeginMatch(int seed, int playerCount, int mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, float baseMoveSeconds, long[] peerOrder)
 	{
 		MatchSeed = seed;
 		MatchPlayerCount = playerCount;
@@ -198,6 +199,7 @@ public partial class NetworkManager : Node
 		MatchTimeLimitSeconds = timeLimitSeconds;
 		MatchFlooding = flooding;
 		MatchPits = pits;
+		MatchCaveIns = caveIns;
 		MatchBaseMoveSeconds = baseMoveSeconds;
 		PeerOrder = peerOrder;
 		MatchStarting?.Invoke();
