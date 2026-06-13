@@ -75,12 +75,8 @@ public partial class MatchAudio : Node2D
 
 			bool prevAlive = !_prevAlive.TryGetValue(m.Id, out var al) || al;
 			if (prevAlive && !m.Alive)
-			{
-				var tile = new GridPos(m.X, m.Y);
-				bool drowned = _client.Grid.InBounds(tile)
-					&& _client.Grid.Get(tile) == TileType.DeepWater;
-				OneShot(drowned ? SfxLibrary.Splash : SfxLibrary.Death, WorldOf(m.X, m.Y));
-			}
+					OneShot(m.Cause == DeathCause.Drowned ? SfxLibrary.Splash : SfxLibrary.Death,
+						WorldOf(m.X, m.Y));
 			_prevAlive[m.Id] = m.Alive;
 
 			if (m.Id == _client.LocalMinerId)
