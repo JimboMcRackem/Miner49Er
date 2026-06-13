@@ -39,4 +39,55 @@ public class VisibilityTests
         Assert.False(fog.IsVisible(new GridPos(2, 2)));   // no longer in view
         Assert.True(fog.IsVisible(new GridPos(6, 6)));
     }
+
+    [Fact]
+    public void Origin_is_always_visible()
+    {
+        var grid = new TileGrid(7, 7, TileType.Floor);
+        var visible = Visibility.Compute(grid, new GridPos(3, 3), radius: 4);
+        Assert.Contains(new GridPos(3, 3), visible);
+    }
+
+    [Fact]
+    public void Rock_wall_blocks_tiles_behind_it()
+    {
+        // Solid horizontal rock wall across row y=3; miner stands south at (5,5).
+        var grid = new TileGrid(11, 11, TileType.Floor);
+        for (int x = 0; x < 11; x++) grid.Set(new GridPos(x, 3), TileType.Rock);
+
+        var visible = Visibility.Compute(grid, new GridPos(5, 5), radius: 6);
+
+        Assert.Contains(new GridPos(5, 4), visible);     // near-side floor: seen
+        Assert.Contains(new GridPos(5, 3), visible);     // the wall face itself: seen
+        Assert.DoesNotContain(new GridPos(5, 2), visible); // directly behind the wall: hidden
+        Assert.DoesNotContain(new GridPos(5, 1), visible); // farther behind: hidden
+    }
+
+    [Fact]
+    public void Single_pillar_casts_a_shadow_directly_behind_it()
+    {
+        // One rock pillar two tiles north of the miner.
+        var grid = new TileGrid(11, 11, TileType.Floor);
+        grid.Set(new GridPos(5, 3), TileType.Rock);
+
+        var visible = Visibility.Compute(grid, new GridPos(5, 5), radius: 6);
+
+        Assert.Contains(new GridPos(5, 3), visible);       // pillar face: seen
+        Assert.DoesNotContain(new GridPos(5, 2), visible); // umbra directly behind: hidden
+        Assert.Contains(new GridPos(2, 3), visible);       // well to the side: seen
+        Assert.Contains(new GridPos(8, 3), visible);       // well to the side: seen
+    }
+
+    [Fact]
+    public void Visibility_is_symmetric_on_open_ground()
+    {
+        var grid = new TileGrid(11, 11, TileType.Floor);
+        var a = new GridPos(4, 4);
+        var b = new GridPos(6, 5);
+
+        var fromA = Visibility.Compute(grid, a, radius: 5);
+        var fromB = Visibility.Compute(grid, b, radius: 5);
+
+        Assert.Equal(fromA.Contains(b), fromB.Contains(a));
+    }
 }
