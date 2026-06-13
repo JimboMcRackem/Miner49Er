@@ -59,6 +59,7 @@ public partial class MainMenu : Control
 		if (@event.IsActionPressed(InputBindings.Exit))
 		{
 			GetViewport().SetInputAsHandled();
+			if (_audioPanel.IsOpen) { _audioPanel.Close(); return; } // ESC backs out of Settings first
 			GetTree().Quit(); // main menu: ESC exits the app
 		}
 	}

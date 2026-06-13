@@ -17,23 +17,37 @@ public partial class AudioSettingsPanel : CanvasLayer
 	{
 		Layer = 100; // above other UI
 
-		var panel = new PanelContainer();
-		panel.SetAnchorsPreset(Control.LayoutPreset.Center);
-		AddChild(panel);
+		var center = new CenterContainer();
+		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		AddChild(center);
 
-		var box = new VBoxContainer { CustomMinimumSize = new Vector2(280, 0) };
+		var panel = new PanelContainer();
+		var bg = new StyleBoxFlat
+		{
+			BgColor = new Color(0.10f, 0.10f, 0.13f, 1f), // fully opaque backing
+			BorderColor = new Color(0.35f, 0.35f, 0.42f, 1f),
+			BorderWidthTop = 2, BorderWidthBottom = 2, BorderWidthLeft = 2, BorderWidthRight = 2,
+			CornerRadiusTopLeft = 8, CornerRadiusTopRight = 8,
+			CornerRadiusBottomLeft = 8, CornerRadiusBottomRight = 8,
+			ContentMarginTop = 28, ContentMarginBottom = 28, ContentMarginLeft = 32, ContentMarginRight = 32,
+		};
+		panel.AddThemeStyleboxOverride("panel", bg);
+		center.AddChild(panel);
+
+		var box = new VBoxContainer { CustomMinimumSize = new Vector2(440, 0) };
+		box.AddThemeConstantOverride("separation", 14);
 		panel.AddChild(box);
 
 		var title = new Label { Text = "Audio" };
-		title.AddThemeFontSizeOverride("font_size", 28);
+		title.AddThemeFontSizeOverride("font_size", 34);
 		box.AddChild(title);
 
 		box.AddChild(new Label { Text = "Music" });
-		_music = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.01, CustomMinimumSize = new Vector2(240, 0) };
+		_music = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.01, CustomMinimumSize = new Vector2(400, 28) };
 		box.AddChild(_music);
 
 		box.AddChild(new Label { Text = "SFX" });
-		_sfx = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.01, CustomMinimumSize = new Vector2(240, 0) };
+		_sfx = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.01, CustomMinimumSize = new Vector2(400, 28) };
 		box.AddChild(_sfx);
 
 		_musicOn = new CheckBox { Text = "Music on" };
