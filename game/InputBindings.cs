@@ -20,6 +20,7 @@ public static class InputBindings
 	public const string Restart = "restart";
 	public const string Mute = "mute";          // master mute (Phase 3)
 	public const string Exit = "exit";          // context back-out / quit (Phase 4)
+	public const string Settings = "settings";  // open the audio settings panel
 
 	public static void EnsureDefaults()
 	{
@@ -34,6 +35,7 @@ public static class InputBindings
 		Bind(Restart, Key.R, JoyButton.Start);
 		Bind(Mute, Key.M, JoyButton.Back);
 		Bind(Exit, Key.Escape);
+		Bind(Settings, Key.O);
 	}
 
 	private static void Bind(string action, Key key, JoyButton button)

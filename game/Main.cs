@@ -16,6 +16,7 @@ public partial class Main : Node2D
 	private MatchAudio _audio = null!;
 	private Compass _compass = null!;
 	private DeathFeed _deathFeed = null!;
+	private AudioSettingsPanel _audioPanel = null!;
 	private bool _wasListening;
 
 	public override void _Ready()
@@ -74,6 +75,9 @@ public partial class Main : Node2D
 		AddChild(_deathFeed);
 		_deathFeed.Init(_client);
 
+		_audioPanel = new AudioSettingsPanel { Name = "AudioSettingsPanel" };
+		AddChild(_audioPanel);
+
 		nm.RegisterMatch(_host, _client);
 		nm.MatchEnded += OnMatchEnded;
 		nm.ReturnToLobbyRequested += OnReturnToLobby;
@@ -94,6 +98,7 @@ public partial class Main : Node2D
 		if (@event.IsActionPressed(InputBindings.Exit))
 		{
 			GetViewport().SetInputAsHandled();
+			if (_audioPanel.IsOpen) { _audioPanel.Close(); return; }
 			NetworkManager.Instance.Leave(); // in-match: ESC backs out to the main menu
 			GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");
 		}
@@ -124,9 +129,12 @@ public partial class Main : Node2D
 					};
 					_hud.SetText($"Gold: {m.Gold}    {status}{timeStr}{heldStr}");
 			}
-		if (_input != null) _input.Enabled = !sawLocal || localAlive;
+		if (Input.IsActionJustPressed(InputBindings.Settings))
+			_audioPanel.Toggle();
+		bool panelOpen = _audioPanel.IsOpen;
+		if (_input != null) _input.Enabled = (!sawLocal || localAlive) && !panelOpen;
 
-		bool listening = localAlive && Input.IsActionPressed(InputBindings.Listen);
+		bool listening = localAlive && !panelOpen && Input.IsActionPressed(InputBindings.Listen);
 		if (_input != null) _input.Listening = listening;
 		_compass.Active = listening;
 		_client.Listening = listening;

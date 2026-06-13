@@ -8,6 +8,7 @@ public partial class MainMenu : Control
 	private LineEdit _address = null!;
 	private OptionButton _color = null!;
 	private Label _status = null!;
+	private AudioSettingsPanel _audioPanel = null!;
 
 	public override void _Ready()
 	{
@@ -38,8 +39,15 @@ public partial class MainMenu : Control
 		joinBtn.Pressed += OnJoin;
 		box.AddChild(joinBtn);
 
+		var settingsBtn = new Button { Text = "Settings" };
+		settingsBtn.Pressed += () => _audioPanel.Open();
+		box.AddChild(settingsBtn);
+
 		_status = new Label { Text = "" };
 		box.AddChild(_status);
+
+		_audioPanel = new AudioSettingsPanel { Name = "AudioSettingsPanel" };
+		AddChild(_audioPanel);
 
 		NetworkManager.Instance.JoinFailed += OnJoinFailed;
 	}
