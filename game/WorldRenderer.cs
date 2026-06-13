@@ -34,6 +34,7 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color MoldColor = new("6f8f3a");       // slow-mold trap patch
 	private static readonly Color PlankItemColor = new("c8a060");  // carried water-plank pickup
 	private static readonly Color MoldItemColor = new("8fae4f");   // carried slow-mold pickup
+	private static readonly Color PitColor = new("070709");        // near-black hole, distinct from deep water
 	private const int ListenItemRevealRadius = 6;                // tiles; Chebyshev radius for sensing through rock
 
 	public void Init(MatchClient client) => _client = client;
@@ -93,6 +94,7 @@ public partial class WorldRenderer : Node2D
 		TileType.ShallowWater => ShallowWaterColor,
 		TileType.DeepWater => DeepWaterColor,
 		TileType.Plank => PlankColor,
+		TileType.Pit => PitColor,
 		_ => FloorColor,
 	};
 

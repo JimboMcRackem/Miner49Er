@@ -75,8 +75,12 @@ public partial class MatchAudio : Node2D
 
 			bool prevAlive = !_prevAlive.TryGetValue(m.Id, out var al) || al;
 			if (prevAlive && !m.Alive)
-					OneShot(m.Cause == DeathCause.Drowned ? SfxLibrary.Splash : SfxLibrary.Death,
-						WorldOf(m.X, m.Y));
+				OneShot(m.Cause switch
+				{
+					DeathCause.Drowned => SfxLibrary.Splash,
+					DeathCause.Fell    => SfxLibrary.Fall,
+					_                  => SfxLibrary.Death,
+				}, WorldOf(m.X, m.Y));
 			_prevAlive[m.Id] = m.Alive;
 
 			if (m.Id == _client.LocalMinerId)
