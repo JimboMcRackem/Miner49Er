@@ -56,6 +56,29 @@ public class SnapshotCodecTests
     }
 
     [Fact]
+    public void Round_trips_death_cause()
+    {
+        var update = new TickUpdate(
+            new WorldSnapshot(1,
+                new List<MinerSnapshot>
+                {
+                    new(1, 0, 0, 0, false, 0, 0, 0.0, 0.1, 5, -1, DeathCause.Drowned),
+                    new(2, 1, 1, 0, false, 0, 0, 0.0, 0.1, 5, -1, DeathCause.Exploded),
+                    new(3, 2, 2, 0, false, 0, 0, 0.0, 0.1, 5, -1, DeathCause.Left),
+                    new(4, 3, 3, 0, true,  0, 0, 0.0, 0.1, 5, -1),
+                },
+                new List<ChargeSnapshot>(), new List<ItemSnapshot>(), new List<MoldSnapshot>()),
+            new List<TileChange>());
+
+        var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
+
+        Assert.Equal(DeathCause.Drowned, back.Snapshot.Miners[0].Cause);
+        Assert.Equal(DeathCause.Exploded, back.Snapshot.Miners[1].Cause);
+        Assert.Equal(DeathCause.Left, back.Snapshot.Miners[2].Cause);
+        Assert.Equal(DeathCause.None, back.Snapshot.Miners[3].Cause);
+    }
+
+    [Fact]
     public void Round_trips_empty_collections()
     {
         var update = new TickUpdate(

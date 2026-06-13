@@ -4,7 +4,8 @@ namespace Miner49er.Core.Net;
 
 public readonly record struct MinerSnapshot(
     int Id, int X, int Y, int Facing, bool Alive, int Gold, int Activity,
-    double ActivityRemaining, double MoveSeconds, int VisionRadius, int Held);
+    double ActivityRemaining, double MoveSeconds, int VisionRadius, int Held,
+    DeathCause Cause = DeathCause.None);
 
 public readonly record struct ChargeSnapshot(int OwnerId, int X, int Y, double FuseRemaining);
 
