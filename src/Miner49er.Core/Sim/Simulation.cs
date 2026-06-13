@@ -169,6 +169,15 @@ public sealed class Simulation
         if (Grid.Get(target).IsLethal())
             KillByTile(m);
 
+        // Stepping onto an already-weakened (Crumbling) tile is the "second loading":
+        // the floor gives way to a hole and crushes you.
+        if (m.Alive && Grid.Get(target) == TileType.Crumbling)
+        {
+            Grid.Set(target, TileType.Pit);
+            _events.Add(new CrackCollapsed(target));
+            CollapseKill(m);
+        }
+
         if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive)
         {
             FirstToReachCenter = id;
@@ -424,6 +433,16 @@ public sealed class Simulation
             m.DeathCause = DeathCause.Drowned;
             _events.Add(new MinerDrowned(m.Id));
         }
+    }
+
+    // Kills a miner caught in a collapsing crack (distinct from KillByTile, which
+    // assigns Fell/Drowned for stepping onto an already-lethal pit/deep-water tile).
+    private void CollapseKill(Miner m)
+    {
+        m.Alive = false;
+        m.Activity = ActivityKind.None;
+        m.DeathCause = DeathCause.Crushed;
+        _events.Add(new MinerCrushed(m.Id));
     }
 
     // Kills any living miner standing on a now-lethal tile. Covers water rising

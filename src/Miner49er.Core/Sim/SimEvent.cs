@@ -9,6 +9,9 @@ public sealed record Explosion(GridPos WallPos, IReadOnlyList<GridPos> Destroyed
 public sealed record MinerKilled(int MinerId) : SimEvent;
 public sealed record MinerDrowned(int MinerId) : SimEvent;
 public sealed record MinerFell(int MinerId) : SimEvent;
+public sealed record MinerCrushed(int MinerId) : SimEvent;
+public sealed record CrackWeakened(GridPos Pos) : SimEvent;
+public sealed record CrackCollapsed(GridPos Pos) : SimEvent;
 public sealed record MinerReachedCenter(int MinerId) : SimEvent;
 public sealed record TileFlooded(GridPos Pos, TileType Type) : SimEvent;
 public sealed record ItemPickedUp(int MinerId, GridPos Pos, ItemKind Kind) : SimEvent;
