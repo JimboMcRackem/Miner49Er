@@ -178,6 +178,14 @@ public sealed class Simulation
             CollapseKill(m);
         }
 
+        // Stepping OFF a fresh crack wears it down to Crumbling (you survived the first
+        // crossing, but the floor is now weak for the next loading).
+        if (Grid.Get(from) == TileType.Cracked)
+        {
+            Grid.Set(from, TileType.Crumbling);
+            _events.Add(new CrackWeakened(from));
+        }
+
         if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive)
         {
             FirstToReachCenter = id;
