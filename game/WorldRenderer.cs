@@ -51,21 +51,26 @@ public partial class WorldRenderer : Node2D
 		}
 
 		var grid = _client?.Grid;
-		if (grid != null)
+		var fog = _client?.Fog;
+		if (grid != null && fog != null)
 		{
 			foreach (var p in grid.Positions())
 			{
 				var tgt = TargetColor(grid.Get(p));
 				if (!_displayed.ContainsKey(p))
 				{
-					_displayed[p] = tgt; // snap on first sight: no fade for pre-existing water
+					_displayed[p] = tgt; // first encounter: snap (no fade storm on join / first reveal)
 					_target[p] = tgt;
 					continue;
 				}
+				// Freeze while out of sight: hold the last-seen color so a flood that
+				// happens unseen plays its seep the moment it enters line of sight,
+				// rather than settling invisibly behind the fog.
+				if (!fog.IsVisible(p)) continue;
 				if (_target[p] != tgt)
 				{
 					_target[p] = tgt;
-					_delay[p] = SeepDelay(p); // arm the seep stagger on a new transition
+					_delay[p] = SeepDelay(p); // arm the seep stagger as the change enters view
 				}
 				if (_delay.TryGetValue(p, out float d) && d > 0f)
 				{
