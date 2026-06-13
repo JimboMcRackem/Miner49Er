@@ -13,6 +13,7 @@ public partial class Lobby : Control
 	private OptionButton _modePicker = null!;
 	private OptionButton _timePicker = null!;
 	private CheckBox _floodCheck = null!;
+	private CheckBox _pitsCheck = null!;
 	private OptionButton _speedPicker = null!;
 
 	public override void _Ready()
@@ -59,6 +60,10 @@ public partial class Lobby : Control
 		_floodCheck.Toggled += (bool on) => { if (on && _timePicker.Selected == 0) _timePicker.Select(1); };
 		box.AddChild(_floodCheck);
 
+		_pitsCheck = new CheckBox { Text = "Pits" };
+		_pitsCheck.Visible = NetworkManager.Instance.IsHost; // only the host chooses
+		box.AddChild(_pitsCheck);
+
 		_speedPicker = new OptionButton();
 		_speedPicker.AddItem("Slow", 0);
 		_speedPicker.AddItem("Standard", 1);
@@ -72,6 +77,7 @@ public partial class Lobby : Control
 			(GameMode)_modePicker.GetSelectedId(),
 			_timePicker.GetSelectedId(),
 			_floodCheck.ButtonPressed,
+			_pitsCheck.ButtonPressed,
 			new[] { 0.20f, 0.12f, 0.07f }[_speedPicker.Selected]);
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_startBtn);
