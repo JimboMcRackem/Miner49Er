@@ -426,8 +426,9 @@ public sealed class Simulation
         }
     }
 
-    // Kills any living miner standing on a now-lethal (deep) tile. Covers water
-    // rising *under* a stationary miner; move-time drowning stays in TryMove.
+    // Kills any living miner standing on a now-lethal tile. Covers water rising
+    // *under* a stationary miner (the flood only ever produces deep water, never
+    // pits); move-time deaths stay in TryMove.
     private void DrownOccupants()
     {
         foreach (var m in _miners.Values)
