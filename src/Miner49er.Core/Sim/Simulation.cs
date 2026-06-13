@@ -52,6 +52,7 @@ public sealed class Simulation
         if (!m.Alive) return;
         m.Alive = false;
         m.Activity = ActivityKind.None;
+        m.DeathCause = DeathCause.Left;
         _events.Add(new MinerKilled(id));
     }
 
@@ -169,6 +170,7 @@ public sealed class Simulation
         {
             m.Alive = false;
             m.Activity = ActivityKind.None;
+            m.DeathCause = DeathCause.Drowned;
             _events.Add(new MinerDrowned(id));
         }
 
@@ -421,6 +423,7 @@ public sealed class Simulation
             {
                 m.Alive = false;
                 m.Activity = ActivityKind.None;
+                m.DeathCause = DeathCause.Drowned;
                 _events.Add(new MinerDrowned(m.Id));
             }
         }
@@ -455,6 +458,7 @@ public sealed class Simulation
             {
                 m.Alive = false;
                 m.Activity = ActivityKind.None;
+                m.DeathCause = DeathCause.Exploded;
                 _events.Add(new MinerKilled(m.Id));
             }
         }

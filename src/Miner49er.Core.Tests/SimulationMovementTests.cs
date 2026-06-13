@@ -103,6 +103,7 @@ public class SimulationMovementTests
         Assert.IsType<MinerMoved>(events[0]);
         var drowned = Assert.IsType<MinerDrowned>(events[1]);
         Assert.Equal(1, drowned.MinerId);
+        Assert.Equal(DeathCause.Drowned, sim.GetMiner(1).DeathCause);
     }
 
     [Fact]

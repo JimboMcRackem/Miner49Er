@@ -20,6 +20,7 @@ public class SimulationKillTests
         var m = sim.GetMiner(1);
         Assert.False(m.Alive);
         Assert.Equal(ActivityKind.None, m.Activity);
+        Assert.Equal(DeathCause.Left, m.DeathCause);
 
         var events = sim.DrainEvents();
         var killed = Assert.Single(events.OfType<MinerKilled>());

@@ -8,6 +8,7 @@ public sealed class Miner
     public GridPos Pos { get; internal set; }
     public Direction Facing { get; internal set; } = Direction.South;
     public bool Alive { get; internal set; } = true;
+    public DeathCause DeathCause { get; internal set; } = DeathCause.None;
     public int GoldCollected { get; internal set; }
 
     public ItemKind? Held { get; internal set; }   // null = empty hand (1-slot inventory)

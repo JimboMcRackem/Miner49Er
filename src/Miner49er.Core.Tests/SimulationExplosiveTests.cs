@@ -121,6 +121,7 @@ public class SimulationExplosiveTests
 
         Assert.False(planter.Alive);
         Assert.True(bystander.Alive);
+        Assert.Equal(DeathCause.Exploded, planter.DeathCause);
         Assert.Contains(sim.DrainEvents(), e => e is MinerKilled k && k.MinerId == 1);
     }
 

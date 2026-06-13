@@ -56,6 +56,7 @@ public class FloodTests
         var m = sim.AddMiner(1, new GridPos(1, 5)); // edge-distance 1
         sim.Tick(4.0); // floodedMaxDist 2 -> (1,5) becomes deep
         Assert.False(m.Alive);
+        Assert.Equal(DeathCause.Drowned, m.DeathCause);
         Assert.Contains(sim.DrainEvents(), e => e is MinerDrowned d && d.MinerId == 1);
     }
 
