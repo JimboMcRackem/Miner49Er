@@ -79,6 +79,7 @@ public partial class MatchAudio : Node2D
 				{
 					DeathCause.Drowned => SfxLibrary.Splash,
 					DeathCause.Fell    => SfxLibrary.Fall,
+					DeathCause.Crushed => SfxLibrary.CaveIn,
 					_                  => SfxLibrary.Death,
 				}, WorldOf(m.X, m.Y));
 			_prevAlive[m.Id] = m.Alive;
