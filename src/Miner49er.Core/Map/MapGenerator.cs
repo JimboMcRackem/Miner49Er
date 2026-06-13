@@ -145,11 +145,12 @@ public static class MapGenerator
         int count = 1;                                       // seed tile already a pit
         while (count < size && frontier.Count > 0)
         {
-            var from = frontier[rng.Next(frontier.Count)];
+            int fromIdx = rng.Next(frontier.Count);
+            var from = frontier[fromIdx];
             var nbrs = Card.Select(d => from + d.ToOffset())
                            .Where(n => g.InBounds(n) && g.Get(n) == TileType.Floor)
                            .ToList();
-            if (nbrs.Count == 0) { frontier.Remove(from); continue; }
+            if (nbrs.Count == 0) { frontier.RemoveAt(fromIdx); continue; }   // drop this exact entry, not a value-search
             var n = nbrs[rng.Next(nbrs.Count)];
             g.Set(n, TileType.Pit);
             frontier.Add(n);
