@@ -11,6 +11,12 @@ public partial class WorldRenderer : Node2D
 	private MatchClient _client = null!;
 	private readonly System.Collections.Generic.List<(GridPos pos, float life)> _flashes = new();
 
+	// Smooth flood: each tile's currently-shown color eases toward its grid target.
+	private readonly System.Collections.Generic.Dictionary<GridPos, Color> _displayed = new();
+	private readonly System.Collections.Generic.Dictionary<GridPos, Color> _target = new();
+	private readonly System.Collections.Generic.Dictionary<GridPos, float> _delay = new();
+	private const float FadeRate = 6f; // exponential approach; ~0.45s to settle
+
 	private static readonly Color FloorColor = new("2b2b33");
 	private static readonly Color RockColor = new("5a4a3a");
 	private static readonly Color GoldColor = new("c9a227");
@@ -43,7 +49,54 @@ public partial class WorldRenderer : Node2D
 			if (f.life <= 0) _flashes.RemoveAt(i);
 			else _flashes[i] = f;
 		}
+
+		var grid = _client?.Grid;
+		if (grid != null)
+		{
+			foreach (var p in grid.Positions())
+			{
+				var tgt = TargetColor(grid.Get(p));
+				if (!_displayed.ContainsKey(p))
+				{
+					_displayed[p] = tgt; // snap on first sight: no fade for pre-existing water
+					_target[p] = tgt;
+					continue;
+				}
+				if (_target[p] != tgt)
+				{
+					_target[p] = tgt;
+					_delay[p] = SeepDelay(p); // arm the seep stagger on a new transition
+				}
+				if (_delay.TryGetValue(p, out float d) && d > 0f)
+				{
+					_delay[p] = d - (float)delta;
+					continue; // still waiting to start easing
+				}
+				float w = Mathf.Min(1f, FadeRate * (float)delta);
+				_displayed[p] = _displayed[p].Lerp(tgt, w);
+			}
+		}
 		QueueRedraw();
+	}
+
+	private Color TargetColor(TileType t) => t switch
+	{
+		TileType.Floor => FloorColor,
+		TileType.Rock => RockColor,
+		TileType.GoldRock => GoldColor,
+		TileType.ImpermeableRock => ImpermeableColor,
+		TileType.ShallowWater => ShallowWaterColor,
+		TileType.DeepWater => DeepWaterColor,
+		TileType.Plank => PlankColor,
+		_ => FloorColor,
+	};
+
+	// Deterministic per-tile stagger so a flooded ring seeps in unevenly (0..0.25s).
+	private static float SeepDelay(GridPos p)
+	{
+		int h = (p.X * 73856093) ^ (p.Y * 19349663);
+		h &= 0x7fffffff;
+		return (h % 1000) / 1000f * 0.25f;
 	}
 
 	public override void _Draw()
@@ -54,17 +107,7 @@ public partial class WorldRenderer : Node2D
 
 		foreach (var p in grid.Positions())
 		{
-			var color = grid.Get(p) switch
-			{
-				TileType.Floor => FloorColor,
-				TileType.Rock => RockColor,
-				TileType.GoldRock => GoldColor,
-				TileType.ImpermeableRock => ImpermeableColor,
-				TileType.ShallowWater => ShallowWaterColor,
-				TileType.DeepWater => DeepWaterColor,
-				TileType.Plank => PlankColor,
-				_ => FloorColor,
-			};
+			var color = _displayed.TryGetValue(p, out var c) ? c : TargetColor(grid.Get(p));
 			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), color);
 		}
 
