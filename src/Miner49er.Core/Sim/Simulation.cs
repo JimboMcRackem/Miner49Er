@@ -495,13 +495,22 @@ public sealed class Simulation
         _charges.Remove(charge);
 
         var destroyed = new List<GridPos>();
+        var collapsedCracks = new List<GridPos>();
         int r = Config.BlastRockRadius + charge.BlastBonus;
         for (int dy = -r; dy <= r; dy++)
             for (int dx = -r; dx <= r; dx++)
             {
                 var p = new GridPos(charge.WallPos.X + dx, charge.WallPos.Y + dy);
                 if (Math.Abs(dx) + Math.Abs(dy) > r) continue;        // Manhattan disc
-                if (!Grid.InBounds(p) || !Grid.Get(p).IsBlastable()) continue;
+                if (!Grid.InBounds(p)) continue;
+                if (Grid.Get(p) is TileType.Cracked or TileType.Crumbling)
+                {
+                    Grid.Set(p, TileType.Pit);                        // the blast shakes the weak floor down
+                    _events.Add(new CrackCollapsed(p));
+                    collapsedCracks.Add(p);
+                    continue;
+                }
+                if (!Grid.Get(p).IsBlastable()) continue;
                 bool wasGold = Grid.Get(p) == TileType.GoldRock;
                 Grid.Set(p, TileType.Floor);
                 if (wasGold)
@@ -523,6 +532,11 @@ public sealed class Simulation
                 _events.Add(new MinerKilled(m.Id));
             }
         }
+
+        // Any miner still alive but standing on a crack the blast just dropped falls in.
+        foreach (var m in _miners.Values)
+            if (m.Alive && collapsedCracks.Contains(m.Pos))
+                CollapseKill(m);
 
         _events.Add(new Explosion(charge.WallPos, destroyed));
     }
