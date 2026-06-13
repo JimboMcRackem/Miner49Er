@@ -319,11 +319,11 @@ public sealed class Simulation
         return true;
     }
 
-    // Lays a permanent, flood-immune Plank tile on the faced water tile (shallow or deep).
+    // Lays a permanent, flood-immune Plank tile on the faced water-or-pit tile.
     private bool TryPlacePlank(Miner m)
     {
         var target = m.Pos + m.Facing.ToOffset();
-        if (!Grid.InBounds(target) || !Grid.Get(target).IsWater()) return false;
+        if (!Grid.InBounds(target) || !Grid.Get(target).IsBridgeable()) return false;
         Grid.Set(target, TileType.Plank);
         m.Held = null;
         _events.Add(new PlankPlaced(target));
