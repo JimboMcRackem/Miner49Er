@@ -28,6 +28,10 @@ public static class MapGenerator
         var items = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
         items.AddRange(PlaceCarriedItems(grid, rng, config.WaterPlankCount, config.SlowMoldCount, region, spawns, items));
         var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
+        if (config.CaveIns)
+            PlaceCracks(grid, rng, config.CrackSiteCount + (config.PlayerCount - 1),
+                        config.CrackPatchGrowChance, config.CrackPatchMax,
+                        region, spawns, center, items);
 
         return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys };
     }
@@ -153,6 +157,56 @@ public static class MapGenerator
             if (nbrs.Count == 0) { frontier.RemoveAt(fromIdx); continue; }   // drop this exact entry, not a value-search
             var n = nbrs[rng.Next(nbrs.Count)];
             g.Set(n, TileType.Pit);
+            frontier.Add(n);
+            count++;
+        }
+    }
+
+    // Carves cracked-floor "areas" over Floor for the cave-in hazard. Runs AFTER the
+    // spawn/center/gold/item passes (cracks are walkable, so they don't change
+    // reachability), and explicitly skips those objective tiles. Each site flood-grows
+    // a small blob, biased toward multi-tile patches since these are deliberately areas.
+    private static void PlaceCracks(TileGrid g, Random rng, int siteCount,
+                                    double growChance, int patchMax,
+                                    HashSet<GridPos> region, List<GridPos> spawns,
+                                    GridPos center, List<Item> items)
+    {
+        var blocked = new HashSet<GridPos>(spawns) { center };
+        foreach (var it in items) blocked.Add(it.Pos);
+
+        var floors = g.Positions()
+            .Where(p => region.Contains(p) && g.Get(p) == TileType.Floor && !blocked.Contains(p))
+            .ToList();
+        Shuffle(floors, rng);
+
+        int placed = 0;
+        foreach (var seed in floors)
+        {
+            if (placed >= siteCount) break;
+            if (g.Get(seed) != TileType.Floor) continue;   // consumed by a prior patch
+            g.Set(seed, TileType.Cracked);
+            if (rng.NextDouble() < growChance)
+                GrowCrack(g, rng, seed, rng.Next(2, patchMax + 1), blocked);
+            placed++;
+        }
+    }
+
+    // Grows a crack patch to `size` total tiles by random flood over adjacent Floor,
+    // never overrunning a blocked (spawn/center/item) tile.
+    private static void GrowCrack(TileGrid g, Random rng, GridPos seed, int size, HashSet<GridPos> blocked)
+    {
+        var frontier = new List<GridPos> { seed };
+        int count = 1;
+        while (count < size && frontier.Count > 0)
+        {
+            int fromIdx = rng.Next(frontier.Count);
+            var from = frontier[fromIdx];
+            var nbrs = Card.Select(d => from + d.ToOffset())
+                           .Where(n => g.InBounds(n) && g.Get(n) == TileType.Floor && !blocked.Contains(n))
+                           .ToList();
+            if (nbrs.Count == 0) { frontier.RemoveAt(fromIdx); continue; }
+            var n = nbrs[rng.Next(nbrs.Count)];
+            g.Set(n, TileType.Cracked);
             frontier.Add(n);
             count++;
         }

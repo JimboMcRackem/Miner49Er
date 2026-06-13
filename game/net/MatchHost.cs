@@ -96,6 +96,12 @@ public partial class MatchHost : Node
 				case PlankPlaced pp:
 					changes.Add(new TileChange(pp.Pos.X, pp.Pos.Y, false, TileType.Plank));
 					break;
+				case CrackWeakened cw:
+					changes.Add(new TileChange(cw.Pos.X, cw.Pos.Y, false, TileType.Crumbling));
+					break;
+				case CrackCollapsed cc:
+					changes.Add(new TileChange(cc.Pos.X, cc.Pos.Y, false, TileType.Pit));
+					break;
 			}
 		}
 

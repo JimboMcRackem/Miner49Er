@@ -24,6 +24,12 @@ public sealed class MapConfig
     public double PitClusterChance { get; set; } = 0.3; // chance a site grows beyond one tile
     public int PitClusterMax { get; set; } = 5;         // max tiles in a grown cluster
 
+    // Cave-ins (Phase 4d) — host lobby toggle, off by default.
+    public bool CaveIns { get; set; } = false;             // gates the whole PlaceCracks pass
+    public int CrackSiteCount { get; set; } = 4;            // base number of crack patches (light per-player scaling)
+    public int CrackPatchMax { get; set; } = 8;            // max tiles in a grown patch ("areas", larger than pits)
+    public double CrackPatchGrowChance { get; set; } = 0.7; // chance a site grows beyond one tile
+
     // Water generation (Phase 4a).
     public int PoolCount { get; set; } = 3;
     public int PoolRadiusMin { get; set; } = 2;
@@ -37,9 +43,9 @@ public sealed class MapConfig
     /// larger, less-open map so the run to the centre is a real journey; other
     /// modes keep the base settings. Deterministic from (mode, seed, playerCount),
     /// so host and clients regenerate identical maps.</summary>
-    public static MapConfig For(GameMode mode, int seed, int playerCount, bool pits = false)
+    public static MapConfig For(GameMode mode, int seed, int playerCount, bool pits = false, bool caveIns = false)
     {
-        var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount, Pits = pits };
+        var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount, Pits = pits, CaveIns = caveIns };
         if (mode == GameMode.ReachCenter)
         {
             cfg.BaseWidth = 40;

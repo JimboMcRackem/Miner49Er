@@ -35,6 +35,8 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color PlankItemColor = new("c8a060");  // carried water-plank pickup
 	private static readonly Color MoldItemColor = new("8fae4f");   // carried slow-mold pickup
 	private static readonly Color PitColor = new("070709");        // near-black hole, distinct from deep water
+	private static readonly Color CrackedColor = new("3a342b");    // floor with thin fractures — subtly off from FloorColor
+	private static readonly Color CrumblingColor = new("4a3b28");  // heavier fractures/rubble — visibly "used", warmer
 	private const int ListenItemRevealRadius = 6;                // tiles; Chebyshev radius for sensing through rock
 
 	public void Init(MatchClient client) => _client = client;
@@ -95,6 +97,8 @@ public partial class WorldRenderer : Node2D
 		TileType.DeepWater => DeepWaterColor,
 		TileType.Plank => PlankColor,
 		TileType.Pit => PitColor,
+		TileType.Cracked => CrackedColor,
+		TileType.Crumbling => CrumblingColor,
 		_ => FloorColor,
 	};
 

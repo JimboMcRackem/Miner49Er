@@ -18,6 +18,7 @@ public sealed class Miner
     public double ActivitySecondsRemaining { get; internal set; }
 
     public double MoveCooldownRemaining { get; internal set; }
+    public double CrackDwell { get; internal set; }   // seconds stood on the current crack tile
 
     private readonly List<StatusEffect> _effects = new();
     public IReadOnlyList<StatusEffect> Effects => _effects;

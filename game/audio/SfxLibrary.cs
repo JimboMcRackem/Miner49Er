@@ -26,6 +26,7 @@ public static class SfxLibrary
 	public static AudioStream Plank => Get("plank", () => Noise(0.10f, 800f, decay: true)); // wooden knock
 	public static AudioStream Squelch => Get("squelch", () => Tone(0.16f, 380f, 140f)); // wet mold plop
 	public static AudioStream Fall => Get("fall", () => Tone(0.50f, 700f, 90f)); // long descending wail — falling
+	public static AudioStream CaveIn => Get("cavein", () => Noise(0.45f, 90f, decay: true)); // low rumble — collapsing floor
 	public static AudioStream? Music => GetOptional("music_loop");
 
 	private static AudioStream Get(string name, Func<AudioStream> placeholder)

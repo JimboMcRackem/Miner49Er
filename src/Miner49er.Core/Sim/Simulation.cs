@@ -150,6 +150,29 @@ public sealed class Simulation
                 m.MoveCooldownRemaining = Math.Max(0, m.MoveCooldownRemaining - dt);
     }
 
+    // A miner who lingers on a crack rather than crossing it loads the floor a
+    // second time and falls through. Crossing miners reset CrackDwell on each move,
+    // so a normal walk-through never trips this.
+    private void AdvanceCracks(double dt)
+    {
+        foreach (var m in _miners.Values)
+        {
+            if (!m.Alive) continue;
+            var t = Grid.Get(m.Pos);
+            if (t == TileType.Cracked || t == TileType.Crumbling)
+            {
+                m.CrackDwell += dt;
+                if (m.CrackDwell >= Config.CrackDwellSeconds)
+                {
+                    Grid.Set(m.Pos, TileType.Pit);
+                    _events.Add(new CrackCollapsed(m.Pos));
+                    CollapseKill(m);
+                }
+            }
+            else m.CrackDwell = 0;
+        }
+    }
+
     public bool TryMove(int id, Direction dir)
     {
         var m = _miners[id];
@@ -169,6 +192,23 @@ public sealed class Simulation
         if (Grid.Get(target).IsLethal())
             KillByTile(m);
 
+        // Stepping onto an already-weakened (Crumbling) tile is the "second loading":
+        // the floor gives way to a hole and crushes you.
+        if (m.Alive && Grid.Get(target) == TileType.Crumbling)
+        {
+            Grid.Set(target, TileType.Pit);
+            _events.Add(new CrackCollapsed(target));
+            CollapseKill(m);
+        }
+
+        // Stepping OFF a fresh crack wears it down to Crumbling (you survived the first
+        // crossing, but the floor is now weak for the next loading).
+        if (Grid.Get(from) == TileType.Cracked)
+        {
+            Grid.Set(from, TileType.Crumbling);
+            _events.Add(new CrackWeakened(from));
+        }
+
         if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive)
         {
             FirstToReachCenter = id;
@@ -180,6 +220,7 @@ public sealed class Simulation
                         Config.MoldSlowFactor, Config.MoldSlowSeconds);
 
         m.MoveCooldownRemaining = EffectiveMoveSeconds(m);   // set from destination tile
+        m.CrackDwell = 0;   // moving resets the linger timer; only standing still trips a crack
         return true;
     }
 
@@ -229,6 +270,7 @@ public sealed class Simulation
         AdvanceEffects(dt);
         AdvanceMolds(dt);
         AdvanceCooldowns(dt);
+        AdvanceCracks(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
@@ -426,6 +468,16 @@ public sealed class Simulation
         }
     }
 
+    // Kills a miner caught in a collapsing crack (distinct from KillByTile, which
+    // assigns Fell/Drowned for stepping onto an already-lethal pit/deep-water tile).
+    private void CollapseKill(Miner m)
+    {
+        m.Alive = false;
+        m.Activity = ActivityKind.None;
+        m.DeathCause = DeathCause.Crushed;
+        _events.Add(new MinerCrushed(m.Id));
+    }
+
     // Kills any living miner standing on a now-lethal tile. Covers water rising
     // *under* a stationary miner (the flood only ever produces deep water, never
     // pits); move-time deaths stay in TryMove.
@@ -443,13 +495,22 @@ public sealed class Simulation
         _charges.Remove(charge);
 
         var destroyed = new List<GridPos>();
+        var collapsedCracks = new List<GridPos>();
         int r = Config.BlastRockRadius + charge.BlastBonus;
         for (int dy = -r; dy <= r; dy++)
             for (int dx = -r; dx <= r; dx++)
             {
                 var p = new GridPos(charge.WallPos.X + dx, charge.WallPos.Y + dy);
                 if (Math.Abs(dx) + Math.Abs(dy) > r) continue;        // Manhattan disc
-                if (!Grid.InBounds(p) || !Grid.Get(p).IsBlastable()) continue;
+                if (!Grid.InBounds(p)) continue;
+                if (Grid.Get(p) is TileType.Cracked or TileType.Crumbling)
+                {
+                    Grid.Set(p, TileType.Pit);                        // the blast shakes the weak floor down
+                    _events.Add(new CrackCollapsed(p));
+                    collapsedCracks.Add(p);
+                    continue;
+                }
+                if (!Grid.Get(p).IsBlastable()) continue;
                 bool wasGold = Grid.Get(p) == TileType.GoldRock;
                 Grid.Set(p, TileType.Floor);
                 if (wasGold)
@@ -471,6 +532,11 @@ public sealed class Simulation
                 _events.Add(new MinerKilled(m.Id));
             }
         }
+
+        // Any miner still alive but standing on a crack the blast just dropped falls in.
+        foreach (var m in _miners.Values)
+            if (m.Alive && collapsedCracks.Contains(m.Pos))
+                CollapseKill(m);
 
         _events.Add(new Explosion(charge.WallPos, destroyed));
     }

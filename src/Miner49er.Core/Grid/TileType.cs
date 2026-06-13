@@ -1,18 +1,22 @@
 namespace Miner49er.Core;
 
-public enum TileType { Floor, Rock, GoldRock, ImpermeableRock, ShallowWater, DeepWater, Plank, Pit }
+public enum TileType { Floor, Rock, GoldRock, ImpermeableRock, ShallowWater, DeepWater, Plank, Pit, Cracked, Crumbling }
 
 public static class TileTypeExtensions
 {
     /// <summary>Multiplier applied to a miner's move cadence while on shallow water.</summary>
     public const double ShallowSlowFactor = 2.0;
 
-    /// <summary>Safe to stand on (used for spawns, fog, drip placement, reachability).</summary>
-    public static bool IsWalkable(this TileType t) => t is TileType.Floor or TileType.ShallowWater or TileType.Plank;
+    /// <summary>Safe to stand on (used for spawns, fog, drip placement, reachability).
+    /// Cracks are floor you stand on; they only give way on a second loading or via dwell.</summary>
+    public static bool IsWalkable(this TileType t) =>
+        t is TileType.Floor or TileType.ShallowWater or TileType.Plank
+          or TileType.Cracked or TileType.Crumbling;
 
     /// <summary>A miner may move onto this tile. Deep water and pits are enterable but lethal.</summary>
     public static bool IsEnterable(this TileType t) =>
-        t is TileType.Floor or TileType.ShallowWater or TileType.DeepWater or TileType.Plank or TileType.Pit;
+        t is TileType.Floor or TileType.ShallowWater or TileType.DeepWater or TileType.Plank
+          or TileType.Pit or TileType.Cracked or TileType.Crumbling;
 
     /// <summary>Entering this tile kills the miner (drowning in deep water, falling into a pit).</summary>
     public static bool IsLethal(this TileType t) => t is TileType.DeepWater or TileType.Pit;
@@ -31,6 +35,7 @@ public static class TileTypeExtensions
     /// <summary>Shallow or deep water (used by water placement and the flood).</summary>
     public static bool IsWater(this TileType t) => t is TileType.ShallowWater or TileType.DeepWater;
 
-    /// <summary>A held water-plank can be laid here (water or a pit) to form a safe Plank tile.</summary>
-    public static bool IsBridgeable(this TileType t) => t.IsWater() || t == TileType.Pit;
+    /// <summary>A held water-plank can be laid here (water, a pit, or a crack) to form a safe Plank tile.</summary>
+    public static bool IsBridgeable(this TileType t) =>
+        t.IsWater() || t is TileType.Pit or TileType.Cracked or TileType.Crumbling;
 }
