@@ -26,7 +26,7 @@ public partial class Main : Node2D
 
 		int seed = nm.MatchSeed;
 		int playerCount = nm.MatchPlayerCount;
-		var map = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount));
+		var map = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits));
 
 		int localMinerId = nm.LocalMinerId();
 
@@ -44,7 +44,7 @@ public partial class Main : Node2D
 
 		if (nm.IsHost)
 		{
-			var hostMap = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount));
+			var hostMap = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits));
 			var sim = new Simulation(
 				hostMap.Grid,
 				new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds },

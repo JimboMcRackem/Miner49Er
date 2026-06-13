@@ -167,12 +167,7 @@ public sealed class Simulation
         _events.Add(new MinerMoved(id, from, target));
 
         if (Grid.Get(target).IsLethal())
-        {
-            m.Alive = false;
-            m.Activity = ActivityKind.None;
-            m.DeathCause = DeathCause.Drowned;
-            _events.Add(new MinerDrowned(id));
-        }
+            KillByTile(m);
 
         if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive)
         {
@@ -324,11 +319,11 @@ public sealed class Simulation
         return true;
     }
 
-    // Lays a permanent, flood-immune Plank tile on the faced water tile (shallow or deep).
+    // Lays a permanent, flood-immune Plank tile on the faced water-or-pit tile.
     private bool TryPlacePlank(Miner m)
     {
         var target = m.Pos + m.Facing.ToOffset();
-        if (!Grid.InBounds(target) || !Grid.Get(target).IsWater()) return false;
+        if (!Grid.InBounds(target) || !Grid.Get(target).IsBridgeable()) return false;
         Grid.Set(target, TileType.Plank);
         m.Held = null;
         _events.Add(new PlankPlaced(target));
@@ -413,19 +408,33 @@ public sealed class Simulation
     private int EdgeDistance(GridPos p) =>
         Math.Min(Math.Min(p.X, p.Y), Math.Min(Grid.Width - 1 - p.X, Grid.Height - 1 - p.Y));
 
-    // Kills any living miner standing on a now-lethal (deep) tile. Covers water
-    // rising *under* a stationary miner; move-time drowning stays in TryMove.
+    // Kills a miner on a lethal tile, picking the cause/event from the tile under them:
+    // a pit makes you Fall, deep water makes you Drown.
+    private void KillByTile(Miner m)
+    {
+        m.Alive = false;
+        m.Activity = ActivityKind.None;
+        if (Grid.Get(m.Pos) == TileType.Pit)
+        {
+            m.DeathCause = DeathCause.Fell;
+            _events.Add(new MinerFell(m.Id));
+        }
+        else
+        {
+            m.DeathCause = DeathCause.Drowned;
+            _events.Add(new MinerDrowned(m.Id));
+        }
+    }
+
+    // Kills any living miner standing on a now-lethal tile. Covers water rising
+    // *under* a stationary miner (the flood only ever produces deep water, never
+    // pits); move-time deaths stay in TryMove.
     private void DrownOccupants()
     {
         foreach (var m in _miners.Values)
         {
             if (m.Alive && Grid.Get(m.Pos).IsLethal())
-            {
-                m.Alive = false;
-                m.Activity = ActivityKind.None;
-                m.DeathCause = DeathCause.Drowned;
-                _events.Add(new MinerDrowned(m.Id));
-            }
+                KillByTile(m);
         }
     }
 

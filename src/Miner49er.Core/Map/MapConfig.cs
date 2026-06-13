@@ -18,6 +18,12 @@ public sealed class MapConfig
     public int WaterPlankCount { get; set; } = 3;   // visible carried water-planks scattered on Floor
     public int SlowMoldCount { get; set; } = 3;     // visible carried slow-molds scattered on Floor
 
+    // Bottomless pits (Phase 4d) — host lobby toggle, off by default.
+    public bool Pits { get; set; } = false;            // gates the whole PlacePits pass
+    public int PitSiteCount { get; set; } = 6;          // base number of pit sites (light per-player scaling)
+    public double PitClusterChance { get; set; } = 0.3; // chance a site grows beyond one tile
+    public int PitClusterMax { get; set; } = 5;         // max tiles in a grown cluster
+
     // Water generation (Phase 4a).
     public int PoolCount { get; set; } = 3;
     public int PoolRadiusMin { get; set; } = 2;
@@ -31,9 +37,9 @@ public sealed class MapConfig
     /// larger, less-open map so the run to the centre is a real journey; other
     /// modes keep the base settings. Deterministic from (mode, seed, playerCount),
     /// so host and clients regenerate identical maps.</summary>
-    public static MapConfig For(GameMode mode, int seed, int playerCount)
+    public static MapConfig For(GameMode mode, int seed, int playerCount, bool pits = false)
     {
-        var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount };
+        var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount, Pits = pits };
         if (mode == GameMode.ReachCenter)
         {
             cfg.BaseWidth = 40;

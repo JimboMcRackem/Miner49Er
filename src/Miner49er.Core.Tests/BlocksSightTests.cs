@@ -17,6 +17,7 @@ public class BlocksSightTests
     [InlineData(TileType.ShallowWater)]
     [InlineData(TileType.DeepWater)]
     [InlineData(TileType.Plank)]
+    [InlineData(TileType.Pit)]
     public void Open_tiles_are_transparent(TileType t)
     {
         Assert.False(t.BlocksSight());

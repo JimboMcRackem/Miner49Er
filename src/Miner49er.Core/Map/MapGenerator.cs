@@ -17,6 +17,9 @@ public static class MapGenerator
 
         KeepLargestRegion(grid);
         PlaceWater(grid, rng, config);
+        if (config.Pits)
+            PlacePits(grid, rng, config.PitSiteCount + (config.PlayerCount - 1),
+                      config.PitClusterChance, config.PitClusterMax);
         var region = LargestTraversableRegion(grid);
         var spawns = PlaceSpawns(grid, rng, config.PlayerCount, config.MinSpawnDistance, region);
         var center = NearestFloorToCenter(grid, region);
@@ -111,6 +114,48 @@ public static class MapGenerator
         for (int i = 0; i < cfg.PoolCount; i++) CarvePool(g, rng, cfg);
         for (int i = 0; i < cfg.RiverCount; i++) CarveRiver(g, rng, cfg);
         PromoteDeep(g, rng, cfg);
+    }
+
+    // Carves scattered bottomless pits over Floor: mostly single tiles, with an
+    // occasional small cluster. Pits are not traversable, so the region recomputed
+    // after this pass excludes them and every later placement pass avoids them.
+    // Reachability is preserved structurally — the chosen region is always the
+    // single largest connected traversable component.
+    private static void PlacePits(TileGrid g, Random rng, int siteCount,
+                                  double clusterChance, int clusterMax)
+    {
+        var floors = g.Positions().Where(p => g.Get(p) == TileType.Floor).ToList();
+        Shuffle(floors, rng);
+        int placed = 0;
+        foreach (var seed in floors)
+        {
+            if (placed >= siteCount) break;
+            if (g.Get(seed) != TileType.Floor) continue;   // consumed by a prior cluster
+            g.Set(seed, TileType.Pit);
+            if (rng.NextDouble() < clusterChance)
+                GrowPit(g, rng, seed, rng.Next(2, clusterMax + 1));
+            placed++;
+        }
+    }
+
+    // Grows a pit cluster to `size` total tiles by random flood over adjacent Floor.
+    private static void GrowPit(TileGrid g, Random rng, GridPos seed, int size)
+    {
+        var frontier = new List<GridPos> { seed };
+        int count = 1;                                       // seed tile already a pit
+        while (count < size && frontier.Count > 0)
+        {
+            int fromIdx = rng.Next(frontier.Count);
+            var from = frontier[fromIdx];
+            var nbrs = Card.Select(d => from + d.ToOffset())
+                           .Where(n => g.InBounds(n) && g.Get(n) == TileType.Floor)
+                           .ToList();
+            if (nbrs.Count == 0) { frontier.RemoveAt(fromIdx); continue; }   // drop this exact entry, not a value-search
+            var n = nbrs[rng.Next(nbrs.Count)];
+            g.Set(n, TileType.Pit);
+            frontier.Add(n);
+            count++;
+        }
     }
 
     private static GridPos? RandomFloor(TileGrid g, Random rng)
