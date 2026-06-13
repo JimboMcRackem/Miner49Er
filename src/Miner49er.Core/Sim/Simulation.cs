@@ -150,6 +150,29 @@ public sealed class Simulation
                 m.MoveCooldownRemaining = Math.Max(0, m.MoveCooldownRemaining - dt);
     }
 
+    // A miner who lingers on a crack rather than crossing it loads the floor a
+    // second time and falls through. Crossing miners reset CrackDwell on each move,
+    // so a normal walk-through never trips this.
+    private void AdvanceCracks(double dt)
+    {
+        foreach (var m in _miners.Values)
+        {
+            if (!m.Alive) continue;
+            var t = Grid.Get(m.Pos);
+            if (t == TileType.Cracked || t == TileType.Crumbling)
+            {
+                m.CrackDwell += dt;
+                if (m.CrackDwell >= Config.CrackDwellSeconds)
+                {
+                    Grid.Set(m.Pos, TileType.Pit);
+                    _events.Add(new CrackCollapsed(m.Pos));
+                    CollapseKill(m);
+                }
+            }
+            else m.CrackDwell = 0;
+        }
+    }
+
     public bool TryMove(int id, Direction dir)
     {
         var m = _miners[id];
@@ -197,6 +220,7 @@ public sealed class Simulation
                         Config.MoldSlowFactor, Config.MoldSlowSeconds);
 
         m.MoveCooldownRemaining = EffectiveMoveSeconds(m);   // set from destination tile
+        m.CrackDwell = 0;   // moving resets the linger timer; only standing still trips a crack
         return true;
     }
 
@@ -246,6 +270,7 @@ public sealed class Simulation
         AdvanceEffects(dt);
         AdvanceMolds(dt);
         AdvanceCooldowns(dt);
+        AdvanceCracks(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();

@@ -62,4 +62,43 @@ public class SimulationCaveInTests
         Assert.Equal(DeathCause.Crushed, m.DeathCause);
         Assert.Equal(TileType.Pit, grid.Get(new GridPos(2, 1)));
     }
+
+    [Fact]
+    public void Lingering_on_a_crack_collapses_it_under_you()
+    {
+        var grid = new TileGrid(3, 3, TileType.Floor);
+        grid.Set(new GridPos(2, 1), TileType.Cracked);
+        var cfg = new SimConfig { CrackDwellSeconds = 0.5 };
+        var sim = new Simulation(grid, cfg);
+        var m = sim.AddMiner(1, new GridPos(1, 1));
+
+        sim.TryMove(1, Direction.East);        // onto the crack, then stand still
+        sim.DrainEvents();
+
+        sim.Tick(0.3);
+        Assert.True(m.Alive);                  // under the dwell threshold so far
+        sim.Tick(0.3);                         // total 0.6 >= 0.5 -> gives way
+        Assert.False(m.Alive);
+        Assert.Equal(DeathCause.Crushed, m.DeathCause);
+        Assert.Equal(TileType.Pit, grid.Get(new GridPos(2, 1)));
+    }
+
+    [Fact]
+    public void Walking_straight_across_a_crack_does_not_collapse_under_you()
+    {
+        var grid = new TileGrid(4, 3, TileType.Floor);
+        grid.Set(new GridPos(2, 1), TileType.Cracked);
+        var cfg = new SimConfig { CrackDwellSeconds = 0.5 };
+        var sim = new Simulation(grid, cfg);
+        var m = sim.AddMiner(1, new GridPos(1, 1));
+
+        sim.TryMove(1, Direction.East);        // onto the crack
+        sim.Tick(0.1);                         // brief dwell, well under threshold
+        m.MoveCooldownRemaining = 0;
+        sim.TryMove(1, Direction.East);        // keep moving off it
+        sim.Tick(0.1);
+
+        Assert.True(m.Alive);                  // you kept moving, so you live
+        Assert.Equal(new GridPos(3, 1), m.Pos);
+    }
 }
