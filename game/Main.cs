@@ -15,6 +15,7 @@ public partial class Main : Node2D
 	private ResultsOverlay? _results;
 	private MatchAudio _audio = null!;
 	private Compass _compass = null!;
+	private DeathFeed _deathFeed = null!;
 	private bool _wasListening;
 
 	public override void _Ready()
@@ -68,6 +69,10 @@ public partial class Main : Node2D
 
 		_hud = new Hud { Name = "Hud" };
 		AddChild(_hud);
+
+		_deathFeed = new DeathFeed { Name = "DeathFeed" };
+		AddChild(_deathFeed);
+		_deathFeed.Init(_client);
 
 		nm.RegisterMatch(_host, _client);
 		nm.MatchEnded += OnMatchEnded;
