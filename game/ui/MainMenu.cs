@@ -13,6 +13,16 @@ public partial class MainMenu : Control
 
 	public override void _Ready()
 	{
+		var bg = new TextureRect
+		{
+			Texture = GD.Load<Texture2D>("res://assets/Splash.png"),
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+			AnchorRight = 1f,
+			AnchorBottom = 1f,
+		};
+		AddChild(bg);
+
 		var box = new VBoxContainer();
 		box.SetAnchorsPreset(LayoutPreset.Center);
 		AddChild(box);
