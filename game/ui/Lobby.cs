@@ -17,6 +17,8 @@ public partial class Lobby : Control
 	private CheckBox _caveInCheck = null!;
 	private CheckBox _lavaCheck = null!;
 	private OptionButton _speedPicker = null!;
+	private Label _codeLabel = null!;
+	private Button _copyBtn = null!;
 
 	public override void _Ready()
 	{
@@ -33,6 +35,13 @@ public partial class Lobby : Control
 
 		_list = new VBoxContainer { CustomMinimumSize = new Vector2(320, 200) };
 		box.AddChild(_list);
+
+		_codeLabel = new Label { Text = "", Visible = false };
+		box.AddChild(_codeLabel);
+
+		_copyBtn = new Button { Text = "Copy code", Visible = false };
+		_copyBtn.Pressed += () => { if (NetworkManager.Instance.HostCode is { } c) DisplayServer.ClipboardSet(c); };
+		box.AddChild(_copyBtn);
 
 		_readyBtn = new Button { Text = "Toggle Ready" };
 		_readyBtn.Pressed += () => NetworkManager.Instance.ToggleReady();
@@ -100,7 +109,9 @@ public partial class Lobby : Control
 		NetworkManager.Instance.LobbyChanged += Refresh;
 		NetworkManager.Instance.Disconnected += OnDisconnected;
 		NetworkManager.Instance.MatchStarting += OnMatchStarting;
+		NetworkManager.Instance.InternetStatusChanged += RefreshInternet;
 		Refresh();
+		RefreshInternet();   // reflect status that may have resolved during the scene change
 	}
 
 	public override void _ExitTree()
@@ -108,6 +119,7 @@ public partial class Lobby : Control
 		NetworkManager.Instance.LobbyChanged -= Refresh;
 		NetworkManager.Instance.Disconnected -= OnDisconnected;
 		NetworkManager.Instance.MatchStarting -= OnMatchStarting;
+		NetworkManager.Instance.InternetStatusChanged -= RefreshInternet;
 	}
 
 	private void Refresh()
@@ -127,6 +139,36 @@ public partial class Lobby : Control
 		bool canStart = players.Count >= 2 && players.All(p => p.Ready);
 		_startBtn.Disabled = !canStart;
 		_hint.Text = canStart ? "" : "Need ≥2 players, all ready.";
+	}
+
+	private void RefreshInternet()
+	{
+		if (!NetworkManager.Instance.IsHost) return;   // joiners never see the host code
+		var nm = NetworkManager.Instance;
+		switch (nm.Status)
+		{
+			case InternetStatus.Discovering:
+				_codeLabel.Visible = true;
+				_codeLabel.Text = "Opening router…";
+				_copyBtn.Visible = false;
+				break;
+			case InternetStatus.Mapped:
+				_codeLabel.Visible = true;
+				_codeLabel.Text = $"Internet code: {nm.HostCode}";
+				_copyBtn.Visible = true;
+				break;
+			case InternetStatus.Failed:
+				_codeLabel.Visible = true;
+				_codeLabel.Text = "Couldn't open your router automatically (UPnP unavailable).\n"
+					+ "LAN players can still join via your local address.\n"
+					+ "For internet play, forward port 27649 and share your public IP.";
+				_copyBtn.Visible = false;
+				break;
+			default: // Off
+				_codeLabel.Visible = false;
+				_copyBtn.Visible = false;
+				break;
+		}
 	}
 
 	public override void _UnhandledInput(InputEvent @event)
