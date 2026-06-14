@@ -7,6 +7,7 @@ public partial class MainMenu : Control
 	private LineEdit _name = null!;
 	private LineEdit _address = null!;
 	private OptionButton _color = null!;
+	private CheckBox _internet = null!;
 	private Label _status = null!;
 	private AudioSettingsPanel _audioPanel = null!;
 
@@ -28,8 +29,11 @@ public partial class MainMenu : Control
 			_color.AddItem($"Color {i + 1}", i);
 		box.AddChild(_color);
 
-		_address = new LineEdit { Text = "127.0.0.1", PlaceholderText = "Host IP" };
+		_address = new LineEdit { Text = "127.0.0.1", PlaceholderText = "Code or Host IP" };
 		box.AddChild(_address);
+
+		_internet = new CheckBox { Text = "Host over internet (UPnP)", ButtonPressed = true };
+		box.AddChild(_internet);
 
 		var hostBtn = new Button { Text = "Host Game" };
 		hostBtn.Pressed += OnHost;
@@ -68,14 +72,14 @@ public partial class MainMenu : Control
 
 	private void OnHost()
 	{
-		var err = NetworkManager.Instance.HostGame(_name.Text, _color.Selected);
+		var err = NetworkManager.Instance.HostGame(_name.Text, _color.Selected, _internet.ButtonPressed);
 		if (err != Error.Ok) { _status.Text = $"Host failed: {err}"; return; }
 		GetTree().ChangeSceneToFile("res://game/ui/Lobby.tscn");
 	}
 
 	private void OnJoin()
 	{
-		var err = NetworkManager.Instance.JoinGame(_address.Text, _name.Text, _color.Selected);
+		var err = NetworkManager.Instance.JoinByCode(_address.Text, _name.Text, _color.Selected);
 		if (err != Error.Ok) { _status.Text = $"Join failed: {err}"; return; }
 		GetTree().ChangeSceneToFile("res://game/ui/Lobby.tscn");
 	}
