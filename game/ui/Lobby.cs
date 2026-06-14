@@ -15,6 +15,7 @@ public partial class Lobby : Control
 	private CheckBox _floodCheck = null!;
 	private CheckBox _pitsCheck = null!;
 	private CheckBox _caveInCheck = null!;
+	private CheckBox _lavaCheck = null!;
 	private OptionButton _speedPicker = null!;
 
 	public override void _Ready()
@@ -69,6 +70,10 @@ public partial class Lobby : Control
 		_caveInCheck.Visible = NetworkManager.Instance.IsHost; // only the host chooses
 		box.AddChild(_caveInCheck);
 
+		_lavaCheck = new CheckBox { Text = "Lava" };
+		_lavaCheck.Visible = NetworkManager.Instance.IsHost; // only the host chooses
+		box.AddChild(_lavaCheck);
+
 		_speedPicker = new OptionButton();
 		_speedPicker.AddItem("Slow", 0);
 		_speedPicker.AddItem("Standard", 1);
@@ -84,6 +89,7 @@ public partial class Lobby : Control
 			_floodCheck.ButtonPressed,
 			_pitsCheck.ButtonPressed,
 			_caveInCheck.ButtonPressed,
+			_lavaCheck.ButtonPressed,
 			new[] { 0.20f, 0.12f, 0.07f }[_speedPicker.Selected]);
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_startBtn);
