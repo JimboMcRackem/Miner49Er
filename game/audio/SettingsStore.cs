@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 namespace Miner49er;
 
@@ -9,6 +10,7 @@ public static class SettingsStore
 {
 	private const string Path = "user://settings.cfg";
 	private const string Section = "audio";
+	private const string InputSection = "input";
 
 	public static (float music, float sfx, bool musicEnabled) LoadAudio(
 		float defMusic, float defSfx, bool defMusicEnabled)
@@ -30,6 +32,29 @@ public static class SettingsStore
 		cfg.SetValue(Section, "music_volume", music);
 		cfg.SetValue(Section, "sfx_volume", sfx);
 		cfg.SetValue(Section, "music_enabled", musicEnabled);
+		cfg.Save(Path);
+	}
+
+	// Returns saved input overrides as a flat (key -> code) map; empty if none.
+	public static Dictionary<string, long> LoadInput()
+	{
+		var result = new Dictionary<string, long>();
+		var cfg = new ConfigFile();
+		if (cfg.Load(Path) != Error.Ok) return result;
+		if (!cfg.HasSection(InputSection)) return result;
+		foreach (var key in cfg.GetSectionKeys(InputSection))
+			result[key] = cfg.GetValue(InputSection, key).AsInt64();
+		return result;
+	}
+
+	// Persists a BindingSet.ToConfig() map under [input], preserving [audio].
+	public static void SaveInput(IReadOnlyDictionary<string, long> values)
+	{
+		var cfg = new ConfigFile();
+		cfg.Load(Path); // keep any existing sections (e.g. audio)
+		if (cfg.HasSection(InputSection)) cfg.EraseSection(InputSection);
+		foreach (var kv in values)
+			cfg.SetValue(InputSection, kv.Key, kv.Value);
 		cfg.Save(Path);
 	}
 }
