@@ -30,6 +30,7 @@ public partial class MatchClient : Node2D
 	private List<MoldSnapshot> _molds = new();
 	private readonly Dictionary<int, Vector2> _visualPos = new(); // minerId -> smoothed pixels
 
+	private TerrainMap _terrainMap = null!;
 	private WorldRenderer _world = null!;
 	private FogRenderer _fogRenderer = null!;
 	private Node2D _camera = null!;
@@ -41,7 +42,11 @@ public partial class MatchClient : Node2D
 		LocalMinerId = localMinerId;
 		Decoys = decoys;
 
-		_world = new WorldRenderer { Name = "WorldRenderer", ZIndex = -10 };
+		_terrainMap = new TerrainMap { Name = "TerrainMap", ZIndex = -10 };
+		sceneRoot.AddChild(_terrainMap);
+		_terrainMap.Init(this);
+
+		_world = new WorldRenderer { Name = "WorldRenderer", ZIndex = -9 };
 		sceneRoot.AddChild(_world);
 		_world.Init(this);
 
@@ -79,6 +84,7 @@ public partial class MatchClient : Node2D
 			Exploded?.Invoke(c);
 		}
 
+		_terrainMap?.UpdateTiles(update.TileChanges);
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
 		_items = new List<ItemSnapshot>(update.Snapshot.Items);
