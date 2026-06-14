@@ -24,9 +24,15 @@ public partial class MainMenu : Control
 		_name = new LineEdit { Text = "Miner", PlaceholderText = "Name", CustomMinimumSize = new Vector2(240, 0) };
 		box.AddChild(_name);
 
-		_color = new OptionButton();
+		_color = new OptionButton { CustomMinimumSize = new Vector2(180, 0) };
+		var minerIcons = BuildMinerIcons();
 		for (int i = 0; i < PlayerColors.Palette.Length; i++)
-			_color.AddItem($"Color {i + 1}", i);
+		{
+			if (minerIcons[i] != null)
+				_color.AddIconItem(minerIcons[i]!, PlayerColors.Names[i], i);
+			else
+				_color.AddItem(PlayerColors.Names[i], i);
+		}
 		box.AddChild(_color);
 
 		_address = new LineEdit { Text = "127.0.0.1", PlaceholderText = "Code or Host IP" };
@@ -82,5 +88,32 @@ public partial class MainMenu : Control
 		var err = NetworkManager.Instance.JoinByCode(_address.Text, _name.Text, _color.Selected);
 		if (err != Error.Ok) { _status.Text = $"Join failed: {err}"; return; }
 		GetTree().ChangeSceneToFile("res://game/ui/Lobby.tscn");
+	}
+
+	private static Texture2D?[] BuildMinerIcons()
+	{
+		var icons = new Texture2D?[PlayerColors.Palette.Length];
+		var src = new Image();
+		if (src.Load("res://assets/miners/miner_s.png") != Error.Ok)
+			return icons;
+		src.Convert(Image.Format.Rgba8);
+		for (int i = 0; i < PlayerColors.Palette.Length; i++)
+			icons[i] = ImageTexture.CreateFromImage(TintGrayscale(src, PlayerColors.At(i)));
+		return icons;
+	}
+
+	private static Image TintGrayscale(Image src, Color tint)
+	{
+		var img = (Image)src.Duplicate();
+		for (int y = 0; y < img.GetHeight(); y++)
+		{
+			for (int x = 0; x < img.GetWidth(); x++)
+			{
+				var px = img.GetPixel(x, y);
+				float lum = 0.299f * px.R + 0.587f * px.G + 0.114f * px.B;
+				img.SetPixel(x, y, new Color(tint.R * lum, tint.G * lum, tint.B * lum, px.A));
+			}
+		}
+		return img;
 	}
 }

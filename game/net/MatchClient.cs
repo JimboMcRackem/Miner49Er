@@ -33,6 +33,7 @@ public partial class MatchClient : Node2D
 	private WorldRenderer _world = null!;
 	private FogRenderer _fogRenderer = null!;
 	private Node2D _camera = null!;
+	private Texture2D[,]? _minerTex; // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
 
 	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot)
 	{
@@ -47,6 +48,8 @@ public partial class MatchClient : Node2D
 		_fogRenderer = new FogRenderer { Name = "FogRenderer", ZIndex = -5 };
 		sceneRoot.AddChild(_fogRenderer);
 		_fogRenderer.Init(this);
+
+		_minerTex = BuildMinerTextures();
 
 		_camera = new Node2D { Name = "CameraRig" };
 		sceneRoot.AddChild(_camera);
@@ -102,20 +105,54 @@ public partial class MatchClient : Node2D
 
 	public override void _Draw()
 	{
-		// Draw miners as colored squares (color via NetworkManager lobby info).
 		foreach (var m in _miners)
 		{
 			if (!m.Alive) continue;
 			var p = _visualPos.TryGetValue(m.Id, out var v) ? v : Vector2.Zero;
-			var color = MinerColor(m.Id);
-			DrawRect(new Rect2(p.X - 10, p.Y - 10, 20, 20), color);
+			int colorIdx = (m.Id - 1) % PlayerColors.Palette.Length;
+			int facing = m.Facing; // 0=N 1=E 2=S 3=W
+			var tex = _minerTex?[colorIdx, facing];
+			if (tex != null)
+				DrawTextureRect(tex, new Rect2(p.X - 16, p.Y - 16, 32, 32), false);
+			else
+				DrawRect(new Rect2(p.X - 10, p.Y - 10, 20, 20), PlayerColors.At(m.Id - 1));
 		}
 	}
 
-	private static Color MinerColor(int minerId)
+	private static Texture2D[,] BuildMinerTextures()
 	{
-		// minerId is 1-based spawn index; map to palette by index-1.
-		return PlayerColors.At(minerId - 1);
+		var paths = new[]
+		{
+			"res://assets/miners/miner_n.png",
+			"res://assets/miners/miner_e.png",
+			"res://assets/miners/miner_s.png",
+			"res://assets/miners/miner_w.png",
+		};
+		var srcs = new Image?[4];
+		for (int d = 0; d < 4; d++)
+		{
+			var img = new Image();
+			if (img.Load(paths[d]) == Error.Ok) { img.Convert(Image.Format.Rgba8); srcs[d] = img; }
+		}
+		var tex = new Texture2D[PlayerColors.Palette.Length, 4];
+		for (int c = 0; c < PlayerColors.Palette.Length; c++)
+			for (int d = 0; d < 4; d++)
+				if (srcs[d] != null)
+					tex[c, d] = ImageTexture.CreateFromImage(TintMiner(srcs[d]!, PlayerColors.At(c)));
+		return tex;
+	}
+
+	private static Image TintMiner(Image src, Color tint)
+	{
+		var img = (Image)src.Duplicate();
+		for (int y = 0; y < img.GetHeight(); y++)
+			for (int x = 0; x < img.GetWidth(); x++)
+			{
+				var px = img.GetPixel(x, y);
+				float lum = 0.299f * px.R + 0.587f * px.G + 0.114f * px.B;
+				img.SetPixel(x, y, new Color(tint.R * lum, tint.G * lum, tint.B * lum, px.A));
+			}
+		return img;
 	}
 
 	private void UpdateFog()

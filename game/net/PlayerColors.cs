@@ -11,5 +11,10 @@ public static class PlayerColors
 		new("c34ae8"), new("e8964a"), new("4ae8e0"), new("e84ab0"),
 	};
 
+	public static readonly string[] Names =
+	{
+		"Gold", "Blue", "Red", "Green", "Purple", "Orange", "Cyan", "Pink",
+	};
+
 	public static Color At(int index) => Palette[((index % Palette.Length) + Palette.Length) % Palette.Length];
 }
