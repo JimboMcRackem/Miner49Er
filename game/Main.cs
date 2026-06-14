@@ -16,7 +16,7 @@ public partial class Main : Node2D
 	private MatchAudio _audio = null!;
 	private Compass _compass = null!;
 	private DeathFeed _deathFeed = null!;
-	private AudioSettingsPanel _audioPanel = null!;
+	private SettingsPanel _audioPanel = null!;
 	private bool _wasListening;
 
 	public override void _Ready()
@@ -75,7 +75,7 @@ public partial class Main : Node2D
 		AddChild(_deathFeed);
 		_deathFeed.Init(_client);
 
-		_audioPanel = new AudioSettingsPanel { Name = "AudioSettingsPanel" };
+		_audioPanel = new SettingsPanel { Name = "SettingsPanel" };
 		AddChild(_audioPanel);
 
 		nm.RegisterMatch(_host, _client);
