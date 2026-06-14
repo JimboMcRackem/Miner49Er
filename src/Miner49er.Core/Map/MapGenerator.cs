@@ -20,6 +20,8 @@ public static class MapGenerator
         if (config.Pits)
             PlacePits(grid, rng, config.PitSiteCount + (config.PlayerCount - 1),
                       config.PitClusterChance, config.PitClusterMax);
+        if (config.Lava)
+            PlaceLava(grid, rng, config.LavaPoolCount, config.LavaPoolGrowChance, config.LavaPoolMax);
         var region = LargestTraversableRegion(grid);
         var spawns = PlaceSpawns(grid, rng, config.PlayerCount, config.MinSpawnDistance, region);
         var center = NearestFloorToCenter(grid, region);
@@ -32,6 +34,8 @@ public static class MapGenerator
             PlaceCracks(grid, rng, config.CrackSiteCount + (config.PlayerCount - 1),
                         config.CrackPatchGrowChance, config.CrackPatchMax,
                         region, spawns, center, items);
+        if (config.Lava)
+            PlaceLavaVents(grid, rng, config.LavaVentCount + (config.PlayerCount - 1), region, items, decoys);
 
         return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys };
     }
@@ -160,6 +164,67 @@ public static class MapGenerator
             frontier.Add(n);
             count++;
         }
+    }
+
+    // Carves static lava pools/lines over Floor. Like pits, lava is not traversable, so this
+    // runs BEFORE the region recompute and reachability is preserved structurally (the kept
+    // region routes around it). Skips any tile adjacent to water so gen-time lava never sits
+    // on a quench boundary — quench is a runtime interaction.
+    private static void PlaceLava(TileGrid g, Random rng, int siteCount,
+                                  double growChance, int poolMax)
+    {
+        var floors = g.Positions()
+            .Where(p => g.Get(p) == TileType.Floor && !IsWaterAdjacent(g, p))
+            .ToList();
+        Shuffle(floors, rng);
+        int placed = 0;
+        foreach (var seed in floors)
+        {
+            if (placed >= siteCount) break;
+            if (g.Get(seed) != TileType.Floor || IsWaterAdjacent(g, seed)) continue;   // consumed/now-bordering
+            g.Set(seed, TileType.Lava);
+            if (rng.NextDouble() < growChance)
+                GrowLava(g, rng, seed, rng.Next(2, poolMax + 1));
+            placed++;
+        }
+    }
+
+    // Grows a lava pool to `size` tiles by random flood over adjacent Floor that is not
+    // water-adjacent, so a static pool never touches water.
+    private static void GrowLava(TileGrid g, Random rng, GridPos seed, int size)
+    {
+        var frontier = new List<GridPos> { seed };
+        int count = 1;
+        while (count < size && frontier.Count > 0)
+        {
+            int fromIdx = rng.Next(frontier.Count);
+            var from = frontier[fromIdx];
+            var nbrs = Card.Select(d => from + d.ToOffset())
+                           .Where(n => g.InBounds(n) && g.Get(n) == TileType.Floor && !IsWaterAdjacent(g, n))
+                           .ToList();
+            if (nbrs.Count == 0) { frontier.RemoveAt(fromIdx); continue; }
+            var n = nbrs[rng.Next(nbrs.Count)];
+            g.Set(n, TileType.Lava);
+            frontier.Add(n);
+            count++;
+        }
+    }
+
+    // Buries dormant lava vents in rim rock (plain Rock bordering the play region), so breaching
+    // the edge by mining/blasting releases them. Vents sit in rock and never affect the traversable
+    // region. Skips tiles holding a buried item or a decoy so nothing is orphaned. Runs after the
+    // objective passes.
+    private static void PlaceLavaVents(TileGrid g, Random rng, int count,
+                                       HashSet<GridPos> region, List<Item> items, List<GridPos> decoys)
+    {
+        var blocked = new HashSet<GridPos>(items.Select(it => it.Pos));
+        foreach (var d in decoys) blocked.Add(d);
+        var cands = g.Positions()
+            .Where(p => g.Get(p) == TileType.Rock && !blocked.Contains(p) && HasRegionNeighbor(g, p, region))
+            .ToList();
+        Shuffle(cands, rng);
+        foreach (var p in cands.Take(Math.Min(count, cands.Count)))
+            g.Set(p, TileType.LavaVent);
     }
 
     // Carves cracked-floor "areas" over Floor for the cave-in hazard. Runs AFTER the
