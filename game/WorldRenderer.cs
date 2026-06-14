@@ -1,16 +1,16 @@
 using Godot;
+using System.Collections.Generic;
 using Miner49er.Core;
 using Miner49er.Core.Net;
 
 namespace Miner49er;
 
 /// <summary>Draws non-terrain world objects: charges, items, mold patches, explosion
-/// flashes, the Listen shimmer, and the two tile types not handled by TerrainMap
-/// (Pit and LavaVent).</summary>
+/// flashes, the Listen shimmer, and LavaVent (no Wang tileset yet).</summary>
 public partial class WorldRenderer : Node2D
 {
 	private MatchClient _client = null!;
-	private readonly System.Collections.Generic.List<(GridPos pos, float life)> _flashes = new();
+	private readonly List<(GridPos pos, float life)> _flashes = new();
 
 	private static readonly Color LavaVentColor  = new("ff7a2a");
 	private static readonly Color ChargeColor    = new("ff5530");
@@ -25,7 +25,29 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color MoldColor      = new("6f8f3a");
 	private const int ListenItemRevealRadius = 6;
 
-	public void Init(MatchClient client) => _client = client;
+	private Texture2D? _chargeTex;
+	private Texture2D? _toolboxTex;
+	private Texture2D? _moldPatchTex;
+	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
+
+	public void Init(MatchClient client)
+	{
+		_client = client;
+		_chargeTex    = GD.Load<Texture2D>("res://assets/objects/charge.png");
+		_toolboxTex   = GD.Load<Texture2D>("res://assets/objects/toolbox.png");
+		_moldPatchTex = GD.Load<Texture2D>("res://assets/objects/mold_patch.png");
+		LoadItemTex(ItemKind.SpeedPotion,  "res://assets/objects/item_speed.png");
+		LoadItemTex(ItemKind.LongerVision, "res://assets/objects/item_vision.png");
+		LoadItemTex(ItemKind.BiggerBlast,  "res://assets/objects/item_blast.png");
+		LoadItemTex(ItemKind.WaterPlank,   "res://assets/objects/item_plank.png");
+		LoadItemTex(ItemKind.SlowMold,     "res://assets/objects/item_mold.png");
+	}
+
+	private void LoadItemTex(ItemKind kind, string path)
+	{
+		var t = GD.Load<Texture2D>(path);
+		if (t != null) _itemTex[kind] = t;
+	}
 
 	public void AddExplosionFlash(GridPos pos) => _flashes.Add((pos, 0.4f));
 
@@ -54,8 +76,11 @@ public partial class WorldRenderer : Node2D
 
 		foreach (var c in _client.Charges)
 		{
-			var center = new Vector2(c.X * ts + ts / 2f, c.Y * ts + ts / 2f);
-			DrawCircle(center, ts * 0.25f, ChargeColor);
+			var r = new Rect2(c.X * ts, c.Y * ts, ts, ts);
+			if (_chargeTex != null)
+				DrawTextureRect(_chargeTex, r, false);
+			else
+				DrawCircle(new Vector2(c.X * ts + ts / 2f, c.Y * ts + ts / 2f), ts * 0.25f, ChargeColor);
 		}
 
 		foreach (var it in _client.Items)
@@ -63,22 +88,34 @@ public partial class WorldRenderer : Node2D
 			if (it.Placement == ItemPlacement.Buried) continue;
 			var ip = new GridPos(it.X, it.Y);
 			if (!_client.Fog.IsVisible(ip)) continue;
-			var icol = it.Kind switch
-			{
-				ItemKind.SpeedPotion  => SpeedItemColor,
-				ItemKind.LongerVision => VisionItemColor,
-				ItemKind.BiggerBlast  => BlastItemColor,
-				ItemKind.WaterPlank   => PlankItemColor,
-				ItemKind.SlowMold     => MoldItemColor,
-				_                     => SpeedItemColor,
-			};
+
+			var r = new Rect2(it.X * ts, it.Y * ts, ts, ts);
 			var icenter = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
+
 			if (it.Placement == ItemPlacement.Toolbox)
 			{
-				float bs = ts * 0.5f;
-				DrawRect(new Rect2(icenter.X - bs / 2f, icenter.Y - bs / 2f, bs, bs), ToolboxColor, false, 2f);
+				// Draw container, then item sprite at half-size so player sees what's inside
+				if (_toolboxTex != null)
+					DrawTextureRect(_toolboxTex, r, false);
+				else
+				{
+					float bs = ts * 0.5f;
+					DrawRect(new Rect2(icenter.X - bs / 2f, icenter.Y - bs / 2f, bs, bs), ToolboxColor, false, 2f);
+				}
+				float hs = ts * 0.5f;
+				var inner = new Rect2(icenter.X - hs / 2f, icenter.Y - hs / 2f, hs, hs);
+				if (_itemTex.TryGetValue(it.Kind, out var itex2))
+					DrawTextureRect(itex2, inner, false);
+				else
+					DrawCircle(icenter, ts * 0.15f, ItemColor(it.Kind));
 			}
-			DrawCircle(icenter, ts * 0.22f, icol);
+			else
+			{
+				if (_itemTex.TryGetValue(it.Kind, out var itex))
+					DrawTextureRect(itex, r, false);
+				else
+					DrawCircle(icenter, ts * 0.22f, ItemColor(it.Kind));
+			}
 		}
 
 		foreach (var mo in _client.Molds)
@@ -86,8 +123,11 @@ public partial class WorldRenderer : Node2D
 			var mp = new GridPos(mo.X, mo.Y);
 			if (!_client.Fog.IsVisible(mp)) continue;
 			float alpha = Mathf.Clamp((float)mo.RemainingSeconds, 0f, 1f) * 0.5f + 0.25f;
-			var col = MoldColor with { A = alpha };
-			DrawRect(new Rect2(mo.X * ts, mo.Y * ts, ts, ts), col);
+			var r = new Rect2(mo.X * ts, mo.Y * ts, ts, ts);
+			if (_moldPatchTex != null)
+				DrawTextureRect(_moldPatchTex, r, false, new Color(1f, 1f, 1f, alpha));
+			else
+				DrawRect(r, MoldColor with { A = alpha });
 		}
 
 		if (_client.Listening && TryLocalTile(out var lt))
@@ -109,6 +149,16 @@ public partial class WorldRenderer : Node2D
 			DrawRect(new Rect2(pos.X * ts, pos.Y * ts, ts, ts), col);
 		}
 	}
+
+	private static Color ItemColor(ItemKind kind) => kind switch
+	{
+		ItemKind.SpeedPotion  => SpeedItemColor,
+		ItemKind.LongerVision => VisionItemColor,
+		ItemKind.BiggerBlast  => BlastItemColor,
+		ItemKind.WaterPlank   => PlankItemColor,
+		ItemKind.SlowMold     => MoldItemColor,
+		_                     => SpeedItemColor,
+	};
 
 	private bool TryLocalTile(out GridPos tile)
 	{
