@@ -67,6 +67,7 @@ public class SnapshotCodecTests
                     new(3, 2, 2, 0, false, 0, 0, 0.0, 0.1, 5, -1, DeathCause.Left),
                     new(5, 4, 4, 0, false, 0, 0, 0.0, 0.1, 5, -1, DeathCause.Crushed),
                     new(4, 3, 3, 0, true,  0, 0, 0.0, 0.1, 5, -1),
+                    new(6, 5, 5, 0, false, 0, 0, 0.0, 0.1, 5, -1, DeathCause.Burned),
                 },
                 new List<ChargeSnapshot>(), new List<ItemSnapshot>(), new List<MoldSnapshot>()),
             new List<TileChange>());
@@ -78,6 +79,7 @@ public class SnapshotCodecTests
         Assert.Equal(DeathCause.Left, back.Snapshot.Miners[2].Cause);
         Assert.Equal(DeathCause.Crushed, back.Snapshot.Miners[3].Cause);
         Assert.Equal(DeathCause.None, back.Snapshot.Miners[4].Cause);
+        Assert.Equal(DeathCause.Burned, back.Snapshot.Miners[5].Cause);
     }
 
     [Fact]

@@ -28,4 +28,7 @@ public sealed class SimConfig
     public double MoldSlowSeconds { get; set; } = 3.0;   // how long the slow lingers after stepping on
 
     public double CrackDwellSeconds { get; set; } = 0.75;   // linger this long on a crack and it gives way
+
+    public double LavaSpreadIntervalSeconds { get; set; } = 1.5;   // seconds per spread ring once a vent is breached
+    public int LavaVentBudget { get; set; } = 8;                    // max tiles a single vent converts before going inert
 }

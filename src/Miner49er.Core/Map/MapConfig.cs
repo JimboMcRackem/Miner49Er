@@ -30,6 +30,13 @@ public sealed class MapConfig
     public int CrackPatchMax { get; set; } = 8;            // max tiles in a grown patch ("areas", larger than pits)
     public double CrackPatchGrowChance { get; set; } = 0.7; // chance a site grows beyond one tile
 
+    // Lava (Phase 4d) — host lobby toggle, off by default.
+    public bool Lava { get; set; } = false;              // gates both lava passes
+    public int LavaPoolCount { get; set; } = 3;          // static lethal pools/lines
+    public int LavaPoolMax { get; set; } = 6;            // max tiles in a grown pool
+    public double LavaPoolGrowChance { get; set; } = 0.6;
+    public int LavaVentCount { get; set; } = 3;          // buried vents (light per-player scaling)
+
     // Water generation (Phase 4a).
     public int PoolCount { get; set; } = 3;
     public int PoolRadiusMin { get; set; } = 2;
@@ -43,9 +50,10 @@ public sealed class MapConfig
     /// larger, less-open map so the run to the centre is a real journey; other
     /// modes keep the base settings. Deterministic from (mode, seed, playerCount),
     /// so host and clients regenerate identical maps.</summary>
-    public static MapConfig For(GameMode mode, int seed, int playerCount, bool pits = false, bool caveIns = false)
+    public static MapConfig For(GameMode mode, int seed, int playerCount,
+                                bool pits = false, bool caveIns = false, bool lava = false)
     {
-        var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount, Pits = pits, CaveIns = caveIns };
+        var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount, Pits = pits, CaveIns = caveIns, Lava = lava };
         if (mode == GameMode.ReachCenter)
         {
             cfg.BaseWidth = 40;

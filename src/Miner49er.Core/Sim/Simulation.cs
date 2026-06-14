@@ -9,6 +9,7 @@ public sealed class Simulation
     private readonly List<Charge> _charges = new();
     private readonly List<Item> _items = new();
     private readonly List<MoldPatch> _molds = new();
+    private readonly List<LavaVent> _lavaVents = new();
     private readonly List<SimEvent> _events = new();
 
     public IReadOnlyCollection<Miner> Miners => _miners.Values;
@@ -35,6 +36,10 @@ public sealed class Simulation
         Center = center;
         _timeLimit = timeLimitSeconds;
         _flooding = flooding;
+
+        foreach (var p in Grid.Positions())
+            if (Grid.Get(p) == TileType.LavaVent)
+                _lavaVents.Add(new LavaVent { Pos = p, Budget = config.LavaVentBudget });
     }
 
     public Miner AddMiner(int id, GridPos pos)
@@ -173,6 +178,54 @@ public sealed class Simulation
         }
     }
 
+    // A breached vent advances one BFS ring per interval, converting open floor to
+    // lava up to its tile budget. Floor touching water solidifies to a fragile
+    // Cracked crust instead (water quenches lava) and the flow stops there.
+    private void AdvanceLava(double dt)
+    {
+        if (_lavaVents.Count == 0) return;
+        foreach (var vent in _lavaVents)
+        {
+            if (!vent.Active || vent.Budget <= 0) continue;
+            vent.Timer += dt;
+            if (vent.Timer < Config.LavaSpreadIntervalSeconds) continue;
+            vent.Timer -= Config.LavaSpreadIntervalSeconds;
+            SpreadOneRing(vent);
+        }
+        KillOccupantsOnLethalTiles();
+    }
+
+    private void SpreadOneRing(LavaVent vent)
+    {
+        var candidates = new List<GridPos>();
+        var seen = new HashSet<GridPos>();
+        foreach (var f in vent.Frontier)
+            foreach (var d in Card)
+            {
+                var n = f + d.ToOffset();
+                if (Grid.InBounds(n) && Grid.Get(n) == TileType.Floor && seen.Add(n))
+                    candidates.Add(n);
+            }
+        var nextFrontier = new List<GridPos>();
+        foreach (var p in candidates)
+        {
+            if (vent.Budget <= 0) break;
+            if (IsWaterAdjacent(p))
+            {
+                Grid.Set(p, TileType.Cracked);
+                _events.Add(new LavaQuenched(p));
+            }
+            else
+            {
+                Grid.Set(p, TileType.Lava);
+                _events.Add(new LavaSpread(p));
+                nextFrontier.Add(p);
+            }
+            vent.Budget--;
+        }
+        vent.Frontier = nextFrontier;
+    }
+
     public bool TryMove(int id, Direction dir)
     {
         var m = _miners[id];
@@ -271,6 +324,7 @@ public sealed class Simulation
         AdvanceMolds(dt);
         AdvanceCooldowns(dt);
         AdvanceCracks(dt);
+        AdvanceLava(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
@@ -444,22 +498,57 @@ public sealed class Simulation
                 _events.Add(new TileFlooded(p, target));
             }
         }
-        DrownOccupants();
+        KillOccupantsOnLethalTiles();
     }
 
     private int EdgeDistance(GridPos p) =>
         Math.Min(Math.Min(p.X, p.Y), Math.Min(Grid.Width - 1 - p.X, Grid.Height - 1 - p.Y));
 
+    private static readonly Direction[] Card =
+        { Direction.North, Direction.East, Direction.South, Direction.West };
+
+    private bool IsWaterAdjacent(GridPos p)
+    {
+        foreach (var d in Card)
+        {
+            var n = p + d.ToOffset();
+            if (Grid.InBounds(n) && Grid.Get(n).IsWater()) return true;
+        }
+        return false;
+    }
+
+    // Breaching the rock cap of a vent (mining or blasting an adjacent tile) wakes it.
+    // A woken vent seeds its frontier on its own tile and creeps a ring per interval.
+    private void ActivateVentsAround(GridPos pos)
+    {
+        if (_lavaVents.Count == 0) return;
+        foreach (var vent in _lavaVents)
+        {
+            if (vent.Active) continue;
+            if (vent.Pos.ManhattanTo(pos) == 1)
+            {
+                vent.Active = true;
+                vent.Frontier = new List<GridPos> { vent.Pos };
+            }
+        }
+    }
+
     // Kills a miner on a lethal tile, picking the cause/event from the tile under them:
-    // a pit makes you Fall, deep water makes you Drown.
+    // a pit makes you Fall, lava burns you, deep water makes you Drown.
     private void KillByTile(Miner m)
     {
         m.Alive = false;
         m.Activity = ActivityKind.None;
-        if (Grid.Get(m.Pos) == TileType.Pit)
+        var t = Grid.Get(m.Pos);
+        if (t == TileType.Pit)
         {
             m.DeathCause = DeathCause.Fell;
             _events.Add(new MinerFell(m.Id));
+        }
+        else if (t is TileType.Lava or TileType.LavaVent)
+        {
+            m.DeathCause = DeathCause.Burned;
+            _events.Add(new MinerBurned(m.Id));
         }
         else
         {
@@ -479,9 +568,9 @@ public sealed class Simulation
     }
 
     // Kills any living miner standing on a now-lethal tile. Covers water rising
-    // *under* a stationary miner (the flood only ever produces deep water, never
-    // pits); move-time deaths stay in TryMove.
-    private void DrownOccupants()
+    // *under* a stationary miner and lava creeping under one (move-time deaths
+    // stay in TryMove); the tile picks the cause via KillByTile.
+    private void KillOccupantsOnLethalTiles()
     {
         foreach (var m in _miners.Values)
         {
@@ -519,6 +608,7 @@ public sealed class Simulation
                     if (owner.Alive) owner.GoldCollected++;
                 }
                 UnburyItemsAt(p);
+                ActivateVentsAround(p);
                 destroyed.Add(p);
             }
 
@@ -555,6 +645,7 @@ public sealed class Simulation
             Grid.Set(target, TileType.Floor);
             if (wasGold) m.GoldCollected++;
             UnburyItemsAt(target);
+            ActivateVentsAround(target);
             _events.Add(new RockMined(m.Id, target, wasGold));
         }
         else if (kind == ActivityKind.Planting)

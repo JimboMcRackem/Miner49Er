@@ -1,6 +1,6 @@
 namespace Miner49er.Core;
 
-public enum TileType { Floor, Rock, GoldRock, ImpermeableRock, ShallowWater, DeepWater, Plank, Pit, Cracked, Crumbling }
+public enum TileType { Floor, Rock, GoldRock, ImpermeableRock, ShallowWater, DeepWater, Plank, Pit, Cracked, Crumbling, Lava, LavaVent }
 
 public static class TileTypeExtensions
 {
@@ -13,13 +13,15 @@ public static class TileTypeExtensions
         t is TileType.Floor or TileType.ShallowWater or TileType.Plank
           or TileType.Cracked or TileType.Crumbling;
 
-    /// <summary>A miner may move onto this tile. Deep water and pits are enterable but lethal.</summary>
+    /// <summary>A miner may move onto this tile. Deep water, pits, and lava are enterable but lethal.</summary>
     public static bool IsEnterable(this TileType t) =>
         t is TileType.Floor or TileType.ShallowWater or TileType.DeepWater or TileType.Plank
-          or TileType.Pit or TileType.Cracked or TileType.Crumbling;
+          or TileType.Pit or TileType.Cracked or TileType.Crumbling
+          or TileType.Lava or TileType.LavaVent;
 
-    /// <summary>Entering this tile kills the miner (drowning in deep water, falling into a pit).</summary>
-    public static bool IsLethal(this TileType t) => t is TileType.DeepWater or TileType.Pit;
+    /// <summary>Entering this tile kills the miner (drowning, falling into a pit, or burning in lava).</summary>
+    public static bool IsLethal(this TileType t) =>
+        t is TileType.DeepWater or TileType.Pit or TileType.Lava or TileType.LavaVent;
 
     /// <summary>Move-cadence multiplier for the tile a miner is standing on.</summary>
     public static double MoveCostMultiplier(this TileType t) =>
