@@ -37,6 +37,8 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color PitColor = new("070709");        // near-black hole, distinct from deep water
 	private static readonly Color CrackedColor = new("3a342b");    // floor with thin fractures — subtly off from FloorColor
 	private static readonly Color CrumblingColor = new("4a3b28");  // heavier fractures/rubble — visibly "used", warmer
+	private static readonly Color LavaColor = new("d2521a");       // molten rock — lethal
+	private static readonly Color LavaVentColor = new("ff7a2a");    // brighter vent core
 	private const int ListenItemRevealRadius = 6;                // tiles; Chebyshev radius for sensing through rock
 
 	public void Init(MatchClient client) => _client = client;
@@ -99,6 +101,8 @@ public partial class WorldRenderer : Node2D
 		TileType.Pit => PitColor,
 		TileType.Cracked => CrackedColor,
 		TileType.Crumbling => CrumblingColor,
+		TileType.Lava => LavaColor,
+		TileType.LavaVent => LavaVentColor,
 		_ => FloorColor,
 	};
 

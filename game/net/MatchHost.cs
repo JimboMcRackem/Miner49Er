@@ -102,6 +102,12 @@ public partial class MatchHost : Node
 				case CrackCollapsed cc:
 					changes.Add(new TileChange(cc.Pos.X, cc.Pos.Y, false, TileType.Pit));
 					break;
+				case LavaSpread ls:
+					changes.Add(new TileChange(ls.Pos.X, ls.Pos.Y, false, TileType.Lava));
+					break;
+				case LavaQuenched lq:
+					changes.Add(new TileChange(lq.Pos.X, lq.Pos.Y, false, TileType.Cracked));
+					break;
 			}
 		}
 
