@@ -53,7 +53,7 @@ public static class ConnectCode
         {
             int idx = Alphabet.IndexOf(norm[i]);
             if (idx < 0) return false;
-            v = (v << 5) | (ulong)idx;
+            v = (v << 5) | (uint)idx;   // idx is 0..31; (uint) avoids the sign-extend warning
         }
 
         var payload = new byte[6];

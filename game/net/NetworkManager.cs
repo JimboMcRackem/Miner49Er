@@ -2,9 +2,12 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using Miner49er.Core;
 
 namespace Miner49er;
+
+public enum InternetStatus { Off, Discovering, Mapped, Failed }
 
 public struct PlayerInfo
 {
@@ -23,6 +26,12 @@ public partial class NetworkManager : Node
 	public bool IsHost { get; private set; }
 	public long LocalId => Multiplayer.GetUniqueId();
 	public readonly Dictionary<long, PlayerInfo> Players = new();
+
+	private readonly UpnpService _upnp = new();
+	private int _internetPort = DefaultPort;
+	public InternetStatus Status { get; private set; } = InternetStatus.Off;
+	public string? HostCode { get; private set; }
+	public event Action? InternetStatusChanged;
 
 	public event Action? LobbyChanged;
 	public event Action? JoinFailed;
@@ -43,7 +52,7 @@ public partial class NetworkManager : Node
 		Multiplayer.ServerDisconnected += OnServerDisconnected;
 	}
 
-	public Error HostGame(string playerName, int colorIndex, int port = DefaultPort)
+	public Error HostGame(string playerName, int colorIndex, bool overInternet = false, int port = DefaultPort)
 	{
 		var peer = new ENetMultiplayerPeer();
 		var err = peer.CreateServer(port, 8);
@@ -53,7 +62,32 @@ public partial class NetworkManager : Node
 		Players.Clear();
 		Players[LocalId] = new PlayerInfo { Name = playerName, ColorIndex = colorIndex, Ready = false };
 		LobbyChanged?.Invoke();
+
+		if (overInternet)
+		{
+			_internetPort = port;
+			Status = InternetStatus.Discovering;
+			HostCode = null;
+			InternetStatusChanged?.Invoke();
+			_upnp.Open(port, (ok, ip) =>
+				Callable.From(() => OnUpnpComplete(ok, ip)).CallDeferred());   // back to main thread
+		}
 		return Error.Ok;
+	}
+
+	private void OnUpnpComplete(bool ok, string ip)
+	{
+		if (ok && IPAddress.TryParse(ip, out var addr))
+		{
+			HostCode = Miner49er.Core.Net.ConnectCode.Encode(addr.GetAddressBytes(), (ushort)_internetPort);
+			Status = InternetStatus.Mapped;
+		}
+		else
+		{
+			HostCode = null;
+			Status = InternetStatus.Failed;
+		}
+		InternetStatusChanged?.Invoke();
 	}
 
 	public Error JoinGame(string address, string playerName, int colorIndex, int port = DefaultPort)
@@ -68,8 +102,29 @@ public partial class NetworkManager : Node
 		return Error.Ok;
 	}
 
+	// Accepts either a share code or a raw address[:port]. Codes decode to ip+port;
+	// anything else is treated as a direct address with an optional :port suffix.
+	public Error JoinByCode(string input, string playerName, int colorIndex)
+	{
+		var trimmed = (input ?? "").Trim();
+		if (Miner49er.Core.Net.ConnectCode.TryDecode(trimmed, out var ip, out var port))
+			return JoinGame(new IPAddress(ip).ToString(), playerName, colorIndex, port);
+
+		int p = DefaultPort;
+		int idx = trimmed.LastIndexOf(':');
+		if (idx > 0 && int.TryParse(trimmed[(idx + 1)..], out var parsed))
+		{
+			p = parsed;
+			trimmed = trimmed[..idx];
+		}
+		return JoinGame(trimmed, playerName, colorIndex, p);
+	}
+
 	public void Leave()
 	{
+		_upnp.Release();
+		Status = InternetStatus.Off;
+		HostCode = null;
 		Multiplayer.MultiplayerPeer = null;
 		IsHost = false;
 		Players.Clear();
