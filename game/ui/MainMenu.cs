@@ -9,7 +9,7 @@ public partial class MainMenu : Control
 	private OptionButton _color = null!;
 	private CheckBox _internet = null!;
 	private Label _status = null!;
-	private AudioSettingsPanel _audioPanel = null!;
+	private SettingsPanel _audioPanel = null!;
 
 	public override void _Ready()
 	{
@@ -50,7 +50,7 @@ public partial class MainMenu : Control
 		_status = new Label { Text = "" };
 		box.AddChild(_status);
 
-		_audioPanel = new AudioSettingsPanel { Name = "AudioSettingsPanel" };
+		_audioPanel = new SettingsPanel { Name = "SettingsPanel" };
 		AddChild(_audioPanel);
 
 		NetworkManager.Instance.JoinFailed += OnJoinFailed;

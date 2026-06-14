@@ -2,10 +2,12 @@ using Godot;
 
 namespace Miner49er;
 
-/// <summary>Reusable audio settings overlay: Music + SFX volume sliders and a
-/// Music on/off toggle, editing AudioManager live and persisting on change.
-/// Hidden until Open(); used by both the Main Menu and the in-match controller.</summary>
-public partial class AudioSettingsPanel : CanvasLayer
+/// <summary>Reusable settings overlay with Audio and Controls tabs. The Audio tab
+/// holds Music/SFX volume + Music on/off (editing AudioManager live, persisting on
+/// change). Controls is built in BuildControlsTab(). Hidden until Open(); used by
+/// both the Main Menu and the in-match controller. Open/Close/Toggle/IsOpen are
+/// unchanged from the former AudioSettingsPanel so callers need no logic changes.</summary>
+public partial class SettingsPanel : CanvasLayer
 {
 	private HSlider _music = null!;
 	private HSlider _sfx = null!;
@@ -34,13 +36,38 @@ public partial class AudioSettingsPanel : CanvasLayer
 		panel.AddThemeStyleboxOverride("panel", bg);
 		center.AddChild(panel);
 
+		var outer = new VBoxContainer { CustomMinimumSize = new Vector2(480, 0) };
+		outer.AddThemeConstantOverride("separation", 14);
+		panel.AddChild(outer);
+
+		var tabs = new TabContainer { CustomMinimumSize = new Vector2(460, 360) };
+		outer.AddChild(tabs);
+
+		var audioTab = BuildAudioTab();
+		audioTab.Name = "Audio";
+		tabs.AddChild(audioTab);
+
+		var controlsTab = BuildControlsTab();
+		controlsTab.Name = "Controls";
+		tabs.AddChild(controlsTab);
+
+		var close = new Button { Text = "Close" };
+		close.Pressed += Close;
+		outer.AddChild(close);
+
+		SyncFromManager();
+
+		_music.ValueChanged += v => AudioManager.Instance.SetMusicVolume((float)v);
+		_sfx.ValueChanged += v => AudioManager.Instance.SetSfxVolume((float)v);
+		_musicOn.Toggled += on => AudioManager.Instance.SetMusicEnabled(on);
+
+		Visible = false;
+	}
+
+	private Control BuildAudioTab()
+	{
 		var box = new VBoxContainer { CustomMinimumSize = new Vector2(440, 0) };
 		box.AddThemeConstantOverride("separation", 14);
-		panel.AddChild(box);
-
-		var title = new Label { Text = "Audio" };
-		title.AddThemeFontSizeOverride("font_size", 34);
-		box.AddChild(title);
 
 		box.AddChild(new Label { Text = "Music" });
 		_music = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.01, CustomMinimumSize = new Vector2(400, 28) };
@@ -53,17 +80,15 @@ public partial class AudioSettingsPanel : CanvasLayer
 		_musicOn = new CheckBox { Text = "Music on" };
 		box.AddChild(_musicOn);
 
-		var close = new Button { Text = "Close" };
-		box.AddChild(close);
+		return box;
+	}
 
-		SyncFromManager();
-
-		_music.ValueChanged += v => AudioManager.Instance.SetMusicVolume((float)v);
-		_sfx.ValueChanged += v => AudioManager.Instance.SetSfxVolume((float)v);
-		_musicOn.Toggled += on => AudioManager.Instance.SetMusicEnabled(on);
-		close.Pressed += Close;
-
-		Visible = false;
+	// Filled in Task 5. Placeholder keeps the tab present and the file compiling.
+	private Control BuildControlsTab()
+	{
+		var box = new VBoxContainer { CustomMinimumSize = new Vector2(440, 0) };
+		box.AddChild(new Label { Text = "Controls" });
+		return box;
 	}
 
 	// Push current AudioManager values into the controls without firing their
