@@ -127,13 +127,12 @@ public partial class TerrainMap : Node2D
 		return _client.Grid.InBounds(p) ? TileToTerrain(_client.Grid.Get(p)) : Wall;
 	}
 
-	// PHASE A: water renders as lava until its art lands (plan Task B2 flips
-	// ShallowWater/DeepWater to Water).
 	private static int TileToTerrain(TileType t) => t switch
 	{
 		TileType.Rock or TileType.GoldRock or TileType.ImpermeableRock => Wall,
 		TileType.Floor or TileType.Cracked or TileType.Crumbling or TileType.Plank => Floor,
-		TileType.Lava or TileType.ShallowWater or TileType.DeepWater => Lava,
+		TileType.Lava => Lava,
+		TileType.ShallowWater or TileType.DeepWater => Water,
 		TileType.Pit => Pit,
 		_ => Wall, // LavaVent — wall underneath; WorldRenderer overlays the vent glow
 	};
