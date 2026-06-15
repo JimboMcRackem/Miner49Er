@@ -158,13 +158,54 @@ func load_tileset_pair(json_path: String, png_path: String):
 
 	print("  ✅ Added %d tiles (lower=%d '%s', upper=%d '%s')" % [added, lower_id, lower_name, upper_id, upper_name])
 
+# Canonical terrain ids — MUST match the constants in game/TerrainMap.cs.
+const TERRAIN_REGISTRY := {
+	"cave wall": 0,
+	"cave floor": 1,
+	"lava": 2,
+	"water": 3,
+	"pit": 4,
+}
+
 func get_terrain_id(name: String) -> int:
-	for id in terrains:
-		if terrains[id] == name:
-			return id
-	var id = terrains.size()
-	terrains[id] = name
+	var cname = canonical_terrain_name(name)
+	var id = TERRAIN_REGISTRY.get(cname, -1)
+	if id == -1:
+		push_warning("Unknown terrain name '%s' (canonical '%s'); appending" % [name, cname])
+		id = TERRAIN_REGISTRY.size() + terrains.size()
+	terrains[id] = cname
 	return id
+
+# Map PixelLab's verbose prompt names onto canonical registry keys. Order matters:
+# "river, lava pit, lava flow" must read as lava (not water/pit), so check lava early.
+# Also collapses "cave wall" vs "cave wall, cave wall with crack" into one wall terrain.
+func canonical_terrain_name(name: String) -> String:
+	var n = name.to_lower()
+	if "wall" in n and not ("floor" in n):
+		return "cave wall"
+	if "lava" in n:
+		return "lava"
+	if "floor" in n:
+		return "cave floor"
+	if "water" in n or "pond" in n:
+		return "water"
+	if "pit" in n or "abyss" in n or "void" in n:
+		return "pit"
+	return name
+
+# Center terrain for a Wang corner tile = the terrain occupying most of its corners.
+# Godot's terrain solver ignores tiles whose center terrain is unset (-1).
+func majority_corner(corners) -> int:
+	var counts = {}
+	for c in corners:
+		counts[c] = counts.get(c, 0) + 1
+	var best = corners[0]
+	var best_n = counts[best]
+	for k in counts:
+		if counts[k] > best_n or (counts[k] == best_n and k < best):
+			best = k
+			best_n = counts[k]
+	return best
 
 func create_tileset():
 	print("\n🔨 Creating tileset...")
@@ -194,6 +235,7 @@ func create_tileset():
 
 		tile_defs.append("%d:%d/0 = 0" % [x, y])
 		tile_defs.append("%d:%d/0/terrain_set = 0" % [x, y])
+		tile_defs.append("%d:%d/0/terrain = %d" % [x, y, majority_corner(corners)])
 		tile_defs.append("%d:%d/0/terrains_peering_bit/top_left_corner = %d" % [x, y, corners[0]])
 		tile_defs.append("%d:%d/0/terrains_peering_bit/top_right_corner = %d" % [x, y, corners[1]])
 		tile_defs.append("%d:%d/0/terrains_peering_bit/bottom_left_corner = %d" % [x, y, corners[2]])
@@ -212,10 +254,20 @@ func create_tileset():
 				var img = tiles[i].image
 				terrain_colors[terrain_id] = img.get_pixel(img.get_width() / 2, img.get_height() / 2)
 
-	for id in terrains:
-		var name = terrains[id]
-		var color = terrain_colors.get(id, Color(0.5, 0.5, 0.5))
-		terrain_defs.append('terrain_set_0/terrain_%d/name = "%s"' % [id, name])
+	# Always define all five registry terrains, even tile-less ones (e.g. water before
+	# its art exists): Godot resets a peering bit to -1 on load if its terrain id isn't
+	# defined in the set, which would break the renderer's corner lookup.
+	var default_colors := {
+		0: Color(0.149020, 0.117647, 0.262745),  # wall
+		1: Color(0.168627, 0.168627, 0.200000),  # floor
+		2: Color(0.823529, 0.321569, 0.101961),  # lava
+		3: Color(0.180392, 0.435294, 0.560784),  # water
+		4: Color(0.035294, 0.047059, 0.113725),  # pit
+	}
+	var names := {0: "cave wall", 1: "cave floor", 2: "lava", 3: "water", 4: "pit"}
+	for id in [0, 1, 2, 3, 4]:
+		var color = terrain_colors.get(id, default_colors[id])
+		terrain_defs.append('terrain_set_0/terrain_%d/name = "%s"' % [id, names[id]])
 		terrain_defs.append('terrain_set_0/terrain_%d/color = Color(%f, %f, %f, 1)' % [id, color.r, color.g, color.b])
 
 	var bytes = []
@@ -239,7 +291,7 @@ func create_tileset():
 	tres += "\n".join(tile_defs) + '\n\n'
 	tres += '[resource]\n'
 	tres += 'tile_size = Vector2i(%d, %d)\n' % [tile_size, tile_size]
-	tres += 'terrain_set_0/mode = 0\n'
+	tres += 'terrain_set_0/mode = 1\n'
 	tres += "\n".join(terrain_defs) + '\n'
 	tres += 'sources/0 = SubResource("TileSetAtlasSource_1")\n'
 
