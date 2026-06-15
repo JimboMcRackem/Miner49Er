@@ -159,12 +159,36 @@ func load_tileset_pair(json_path: String, png_path: String):
 	print("  ✅ Added %d tiles (lower=%d '%s', upper=%d '%s')" % [added, lower_id, lower_name, upper_id, upper_name])
 
 func get_terrain_id(name: String) -> int:
+	var cname = canonical_terrain_name(name)
 	for id in terrains:
-		if terrains[id] == name:
+		if terrains[id] == cname:
 			return id
 	var id = terrains.size()
-	terrains[id] = name
+	terrains[id] = cname
 	return id
+
+# PixelLab names the shared "wall" terrain differently per pair ("cave wall" vs
+# "cave wall, cave wall with crack"), which fragments it into two Godot terrains so
+# floor/lava/pit transitions can't interconnect. Collapse all wall synonyms into one.
+func canonical_terrain_name(name: String) -> String:
+	var n = name.to_lower()
+	if "wall" in n and not ("floor" in n):
+		return "cave wall"
+	return name
+
+# Center terrain for a Wang corner tile = the terrain occupying most of its corners.
+# Godot's terrain solver ignores tiles whose center terrain is unset (-1).
+func majority_corner(corners) -> int:
+	var counts = {}
+	for c in corners:
+		counts[c] = counts.get(c, 0) + 1
+	var best = corners[0]
+	var best_n = counts[best]
+	for k in counts:
+		if counts[k] > best_n or (counts[k] == best_n and k < best):
+			best = k
+			best_n = counts[k]
+	return best
 
 func create_tileset():
 	print("\n🔨 Creating tileset...")
@@ -194,6 +218,7 @@ func create_tileset():
 
 		tile_defs.append("%d:%d/0 = 0" % [x, y])
 		tile_defs.append("%d:%d/0/terrain_set = 0" % [x, y])
+		tile_defs.append("%d:%d/0/terrain = %d" % [x, y, majority_corner(corners)])
 		tile_defs.append("%d:%d/0/terrains_peering_bit/top_left_corner = %d" % [x, y, corners[0]])
 		tile_defs.append("%d:%d/0/terrains_peering_bit/top_right_corner = %d" % [x, y, corners[1]])
 		tile_defs.append("%d:%d/0/terrains_peering_bit/bottom_left_corner = %d" % [x, y, corners[2]])
@@ -239,7 +264,7 @@ func create_tileset():
 	tres += "\n".join(tile_defs) + '\n\n'
 	tres += '[resource]\n'
 	tres += 'tile_size = Vector2i(%d, %d)\n' % [tile_size, tile_size]
-	tres += 'terrain_set_0/mode = 0\n'
+	tres += 'terrain_set_0/mode = 1\n'
 	tres += "\n".join(terrain_defs) + '\n'
 	tres += 'sources/0 = SubResource("TileSetAtlasSource_1")\n'
 
