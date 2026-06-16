@@ -178,4 +178,20 @@ public class SimulationMonsterTests
         Assert.False(ghost.Alive);
         Assert.Contains(sim.DrainEvents(), e => e is MonsterKilled mk && mk.MonsterId == 1);
     }
+
+    [Fact]
+    public void Same_seed_reproduces_identical_wander_paths()
+    {
+        System.Collections.Generic.List<GridPos> Run()
+        {
+            var cfg = new SimConfig { Seed = 1234, MonsterSlimeMoveSeconds = 0.1, MonsterSenseRadius = 0 };
+            var sim = Sim(new TileGrid(11, 11, TileType.Floor), cfg);
+            var slime = sim.AddMonster(1, new GridPos(5, 5), MonsterKind.Slime);   // no miner -> pure wander
+            var path = new System.Collections.Generic.List<GridPos>();
+            for (int i = 0; i < 40; i++) { sim.Tick(0.1); path.Add(slime.Pos); }
+            return path;
+        }
+
+        Assert.Equal(Run(), Run());
+    }
 }
