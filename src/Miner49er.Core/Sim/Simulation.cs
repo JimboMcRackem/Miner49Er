@@ -246,6 +246,74 @@ public sealed class Simulation
         vent.Frontier = nextFrontier;
     }
 
+    private void AdvanceMonsters(double dt)
+    {
+        if (_monsters.Count == 0) return;
+
+        // Single-player: the lone living miner is the target. OrderBy(Id) keeps both the
+        // target choice and the monster step order deterministic.
+        Miner? target = _miners.Values.Where(m => m.Alive).OrderBy(m => m.Id).FirstOrDefault();
+
+        foreach (var mo in _monsters.OrderBy(x => x.Id))
+        {
+            if (!mo.Alive) continue;
+            mo.MoveCooldownRemaining -= dt;
+            if (mo.MoveCooldownRemaining > 0) continue;
+            mo.MoveCooldownRemaining += MonsterCadence(mo.Kind);   // += preserves sub-tick remainder
+            StepMonster(mo, target);
+        }
+    }
+
+    private void StepMonster(Monster mo, Miner? target)
+    {
+        Direction? dir = mo.Kind switch
+        {
+            MonsterKind.Slime => SlimeDir(mo, target),
+            MonsterKind.Ghost => GhostDir(mo, target),
+            MonsterKind.Goat  => GoatDir(mo, target),
+            _ => null,
+        };
+        if (dir is not { } d) return;
+
+        var next = mo.Pos + d.ToOffset();
+        if (!CanMonsterEnter(mo, next)) return;
+
+        var from = mo.Pos;
+        mo.Pos = next;
+        mo.Facing = d;
+        _events.Add(new MonsterMoved(mo.Id, from, next));
+    }
+
+    // Rock blocks terrain-bound monsters; a ghost phases through anything in bounds.
+    private bool CanMonsterEnter(Monster mo, GridPos p)
+    {
+        if (!Grid.InBounds(p)) return false;
+        if (mo.Kind == MonsterKind.Ghost) return true;
+        return Grid.Get(p).IsEnterable();
+    }
+
+    private Direction? SlimeDir(Monster mo, Miner? target)
+    {
+        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius)
+            return TowardDir(mo.Pos, target.Pos);
+        return Card[_rng.Next(Card.Length)];
+    }
+
+    // Stubs filled in by later tasks; returning null = no move this step.
+    private Direction? GhostDir(Monster mo, Miner? target) => null;
+    private Direction? GoatDir(Monster mo, Miner? target) => null;
+
+    // Greedy cardinal step that most reduces Manhattan distance (X ties broken to vertical).
+    private static Direction TowardDir(GridPos from, GridPos to)
+    {
+        int dx = to.X - from.X, dy = to.Y - from.Y;
+        if (Math.Abs(dx) >= Math.Abs(dy))
+            return dx > 0 ? Direction.East
+                 : dx < 0 ? Direction.West
+                 : dy > 0 ? Direction.South : Direction.North;
+        return dy > 0 ? Direction.South : Direction.North;
+    }
+
     public bool TryMove(int id, Direction dir)
     {
         var m = _miners[id];
@@ -345,6 +413,7 @@ public sealed class Simulation
         AdvanceCooldowns(dt);
         AdvanceCracks(dt);
         AdvanceLava(dt);
+        AdvanceMonsters(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
