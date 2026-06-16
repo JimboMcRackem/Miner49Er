@@ -109,4 +109,24 @@ public class SnapshotFactoryTests
         Assert.Equal(ItemKind.LongerVision, item.Kind);
         Assert.Equal(ItemPlacement.Buried, item.Placement);
     }
+
+    [Fact]
+    public void Captures_monsters_and_escape_flag()
+    {
+        var grid = new TileGrid(7, 7, TileType.Floor);
+        var sim = new Simulation(grid, new SimConfig(), escapeTile: new GridPos(0, 0));
+        sim.AddMiner(1, new GridPos(0, 0));
+        sim.AddMonster(1, new GridPos(5, 5), MonsterKind.Goat);
+
+        var snap = SnapshotFactory.Capture(sim, tick: 4);
+
+        var mo = Assert.Single(snap.Monsters);
+        Assert.Equal(1, mo.Id);
+        Assert.Equal(5, mo.X);
+        Assert.Equal(5, mo.Y);
+        Assert.Equal(MonsterKind.Goat, mo.Kind);
+        Assert.True(mo.Alive);
+        // No GoldRock on this all-Floor grid => escape opens immediately.
+        Assert.True(snap.EscapeOpen);
+    }
 }

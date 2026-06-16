@@ -27,7 +27,12 @@ public static class SnapshotFactory
             .Select(mo => new MoldSnapshot(mo.Pos.X, mo.Pos.Y, mo.RemainingSeconds))
             .ToList();
 
-        return new WorldSnapshot(tick, miners, charges, items, molds,
-            new System.Collections.Generic.List<MonsterSnapshot>(), (float)sim.SecondsRemaining);
+        var monsters = sim.Monsters
+            .Select(mo => new MonsterSnapshot(
+                mo.Id, mo.Pos.X, mo.Pos.Y, (int)mo.Facing, mo.Kind, mo.Alive))
+            .ToList();
+
+        return new WorldSnapshot(tick, miners, charges, items, molds, monsters,
+            (float)sim.SecondsRemaining, sim.EscapeOpen);
     }
 }
