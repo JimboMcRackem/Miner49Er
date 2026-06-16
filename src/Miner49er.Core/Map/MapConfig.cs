@@ -9,7 +9,6 @@ public sealed class MapConfig
     public int SizePerPlayer { get; set; } = 6;
     public float InitialFloorChance { get; set; } = 0.45f;
     public int SmoothingSteps { get; set; } = 4;
-    public int MinSpawnDistance { get; set; } = 6;
     public int GoldVeinCount { get; set; } = 8;
     public int BaseItemCount { get; set; } = 9;   // items on the base map
     public int ItemsPerPlayer { get; set; } = 1;  // light scaling with player count / map growth
