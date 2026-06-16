@@ -748,6 +748,15 @@ public sealed class Simulation
             }
         }
 
+        foreach (var mo in _monsters)
+        {
+            if (mo.Alive && mo.Pos.ChebyshevTo(charge.WallPos) <= Config.BlastKillRadius + charge.BlastBonus)
+            {
+                mo.Alive = false;
+                _events.Add(new MonsterKilled(mo.Id));
+            }
+        }
+
         // Any miner still alive but standing on a crack the blast just dropped falls in.
         foreach (var m in _miners.Values)
             if (m.Alive && collapsedCracks.Contains(m.Pos))

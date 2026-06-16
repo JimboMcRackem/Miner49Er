@@ -155,4 +155,27 @@ public class SimulationMonsterTests
         Assert.True(ghost.Alive);
         Assert.Equal(new GridPos(3, 1), ghost.Pos);
     }
+
+    [Fact]
+    public void Blast_banishes_a_monster_in_range()
+    {
+        var cfg = new SimConfig
+        {
+            FuseSeconds = 0.1, PlantSeconds = 0.1, BlastKillRadius = 1, BlastRockRadius = 1,
+            MonsterGhostMoveSeconds = 999,   // hold the ghost still so it stays in blast range
+        };
+        var grid = new TileGrid(7, 5, TileType.Floor);
+        grid.Set(new GridPos(3, 2), TileType.Rock);     // wall to plant the charge on
+        var sim = Sim(grid, cfg);
+        var planter = sim.AddMiner(1, new GridPos(3, 3));
+        planter.Facing = Direction.North;               // faces (3,2)
+        var ghost = sim.AddMonster(1, new GridPos(3, 1), MonsterKind.Ghost);   // adjacent to the wall
+
+        Assert.True(sim.TryStartPlanting(1));
+        sim.Tick(0.1);   // plant completes -> charge armed
+        sim.Tick(0.1);   // fuse fires -> detonation
+
+        Assert.False(ghost.Alive);
+        Assert.Contains(sim.DrainEvents(), e => e is MonsterKilled mk && mk.MonsterId == 1);
+    }
 }
