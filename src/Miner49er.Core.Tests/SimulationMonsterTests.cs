@@ -123,4 +123,36 @@ public class SimulationMonsterTests
         Assert.False(miner.Alive);
         Assert.Equal(DeathCause.Mauled, miner.DeathCause);
     }
+
+    [Fact]
+    public void Slime_chasing_across_a_pit_falls_in_and_dies()
+    {
+        var cfg = new SimConfig { MonsterSlimeMoveSeconds = 0.1, MonsterSenseRadius = 6 };
+        var grid = new TileGrid(5, 3, TileType.Floor);
+        grid.Set(new GridPos(3, 1), TileType.Pit);      // pit between slime and miner
+        var sim = Sim(grid, cfg);
+        sim.AddMiner(1, new GridPos(4, 1));
+        var slime = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.Slime);
+
+        sim.Tick(0.1);   // steps east onto the pit
+        Assert.False(slime.Alive);
+        Assert.Equal(new GridPos(3, 1), slime.Pos);
+        Assert.Contains(sim.DrainEvents(), e => e is MonsterKilled mk && mk.MonsterId == 1);
+    }
+
+    [Fact]
+    public void Ghost_floats_over_a_pit_unharmed()
+    {
+        var cfg = new SimConfig { MonsterGhostMoveSeconds = 0.1 };
+        var grid = new TileGrid(5, 3, TileType.Floor);
+        grid.Set(new GridPos(3, 1), TileType.Pit);
+        var sim = Sim(grid, cfg);
+        sim.AddMiner(1, new GridPos(4, 1));
+        var ghost = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.Ghost);
+
+        sim.Tick(0.1);   // drifts east onto the pit tile
+
+        Assert.True(ghost.Alive);
+        Assert.Equal(new GridPos(3, 1), ghost.Pos);
+    }
 }

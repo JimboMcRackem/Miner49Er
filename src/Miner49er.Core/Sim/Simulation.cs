@@ -283,6 +283,13 @@ public sealed class Simulation
         mo.Facing = d;
         _events.Add(new MonsterMoved(mo.Id, from, next));
 
+        if (mo.Kind != MonsterKind.Ghost && Grid.Get(mo.Pos).IsLethal())
+        {
+            mo.Alive = false;
+            _events.Add(new MonsterKilled(mo.Id));
+            return;
+        }
+
         if (target is { Alive: true } && mo.Pos == target.Pos)
             MaulMiner(target);
     }
