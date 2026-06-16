@@ -46,4 +46,19 @@ public class SimulationMonsterTests
 
         Assert.Equal(new GridPos(2, 1), slime.Pos);     // rock blocked the step; stayed put
     }
+
+    [Fact]
+    public void Ghost_drifts_through_rock_toward_the_miner()
+    {
+        var cfg = new SimConfig { MonsterGhostMoveSeconds = 0.1 };
+        var grid = new TileGrid(5, 3, TileType.Floor);
+        grid.Set(new GridPos(3, 1), TileType.Rock);     // solid wall between ghost and miner
+        var sim = Sim(grid, cfg);
+        sim.AddMiner(1, new GridPos(4, 1));
+        var ghost = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.Ghost);
+
+        sim.Tick(0.1);   // steps east into the rock tile (phasing)
+
+        Assert.Equal(new GridPos(3, 1), ghost.Pos);
+    }
 }

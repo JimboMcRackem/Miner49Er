@@ -299,8 +299,13 @@ public sealed class Simulation
         return Card[_rng.Next(Card.Length)];
     }
 
-    // Stubs filled in by later tasks; returning null = no move this step.
-    private Direction? GhostDir(Monster mo, Miner? target) => null;
+    private Direction? GhostDir(Monster mo, Miner? target)
+    {
+        if (target is not { Alive: true }) return null;
+        return TowardDir(mo.Pos, target.Pos);   // always hunts; CanMonsterEnter lets it phase rock
+    }
+
+    // Stub filled in by a later task; returning null = no move this step.
     private Direction? GoatDir(Monster mo, Miner? target) => null;
 
     // Greedy cardinal step that most reduces Manhattan distance (X ties broken to vertical).
