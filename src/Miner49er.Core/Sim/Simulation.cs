@@ -11,11 +11,14 @@ public sealed class Simulation
     private readonly List<MoldPatch> _molds = new();
     private readonly List<LavaVent> _lavaVents = new();
     private readonly List<SimEvent> _events = new();
+    private readonly List<Monster> _monsters = new();
+    private readonly Random _rng;
 
     public IReadOnlyCollection<Miner> Miners => _miners.Values;
     public IReadOnlyList<Charge> Charges => _charges;
     public IReadOnlyList<Item> Items => _items;
     public IReadOnlyList<MoldPatch> Molds => _molds;
+    public IReadOnlyList<Monster> Monsters => _monsters;
 
     public void AddItem(Item item) => _items.Add(item);   // host seeds these from GeneratedMap.Items
 
@@ -37,6 +40,8 @@ public sealed class Simulation
         _timeLimit = timeLimitSeconds;
         _flooding = flooding;
 
+        _rng = new Random(config.Seed);
+
         foreach (var p in Grid.Positions())
             if (Grid.Get(p) == TileType.LavaVent)
                 _lavaVents.Add(new LavaVent { Pos = p, Budget = config.LavaVentBudget });
@@ -48,6 +53,21 @@ public sealed class Simulation
         _miners[id] = m;
         return m;
     }
+
+    public Monster AddMonster(int id, GridPos pos, MonsterKind kind)
+    {
+        var mo = new Monster(id, pos, kind) { MoveCooldownRemaining = MonsterCadence(kind) };
+        _monsters.Add(mo);
+        return mo;
+    }
+
+    private double MonsterCadence(MonsterKind kind) => kind switch
+    {
+        MonsterKind.Slime => Config.MonsterSlimeMoveSeconds,
+        MonsterKind.Ghost => Config.MonsterGhostMoveSeconds,
+        MonsterKind.Goat  => Config.MonsterGoatMoveSeconds,
+        _ => Config.MonsterSlimeMoveSeconds,
+    };
 
     public Miner GetMiner(int id) => _miners[id];
 
