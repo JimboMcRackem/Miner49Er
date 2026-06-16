@@ -282,6 +282,9 @@ public sealed class Simulation
         mo.Pos = next;
         mo.Facing = d;
         _events.Add(new MonsterMoved(mo.Id, from, next));
+
+        if (target is { Alive: true } && mo.Pos == target.Pos)
+            MaulMiner(target);
     }
 
     // Rock blocks terrain-bound monsters; a ghost phases through anything in bounds.
@@ -363,6 +366,9 @@ public sealed class Simulation
             Grid.Set(from, TileType.Crumbling);
             _events.Add(new CrackWeakened(from));
         }
+
+        if (m.Alive && _monsters.Any(mo => mo.Alive && mo.Pos == target))
+            MaulMiner(m);
 
         if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive)
         {
@@ -634,6 +640,15 @@ public sealed class Simulation
                 vent.Frontier = new List<GridPos> { vent.Pos };
             }
         }
+    }
+
+    private void MaulMiner(Miner m)
+    {
+        if (!m.Alive) return;
+        m.Alive = false;
+        m.Activity = ActivityKind.None;
+        m.DeathCause = DeathCause.Mauled;
+        _events.Add(new MinerMauled(m.Id));
     }
 
     // Kills a miner on a lethal tile, picking the cause/event from the tile under them:

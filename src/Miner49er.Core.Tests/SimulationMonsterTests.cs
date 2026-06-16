@@ -94,4 +94,33 @@ public class SimulationMonsterTests
         Assert.Equal(new GridPos(1, 1), goat.Pos);
         Assert.Equal(Direction.South, goat.ChargeDir);
     }
+
+    [Fact]
+    public void Monster_stepping_onto_the_miner_mauls_them()
+    {
+        var cfg = new SimConfig { MonsterSlimeMoveSeconds = 0.1, MonsterSenseRadius = 6 };
+        var sim = Sim(new TileGrid(5, 3, TileType.Floor), cfg);
+        var miner = sim.AddMiner(1, new GridPos(3, 1));
+        sim.AddMonster(1, new GridPos(2, 1), MonsterKind.Slime);   // one step east = onto the miner
+
+        sim.Tick(0.1);
+
+        Assert.False(miner.Alive);
+        Assert.Equal(DeathCause.Mauled, miner.DeathCause);
+        Assert.Contains(sim.DrainEvents(), e => e is MinerMauled mm && mm.MinerId == 1);
+    }
+
+    [Fact]
+    public void Miner_walking_into_a_monster_is_mauled()
+    {
+        var sim = Sim(new TileGrid(5, 3, TileType.Floor));
+        var miner = sim.AddMiner(1, new GridPos(1, 1));
+        sim.AddMonster(1, new GridPos(2, 1), MonsterKind.Slime);   // miner steps east into it
+
+        bool moved = sim.TryMove(1, Direction.East);
+
+        Assert.True(moved);
+        Assert.False(miner.Alive);
+        Assert.Equal(DeathCause.Mauled, miner.DeathCause);
+    }
 }
