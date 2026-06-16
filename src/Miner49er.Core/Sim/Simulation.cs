@@ -338,7 +338,7 @@ public sealed class Simulation
         return null;
     }
 
-    // Greedy cardinal step that most reduces Manhattan distance (X ties broken to vertical).
+    // Greedy cardinal step that most reduces Manhattan distance (horizontal preferred on a tie; vertical only when dx == 0).
     private static Direction TowardDir(GridPos from, GridPos to)
     {
         int dx = to.X - from.X, dy = to.Y - from.Y;
@@ -724,6 +724,16 @@ public sealed class Simulation
         {
             if (m.Alive && Grid.Get(m.Pos).IsLethal())
                 KillByTile(m);
+        }
+        // Terrain-bound monsters die when lava/flood creeps under them, mirroring miners.
+        // Ghosts float and stay immune.
+        foreach (var mo in _monsters)
+        {
+            if (mo.Alive && mo.Kind != MonsterKind.Ghost && Grid.Get(mo.Pos).IsLethal())
+            {
+                mo.Alive = false;
+                _events.Add(new MonsterKilled(mo.Id));
+            }
         }
     }
 

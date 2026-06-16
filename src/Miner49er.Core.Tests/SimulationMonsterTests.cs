@@ -194,4 +194,33 @@ public class SimulationMonsterTests
 
         Assert.Equal(Run(), Run());
     }
+
+    [Fact]
+    public void Lava_creeping_under_a_stationary_monster_kills_it()
+    {
+        // Vent at (3,1) capped by rock at (2,1); a slime sits on (4,1) and never moves
+        // (huge cadence). Mining the cap wakes the vent; the first ring spreads lava onto
+        // (4,1) and the stationary slime must die.
+        var cfg = new SimConfig
+        {
+            PickaxeSeconds = 0.1, LavaSpreadIntervalSeconds = 0.5, LavaVentBudget = 8,
+            MonsterSlimeMoveSeconds = 999,   // hold the slime still
+            MonsterSenseRadius = 0,
+        };
+        var grid = new TileGrid(7, 3, TileType.Floor);
+        grid.Set(new GridPos(2, 1), TileType.Rock);       // cap
+        grid.Set(new GridPos(3, 1), TileType.LavaVent);   // vent
+        var sim = new Simulation(grid, cfg);
+        var miner = sim.AddMiner(1, new GridPos(1, 1));
+        miner.Facing = Direction.East;
+        var slime = sim.AddMonster(1, new GridPos(4, 1), MonsterKind.Slime);
+
+        Assert.True(sim.TryStartMining(1));
+        sim.Tick(0.1);    // mining completes -> (2,1) floor, vent wakes
+        sim.Tick(0.5);    // one spread interval -> lava reaches (4,1) under the slime
+
+        Assert.Equal(TileType.Lava, grid.Get(new GridPos(4, 1)));
+        Assert.False(slime.Alive);
+        Assert.Contains(sim.DrainEvents(), e => e is MonsterKilled mk && mk.MonsterId == 1);
+    }
 }
