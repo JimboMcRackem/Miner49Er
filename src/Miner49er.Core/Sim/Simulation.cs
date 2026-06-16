@@ -25,6 +25,11 @@ public sealed class Simulation
     public GridPos? Center { get; }
     public int FirstToReachCenter { get; private set; } = -1;
 
+    public GridPos? EscapeTile { get; }
+    public bool EscapeOpen { get; private set; }
+    private int _goldRemaining;
+    public bool AllGoldCleared => _goldRemaining == 0;
+
     private readonly double? _timeLimit;
     private readonly bool _flooding;
     public double Elapsed { get; private set; }
@@ -32,19 +37,25 @@ public sealed class Simulation
     public bool TimeExpired => _timeLimit is { } lim && Elapsed >= lim;
 
     public Simulation(TileGrid grid, SimConfig config,
-        GridPos? center = null, double? timeLimitSeconds = null, bool flooding = false)
+        GridPos? center = null, double? timeLimitSeconds = null, bool flooding = false,
+        GridPos? escapeTile = null)
     {
         Grid = grid;
         Config = config;
         Center = center;
         _timeLimit = timeLimitSeconds;
         _flooding = flooding;
+        EscapeTile = escapeTile;
 
         _rng = new Random(config.Seed);
 
         foreach (var p in Grid.Positions())
+        {
             if (Grid.Get(p) == TileType.LavaVent)
                 _lavaVents.Add(new LavaVent { Pos = p, Budget = config.LavaVentBudget });
+            if (Grid.Get(p) == TileType.GoldRock) _goldRemaining++;
+        }
+        if (EscapeTile is not null && _goldRemaining == 0) EscapeOpen = true;   // gold-less map: open at once
     }
 
     public Miner AddMiner(int id, GridPos pos)
@@ -658,6 +669,18 @@ public sealed class Simulation
         _events.Add(new MinerMauled(m.Id));
     }
 
+    // Called wherever a GoldRock tile becomes Floor. When the last vein falls and an
+    // escape tile is set, the exit opens (once).
+    private void OnGoldCleared()
+    {
+        if (_goldRemaining > 0) _goldRemaining--;
+        if (_goldRemaining == 0 && EscapeTile is not null && !EscapeOpen)
+        {
+            EscapeOpen = true;
+            _events.Add(new EscapeOpened());
+        }
+    }
+
     // Kills a miner on a lethal tile, picking the cause/event from the tile under them:
     // a pit makes you Fall, lava burns you, deep water makes you Drown.
     private void KillByTile(Miner m)
@@ -731,6 +754,7 @@ public sealed class Simulation
                 {
                     var owner = _miners[charge.OwnerId];
                     if (owner.Alive) owner.GoldCollected++;
+                    OnGoldCleared();
                 }
                 UnburyItemsAt(p);
                 ActivateVentsAround(p);
@@ -777,7 +801,7 @@ public sealed class Simulation
             if (!Grid.InBounds(target) || !Grid.Get(target).IsMinable()) return;
             bool wasGold = Grid.Get(target) == TileType.GoldRock;
             Grid.Set(target, TileType.Floor);
-            if (wasGold) m.GoldCollected++;
+            if (wasGold) { m.GoldCollected++; OnGoldCleared(); }
             UnburyItemsAt(target);
             ActivateVentsAround(target);
             _events.Add(new RockMined(m.Id, target, wasGold));
