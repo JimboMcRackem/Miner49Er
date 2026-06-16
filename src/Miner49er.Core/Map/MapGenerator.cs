@@ -23,7 +23,7 @@ public static class MapGenerator
         if (config.Lava)
             PlaceLava(grid, rng, config.LavaPoolCount, config.LavaPoolGrowChance, config.LavaPoolMax);
         var region = LargestTraversableRegion(grid);
-        var spawns = PlaceSpawns(grid, rng, config.PlayerCount, config.MinSpawnDistance, region);
+        var spawns = PlaceSpawns(grid, config.PlayerCount, region);
         var center = NearestFloorToCenter(grid, region);
         PlaceGold(grid, rng, config.GoldVeinCount, region);
         int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
@@ -378,26 +378,19 @@ public static class MapGenerator
         return false;
     }
 
-    private static List<GridPos> PlaceSpawns(TileGrid g, Random rng, int count, int minDistance, HashSet<GridPos> region)
+    // Spawns land as far apart as the map allows: the first at an extreme corner, each
+    // next maximising its minimum distance to those already chosen, so two players sit
+    // diagonally opposite, three/four spread to thirds/quarters. Candidates are scanned in
+    // deterministic grid order (SelectFarthest is order-stable) so host and clients agree —
+    // no rng needed. Prefers floor away from water, relaxing that only if too few remain.
+    private static List<GridPos> PlaceSpawns(TileGrid g, int count, HashSet<GridPos> region)
     {
-        var floors = region.Where(p => g.Get(p) == TileType.Floor && !IsWaterAdjacent(g, p)).ToList();
+        var floors = region.Where(p => g.Get(p) == TileType.Floor && !IsWaterAdjacent(g, p))
+            .OrderBy(p => p.Y).ThenBy(p => p.X).ToList();
         if (floors.Count < count) // fallback: relax the water-adjacency rule if too few
-            floors = region.Where(p => g.Get(p) == TileType.Floor).ToList();
-        Shuffle(floors, rng);
-        var spawns = new List<GridPos>();
-        int distance = minDistance;
-        while (spawns.Count < count && distance >= 0)
-        {
-            spawns.Clear();
-            foreach (var p in floors)
-            {
-                if (spawns.All(s => s.ManhattanTo(p) >= distance))
-                    spawns.Add(p);
-                if (spawns.Count == count) break;
-            }
-            if (spawns.Count < count) distance--;
-        }
-        return spawns;
+            floors = region.Where(p => g.Get(p) == TileType.Floor)
+                .OrderBy(p => p.Y).ThenBy(p => p.X).ToList();
+        return SpawnPlacement.SelectFarthest(floors, count);
     }
 
     private static GridPos NearestFloorToCenter(TileGrid g, HashSet<GridPos> region)

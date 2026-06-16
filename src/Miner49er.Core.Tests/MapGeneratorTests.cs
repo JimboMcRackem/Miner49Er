@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Miner49er.Core;
@@ -14,7 +15,6 @@ public class MapGeneratorTests
         SizePerPlayer = 6,
         InitialFloorChance = 0.45f,
         SmoothingSteps = 4,
-        MinSpawnDistance = 6,
         GoldVeinCount = 8,
     };
 
@@ -65,6 +65,54 @@ public class MapGeneratorTests
         var map = MapGenerator.Generate(Config(9, 4));
         var reachable = FloodFillFloor(map.Grid, map.Center);
         Assert.All(map.Spawns, s => Assert.Contains(s, reachable));
+    }
+
+    // Two spawns should sit at the genuinely farthest-apart pair of valid start tiles — the
+    // diameter of the candidate field — so players begin diagonally opposite. Distance is the
+    // squared Euclidean metric the placer uses (favouring true geometric corners). Candidates
+    // are reconstructed exactly as PlaceSpawns picks them: floor reachable in the play region,
+    // not water-adjacent (Cracked counts — it was Floor when spawns were placed).
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(7)]
+    [InlineData(11)]
+    [InlineData(15)]
+    public void Two_player_spawns_sit_at_the_farthest_apart_floors(int seed)
+    {
+        var map = MapGenerator.Generate(Config(seed, 2));
+        Assert.Equal(2, map.Spawns.Count);
+
+        var candidates = ReachableSpawnCandidates(map.Grid, map.Spawns[0]);
+        long chosen = SqDist(map.Spawns[0], map.Spawns[1]);
+        long best = 0;
+        for (int i = 0; i < candidates.Count; i++)
+            for (int j = i + 1; j < candidates.Count; j++)
+                best = Math.Max(best, SqDist(candidates[i], candidates[j]));
+
+        Assert.Equal(best, chosen);
+    }
+
+    private static long SqDist(GridPos a, GridPos b)
+    {
+        long dx = a.X - b.X, dy = a.Y - b.Y;
+        return dx * dx + dy * dy;
+    }
+
+    private static List<GridPos> ReachableSpawnCandidates(TileGrid grid, GridPos from)
+    {
+        bool WaterAdjacent(GridPos p)
+        {
+            foreach (var d in new[] { Direction.North, Direction.East, Direction.South, Direction.West })
+            {
+                var n = p + d.ToOffset();
+                if (grid.InBounds(n) && grid.Get(n).IsWater()) return true;
+            }
+            return false;
+        }
+        return FloodFillFloor(grid, from)
+            .Where(p => (grid.Get(p) == TileType.Floor || grid.Get(p) == TileType.Cracked) && !WaterAdjacent(p))
+            .ToList();
     }
 
     [Fact]

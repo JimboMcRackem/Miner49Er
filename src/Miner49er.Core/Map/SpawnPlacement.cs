@@ -3,8 +3,10 @@ using System.Collections.Generic;
 namespace Miner49er.Core;
 
 /// <summary>Chooses spawn positions spread as far apart as possible (max-min
-/// dispersion), anchored to an extreme corner so two players land diagonally opposite,
-/// four in the corners, and so on for any count. Pure and deterministic: ties break by
+/// dispersion). The first two are the diameter pair — the two candidates farthest apart —
+/// so the common two-player case is optimal (spawns land at the true extremes, diagonally
+/// opposite); each further pick maximises its minimum distance to those already chosen, so
+/// three/four players spread to thirds/quarters. Pure and deterministic: ties break by
 /// (Y, X), distance is squared Euclidean so the spread favours true geometric corners.</summary>
 public static class SpawnPlacement
 {
@@ -18,30 +20,21 @@ public static class SpawnPlacement
             return chosen;
         }
 
-        // First pick: farthest from the candidates' bounding-box centre (an extreme).
-        int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
-        foreach (var p in candidates)
-        {
-            if (p.X < minX) minX = p.X;
-            if (p.X > maxX) maxX = p.X;
-            if (p.Y < minY) minY = p.Y;
-            if (p.Y > maxY) maxY = p.Y;
-        }
-        double cx = (minX + maxX) / 2.0, cy = (minY + maxY) / 2.0;
-
-        GridPos first = candidates[0];
-        double bestCentre = -1;
-        foreach (var p in candidates)
-        {
-            double dx = p.X - cx, dy = p.Y - cy;
-            double d = dx * dx + dy * dy;
-            if (d > bestCentre || (d == bestCentre && Before(p, first)))
+        // First two: the diameter pair (the two candidates farthest apart). Scanning i<j over
+        // (Y, X)-sorted candidates and keeping the first strictly-greater pair makes the choice
+        // deterministic — the kept pair has the (Y, X)-smallest endpoints. O(n^2), negligible for
+        // one-time map generation. `a` is the earlier endpoint, so it seeds the traversal.
+        GridPos a = candidates[0], b = candidates[0];
+        long bestPair = -1;
+        for (int i = 0; i < candidates.Count; i++)
+            for (int j = i + 1; j < candidates.Count; j++)
             {
-                bestCentre = d;
-                first = p;
+                long dx = candidates[i].X - candidates[j].X, dy = candidates[i].Y - candidates[j].Y;
+                long d = dx * dx + dy * dy;
+                if (d > bestPair) { bestPair = d; a = candidates[i]; b = candidates[j]; }
             }
-        }
-        chosen.Add(first);
+        chosen.Add(a);
+        if (count >= 2) chosen.Add(b);
 
         // Each subsequent pick maximises the minimum distance to those already chosen.
         while (chosen.Count < count)
