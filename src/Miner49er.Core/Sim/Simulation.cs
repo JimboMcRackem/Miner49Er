@@ -11,16 +11,24 @@ public sealed class Simulation
     private readonly List<MoldPatch> _molds = new();
     private readonly List<LavaVent> _lavaVents = new();
     private readonly List<SimEvent> _events = new();
+    private readonly List<Monster> _monsters = new();
+    private readonly Random _rng;
 
     public IReadOnlyCollection<Miner> Miners => _miners.Values;
     public IReadOnlyList<Charge> Charges => _charges;
     public IReadOnlyList<Item> Items => _items;
     public IReadOnlyList<MoldPatch> Molds => _molds;
+    public IReadOnlyList<Monster> Monsters => _monsters;
 
     public void AddItem(Item item) => _items.Add(item);   // host seeds these from GeneratedMap.Items
 
     public GridPos? Center { get; }
     public int FirstToReachCenter { get; private set; } = -1;
+
+    public GridPos? EscapeTile { get; }
+    public bool EscapeOpen { get; private set; }
+    private int _goldRemaining;
+    public bool AllGoldCleared => _goldRemaining == 0;
 
     private readonly double? _timeLimit;
     private readonly bool _flooding;
@@ -29,17 +37,25 @@ public sealed class Simulation
     public bool TimeExpired => _timeLimit is { } lim && Elapsed >= lim;
 
     public Simulation(TileGrid grid, SimConfig config,
-        GridPos? center = null, double? timeLimitSeconds = null, bool flooding = false)
+        GridPos? center = null, double? timeLimitSeconds = null, bool flooding = false,
+        GridPos? escapeTile = null)
     {
         Grid = grid;
         Config = config;
         Center = center;
         _timeLimit = timeLimitSeconds;
         _flooding = flooding;
+        EscapeTile = escapeTile;
+
+        _rng = new Random(config.Seed);
 
         foreach (var p in Grid.Positions())
+        {
             if (Grid.Get(p) == TileType.LavaVent)
                 _lavaVents.Add(new LavaVent { Pos = p, Budget = config.LavaVentBudget });
+            if (Grid.Get(p) == TileType.GoldRock) _goldRemaining++;
+        }
+        if (EscapeTile is not null && _goldRemaining == 0) EscapeOpen = true;   // gold-less map: open at once
     }
 
     public Miner AddMiner(int id, GridPos pos)
@@ -48,6 +64,21 @@ public sealed class Simulation
         _miners[id] = m;
         return m;
     }
+
+    public Monster AddMonster(int id, GridPos pos, MonsterKind kind)
+    {
+        var mo = new Monster(id, pos, kind) { MoveCooldownRemaining = MonsterCadence(kind) };
+        _monsters.Add(mo);
+        return mo;
+    }
+
+    private double MonsterCadence(MonsterKind kind) => kind switch
+    {
+        MonsterKind.Slime => Config.MonsterSlimeMoveSeconds,
+        MonsterKind.Ghost => Config.MonsterGhostMoveSeconds,
+        MonsterKind.Goat  => Config.MonsterGoatMoveSeconds,
+        _ => Config.MonsterSlimeMoveSeconds,
+    };
 
     public Miner GetMiner(int id) => _miners[id];
 
@@ -226,6 +257,98 @@ public sealed class Simulation
         vent.Frontier = nextFrontier;
     }
 
+    private void AdvanceMonsters(double dt)
+    {
+        if (_monsters.Count == 0) return;
+
+        // Single-player: the lone living miner is the target. OrderBy(Id) keeps both the
+        // target choice and the monster step order deterministic.
+        Miner? target = _miners.Values.Where(m => m.Alive).OrderBy(m => m.Id).FirstOrDefault();
+
+        foreach (var mo in _monsters.OrderBy(x => x.Id))
+        {
+            if (!mo.Alive) continue;
+            mo.MoveCooldownRemaining -= dt;
+            if (mo.MoveCooldownRemaining > 0) continue;
+            mo.MoveCooldownRemaining += MonsterCadence(mo.Kind);   // += preserves sub-tick remainder
+            StepMonster(mo, target);
+        }
+    }
+
+    private void StepMonster(Monster mo, Miner? target)
+    {
+        Direction? dir = mo.Kind switch
+        {
+            MonsterKind.Slime => SlimeDir(mo, target),
+            MonsterKind.Ghost => GhostDir(mo, target),
+            MonsterKind.Goat  => GoatDir(mo, target),
+            _ => null,
+        };
+        if (dir is not { } d) return;
+
+        var next = mo.Pos + d.ToOffset();
+        if (!CanMonsterEnter(mo, next)) return;
+
+        var from = mo.Pos;
+        mo.Pos = next;
+        mo.Facing = d;
+        _events.Add(new MonsterMoved(mo.Id, from, next));
+
+        if (mo.Kind != MonsterKind.Ghost && Grid.Get(mo.Pos).IsLethal())
+        {
+            mo.Alive = false;
+            _events.Add(new MonsterKilled(mo.Id));
+            return;
+        }
+
+        if (target is { Alive: true } && mo.Pos == target.Pos)
+            MaulMiner(target);
+    }
+
+    // Rock blocks terrain-bound monsters; a ghost phases through anything in bounds.
+    private bool CanMonsterEnter(Monster mo, GridPos p)
+    {
+        if (!Grid.InBounds(p)) return false;
+        if (mo.Kind == MonsterKind.Ghost) return true;
+        return Grid.Get(p).IsEnterable();
+    }
+
+    private Direction? SlimeDir(Monster mo, Miner? target)
+    {
+        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius)
+            return TowardDir(mo.Pos, target.Pos);
+        return Card[_rng.Next(Card.Length)];
+    }
+
+    private Direction? GhostDir(Monster mo, Miner? target)
+    {
+        if (target is not { Alive: true }) return null;
+        return TowardDir(mo.Pos, target.Pos);   // always hunts; CanMonsterEnter lets it phase rock
+    }
+
+    private Direction? GoatDir(Monster mo, Miner? target)
+    {
+        var ahead = mo.Pos + mo.ChargeDir.ToOffset();
+        if (CanMonsterEnter(mo, ahead)) return mo.ChargeDir;
+
+        // Slammed into a wall — turn (toward the miner if sensed, else random) and skip this step.
+        mo.ChargeDir = target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius
+            ? TowardDir(mo.Pos, target.Pos)
+            : Card[_rng.Next(Card.Length)];
+        return null;
+    }
+
+    // Greedy cardinal step that most reduces Manhattan distance (horizontal preferred on a tie; vertical only when dx == 0).
+    private static Direction TowardDir(GridPos from, GridPos to)
+    {
+        int dx = to.X - from.X, dy = to.Y - from.Y;
+        if (Math.Abs(dx) >= Math.Abs(dy))
+            return dx > 0 ? Direction.East
+                 : dx < 0 ? Direction.West
+                 : dy > 0 ? Direction.South : Direction.North;
+        return dy > 0 ? Direction.South : Direction.North;
+    }
+
     public bool TryMove(int id, Direction dir)
     {
         var m = _miners[id];
@@ -261,6 +384,9 @@ public sealed class Simulation
             Grid.Set(from, TileType.Crumbling);
             _events.Add(new CrackWeakened(from));
         }
+
+        if (m.Alive && _monsters.Any(mo => mo.Alive && mo.Pos == target))
+            MaulMiner(m);
 
         if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive)
         {
@@ -325,6 +451,7 @@ public sealed class Simulation
         AdvanceCooldowns(dt);
         AdvanceCracks(dt);
         AdvanceLava(dt);
+        AdvanceMonsters(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
@@ -533,6 +660,27 @@ public sealed class Simulation
         }
     }
 
+    private void MaulMiner(Miner m)
+    {
+        if (!m.Alive) return;
+        m.Alive = false;
+        m.Activity = ActivityKind.None;
+        m.DeathCause = DeathCause.Mauled;
+        _events.Add(new MinerMauled(m.Id));
+    }
+
+    // Called wherever a GoldRock tile becomes Floor. When the last vein falls and an
+    // escape tile is set, the exit opens (once).
+    private void OnGoldCleared()
+    {
+        if (_goldRemaining > 0) _goldRemaining--;
+        if (_goldRemaining == 0 && EscapeTile is not null && !EscapeOpen)
+        {
+            EscapeOpen = true;
+            _events.Add(new EscapeOpened());
+        }
+    }
+
     // Kills a miner on a lethal tile, picking the cause/event from the tile under them:
     // a pit makes you Fall, lava burns you, deep water makes you Drown.
     private void KillByTile(Miner m)
@@ -577,6 +725,16 @@ public sealed class Simulation
             if (m.Alive && Grid.Get(m.Pos).IsLethal())
                 KillByTile(m);
         }
+        // Terrain-bound monsters die when lava/flood creeps under them, mirroring miners.
+        // Ghosts float and stay immune.
+        foreach (var mo in _monsters)
+        {
+            if (mo.Alive && mo.Kind != MonsterKind.Ghost && Grid.Get(mo.Pos).IsLethal())
+            {
+                mo.Alive = false;
+                _events.Add(new MonsterKilled(mo.Id));
+            }
+        }
     }
 
     private void Detonate(Charge charge)
@@ -606,6 +764,7 @@ public sealed class Simulation
                 {
                     var owner = _miners[charge.OwnerId];
                     if (owner.Alive) owner.GoldCollected++;
+                    OnGoldCleared();
                 }
                 UnburyItemsAt(p);
                 ActivateVentsAround(p);
@@ -620,6 +779,15 @@ public sealed class Simulation
                 m.Activity = ActivityKind.None;
                 m.DeathCause = DeathCause.Exploded;
                 _events.Add(new MinerKilled(m.Id));
+            }
+        }
+
+        foreach (var mo in _monsters)
+        {
+            if (mo.Alive && mo.Pos.ChebyshevTo(charge.WallPos) <= Config.BlastKillRadius + charge.BlastBonus)
+            {
+                mo.Alive = false;
+                _events.Add(new MonsterKilled(mo.Id));
             }
         }
 
@@ -643,7 +811,7 @@ public sealed class Simulation
             if (!Grid.InBounds(target) || !Grid.Get(target).IsMinable()) return;
             bool wasGold = Grid.Get(target) == TileType.GoldRock;
             Grid.Set(target, TileType.Floor);
-            if (wasGold) m.GoldCollected++;
+            if (wasGold) { m.GoldCollected++; OnGoldCleared(); }
             UnburyItemsAt(target);
             ActivateVentsAround(target);
             _events.Add(new RockMined(m.Id, target, wasGold));

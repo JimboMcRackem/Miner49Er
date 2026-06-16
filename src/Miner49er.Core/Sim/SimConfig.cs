@@ -31,4 +31,13 @@ public sealed class SimConfig
 
     public double LavaSpreadIntervalSeconds { get; set; } = 1.5;   // seconds per spread ring once a vent is breached
     public int LavaVentBudget { get; set; } = 8;                    // max tiles a single vent converts before going inert
+
+    // Determinism: seeds the sim's monster RNG (wander steps, goat re-aim).
+    public int Seed { get; set; }
+
+    // Monsters (Expedition). Cadence = seconds per one-tile step; lower is faster.
+    public double MonsterSlimeMoveSeconds { get; set; } = 0.5;
+    public double MonsterGhostMoveSeconds { get; set; } = 0.35;
+    public double MonsterGoatMoveSeconds { get; set; } = 0.15;
+    public int MonsterSenseRadius { get; set; } = 6;   // Manhattan range at which a monster locks on
 }

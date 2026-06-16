@@ -14,6 +14,19 @@ public static class RoundResolver
     {
         var alive = sim.Miners.Where(m => m.Alive).ToList();
 
+        // Solo Expedition: a single miner means last-man-standing would auto-win on tick 1.
+        // Instead: lose when the miner is dead, win only on the objective (all gold + on exit).
+        if (mode == GameMode.Expedition)
+        {
+            if (alive.Count == 0) return new RoundResult(true, -1);
+            if (sim.AllGoldCleared && sim.EscapeTile is { } exit)
+            {
+                var winner = alive.FirstOrDefault(m => m.Pos == exit);
+                if (winner is not null) return new RoundResult(true, winner.Id);
+            }
+            return new RoundResult(false, -1);
+        }
+
         // Universal last-man-standing.
         if (alive.Count <= 1)
             return new RoundResult(true, alive.Count == 1 ? alive[0].Id : -1);
