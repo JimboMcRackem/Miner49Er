@@ -18,6 +18,13 @@ public partial class MatchClient : Node2D
 	public IReadOnlyList<ChargeSnapshot> Charges => _charges;
 	public IReadOnlyList<ItemSnapshot> Items => _items;
 	public IReadOnlyList<MoldSnapshot> Molds => _molds;
+	public IReadOnlyList<MonsterSnapshot> Monsters => _monsters;
+	public bool EscapeOpen { get; private set; }
+	public GridPos? EscapeTile { get; private set; }
+	public int GoldRemaining { get; private set; }
+	public Vector2 MonsterVisualPos(int id, int x, int y) =>
+		_monsterVisualPos.TryGetValue(id, out var v)
+			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f);
 	public int LocalMinerId { get; private set; }
 	public bool Listening; // set by Main each frame; gates the buried-item shimmer
 	public IReadOnlyList<GridPos> Decoys { get; private set; } = System.Array.Empty<GridPos>();
@@ -28,6 +35,8 @@ public partial class MatchClient : Node2D
 	private List<ChargeSnapshot> _charges = new();
 	private List<ItemSnapshot> _items = new();
 	private List<MoldSnapshot> _molds = new();
+	private List<MonsterSnapshot> _monsters = new();
+	private readonly Dictionary<int, Vector2> _monsterVisualPos = new(); // monsterId -> smoothed pixels
 	private readonly Dictionary<int, Vector2> _visualPos = new(); // minerId -> smoothed pixels
 
 	private TerrainMap _terrainMap = null!;
@@ -36,11 +45,13 @@ public partial class MatchClient : Node2D
 	private Node2D _camera = null!;
 	private Texture2D[,]? _minerTex; // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
 
-	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot)
+	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null)
 	{
 		Grid = grid;
 		LocalMinerId = localMinerId;
 		Decoys = decoys;
+		EscapeTile = escapeTile;
+		GoldRemaining = CountGold(grid);
 
 		_terrainMap = new TerrainMap { Name = "TerrainMap", ZIndex = -10 };
 		sceneRoot.AddChild(_terrainMap);
@@ -89,6 +100,9 @@ public partial class MatchClient : Node2D
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
 		_items = new List<ItemSnapshot>(update.Snapshot.Items);
 		_molds = new List<MoldSnapshot>(update.Snapshot.Molds);
+		_monsters = new List<MonsterSnapshot>(update.Snapshot.Monsters);
+		EscapeOpen = update.Snapshot.EscapeOpen;
+		GoldRemaining = CountGold(Grid);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;
 		UpdateFog();
 	}
@@ -105,6 +119,15 @@ public partial class MatchClient : Node2D
 
 			if (m.Id == LocalMinerId)
 				_camera.Position = _visualPos[m.Id];
+		}
+		foreach (var mo in _monsters)
+		{
+			if (!mo.Alive) { _monsterVisualPos.Remove(mo.Id); continue; }
+			var target = new Vector2(mo.X * TileSize + TileSize / 2f, mo.Y * TileSize + TileSize / 2f);
+			var cur = _monsterVisualPos.TryGetValue(mo.Id, out var v) ? v : target;
+			// Goat cadence is the fastest (~0.15s/tile); match it so no monster visually lags.
+			float pixelsPerSec = TileSize / 0.15f;
+			_monsterVisualPos[mo.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
 		}
 		QueueRedraw();
 	}
@@ -166,5 +189,13 @@ public partial class MatchClient : Node2D
 		foreach (var m in _miners)
 			if (m.Id == LocalMinerId && m.Alive)
 				Fog.Update(Visibility.Compute(Grid, new GridPos(m.X, m.Y), m.VisionRadius));
+	}
+
+	private static int CountGold(TileGrid grid)
+	{
+		int n = 0;
+		foreach (var p in grid.Positions())
+			if (grid.Get(p) == TileType.GoldRock) n++;
+		return n;
 	}
 }
