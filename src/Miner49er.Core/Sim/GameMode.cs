@@ -1,3 +1,3 @@
 namespace Miner49er.Core;
 
-public enum GameMode { LastManStanding, GoldRush, ReachCenter }
+public enum GameMode { LastManStanding, GoldRush, ReachCenter, Expedition }
