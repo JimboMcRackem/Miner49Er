@@ -42,6 +42,15 @@ public static class SnapshotCodec
             w.Write(mo.X); w.Write(mo.Y); w.Write(mo.RemainingSeconds);
         }
 
+        w.Write(snap.Monsters.Count);
+        foreach (var mo in snap.Monsters)
+        {
+            w.Write(mo.Id); w.Write(mo.X); w.Write(mo.Y);
+            w.Write(mo.Facing); w.Write((int)mo.Kind); w.Write(mo.Alive);
+        }
+
+        w.Write(snap.EscapeOpen);
+
         w.Write(update.TileChanges.Count);
         foreach (var t in update.TileChanges)
         {
@@ -83,12 +92,21 @@ public static class SnapshotCodec
         for (int i = 0; i < moldCount; i++)
             molds.Add(new MoldSnapshot(r.ReadInt32(), r.ReadInt32(), r.ReadDouble()));
 
+        int monsterCount = r.ReadInt32();
+        var monsters = new List<MonsterSnapshot>(monsterCount);
+        for (int i = 0; i < monsterCount; i++)
+            monsters.Add(new MonsterSnapshot(
+                r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
+                r.ReadInt32(), (MonsterKind)r.ReadInt32(), r.ReadBoolean()));
+
+        bool escapeOpen = r.ReadBoolean();
+
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
             changes.Add(new TileChange(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean(), (TileType)r.ReadInt32()));
 
         return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds,
-            new List<MonsterSnapshot>(), secondsRemaining), changes);
+            monsters, secondsRemaining, escapeOpen), changes);
     }
 }

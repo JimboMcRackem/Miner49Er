@@ -24,7 +24,14 @@ public class SnapshotCodecTests
                     new(3, 3, ItemKind.LongerVision, ItemPlacement.Loose),
                 },
                 Molds: new List<MoldSnapshot> { new(4, 6, 12.5), new(0, 1, 3.0) },
-                SecondsRemaining: 42.5f),
+                Monsters: new List<MonsterSnapshot>
+                {
+                    new(1, 7, 2, (int)Direction.South, MonsterKind.Slime, true),
+                    new(2, 0, 9, (int)Direction.East, MonsterKind.Ghost, false),
+                    new(3, 5, 5, (int)Direction.West, MonsterKind.Goat, true),
+                },
+                SecondsRemaining: 42.5f,
+                EscapeOpen: true),
             TileChanges: new List<TileChange> { new(8, 8, true, TileType.DeepWater), new(2, 2, false) });
 
         byte[] bytes = SnapshotCodec.Write(update);
@@ -53,6 +60,13 @@ public class SnapshotCodecTests
         Assert.Equal(2, back.Snapshot.Molds.Count);
         Assert.Equal(update.Snapshot.Molds[0], back.Snapshot.Molds[0]);
         Assert.Equal(update.Snapshot.Molds[1], back.Snapshot.Molds[1]);
+        Assert.Equal(3, back.Snapshot.Monsters.Count);
+        Assert.Equal(update.Snapshot.Monsters[0], back.Snapshot.Monsters[0]);
+        Assert.Equal(update.Snapshot.Monsters[1], back.Snapshot.Monsters[1]);
+        Assert.Equal(update.Snapshot.Monsters[2], back.Snapshot.Monsters[2]);
+        Assert.Equal(MonsterKind.Ghost, back.Snapshot.Monsters[1].Kind);
+        Assert.False(back.Snapshot.Monsters[1].Alive);
+        Assert.True(back.Snapshot.EscapeOpen);
     }
 
     [Fact]
@@ -69,7 +83,8 @@ public class SnapshotCodecTests
                     new(4, 3, 3, 0, true,  0, 0, 0.0, 0.1, 5, -1),
                     new(6, 5, 5, 0, false, 0, 0, 0.0, 0.1, 5, -1, DeathCause.Burned),
                 },
-                new List<ChargeSnapshot>(), new List<ItemSnapshot>(), new List<MoldSnapshot>()),
+                new List<ChargeSnapshot>(), new List<ItemSnapshot>(), new List<MoldSnapshot>(),
+                new List<MonsterSnapshot>()),
             new List<TileChange>());
 
         var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
@@ -87,7 +102,7 @@ public class SnapshotCodecTests
     {
         var update = new TickUpdate(
             new WorldSnapshot(0, new List<MinerSnapshot>(), new List<ChargeSnapshot>(),
-                new List<ItemSnapshot>(), new List<MoldSnapshot>()),
+                new List<ItemSnapshot>(), new List<MoldSnapshot>(), new List<MonsterSnapshot>()),
             new List<TileChange>());
         var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
         Assert.Empty(back.Snapshot.Miners);
@@ -95,5 +110,7 @@ public class SnapshotCodecTests
         Assert.Empty(back.Snapshot.Items);
         Assert.Empty(back.Snapshot.Molds);
         Assert.Empty(back.TileChanges);
+        Assert.Empty(back.Snapshot.Monsters);
+        Assert.False(back.Snapshot.EscapeOpen);
     }
 }
