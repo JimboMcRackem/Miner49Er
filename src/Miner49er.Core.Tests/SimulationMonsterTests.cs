@@ -61,4 +61,37 @@ public class SimulationMonsterTests
 
         Assert.Equal(new GridPos(3, 1), ghost.Pos);
     }
+
+    [Fact]
+    public void Goat_charges_in_a_straight_line()
+    {
+        var cfg = new SimConfig { MonsterGoatMoveSeconds = 0.1, MonsterSenseRadius = 0 };
+        var sim = Sim(new TileGrid(6, 3, TileType.Floor), cfg);
+        var goat = sim.AddMonster(1, new GridPos(1, 1), MonsterKind.Goat);
+        goat.ChargeDir = Direction.East;
+
+        sim.Tick(0.1);
+        sim.Tick(0.1);
+
+        Assert.Equal(new GridPos(3, 1), goat.Pos);   // two straight steps east
+    }
+
+    [Fact]
+    public void Goat_reaims_toward_the_miner_when_it_hits_a_wall()
+    {
+        // A miner due south makes the re-aim deterministic (toward = South), avoiding the
+        // randomness of a wall-bounce with no target in range.
+        var cfg = new SimConfig { MonsterGoatMoveSeconds = 0.1, MonsterSenseRadius = 6 };
+        var grid = new TileGrid(4, 4, TileType.Floor);
+        grid.Set(new GridPos(2, 1), TileType.Rock);   // wall directly east of the goat
+        var sim = Sim(grid, cfg);
+        sim.AddMiner(1, new GridPos(1, 3));           // due south of the goat
+        var goat = sim.AddMonster(1, new GridPos(1, 1), MonsterKind.Goat);
+        goat.ChargeDir = Direction.East;
+
+        sim.Tick(0.1);   // east is blocked: re-aims toward the miner, does not move this step
+
+        Assert.Equal(new GridPos(1, 1), goat.Pos);
+        Assert.Equal(Direction.South, goat.ChargeDir);
+    }
 }

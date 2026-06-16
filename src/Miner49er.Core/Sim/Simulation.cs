@@ -305,8 +305,17 @@ public sealed class Simulation
         return TowardDir(mo.Pos, target.Pos);   // always hunts; CanMonsterEnter lets it phase rock
     }
 
-    // Stub filled in by a later task; returning null = no move this step.
-    private Direction? GoatDir(Monster mo, Miner? target) => null;
+    private Direction? GoatDir(Monster mo, Miner? target)
+    {
+        var ahead = mo.Pos + mo.ChargeDir.ToOffset();
+        if (CanMonsterEnter(mo, ahead)) return mo.ChargeDir;
+
+        // Slammed into a wall — turn (toward the miner if sensed, else random) and skip this step.
+        mo.ChargeDir = target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius
+            ? TowardDir(mo.Pos, target.Pos)
+            : Card[_rng.Next(Card.Length)];
+        return null;
+    }
 
     // Greedy cardinal step that most reduces Manhattan distance (X ties broken to vertical).
     private static Direction TowardDir(GridPos from, GridPos to)
