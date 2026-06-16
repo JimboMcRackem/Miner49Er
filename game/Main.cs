@@ -45,12 +45,14 @@ public partial class Main : Node2D
 		if (nm.IsHost)
 		{
 			var hostMap = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava));
+			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.Spawns[0] : null;
 			var sim = new Simulation(
 				hostMap.Grid,
-				new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds },
+				new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds, Seed = seed },
 				hostMap.Center,
 				nm.MatchTimeLimitSeconds > 0 ? nm.MatchTimeLimitSeconds : (double?)null,
-				nm.MatchFlooding);
+				nm.MatchFlooding,
+				escapeTile);
 			foreach (var item in hostMap.Items)
 				sim.AddItem(item);
 			var peerToMiner = new System.Collections.Generic.Dictionary<long, int>();
@@ -59,6 +61,13 @@ public partial class Main : Node2D
 				int minerId = i + 1;
 				sim.AddMiner(minerId, hostMap.Spawns[i]);
 				peerToMiner[nm.PeerOrder[i]] = minerId;
+			}
+			if (nm.MatchMode == GameMode.Expedition)
+			{
+				int monsterCount = MonsterRoster.CountFor(hostMap.Grid.Width, hostMap.Grid.Height);
+				var roster = MonsterSpawner.Place(hostMap.Grid, hostMap.Spawns[0], monsterCount);
+				for (int i = 0; i < roster.Count; i++)
+					sim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
 			}
 			_host = new MatchHost { Name = "MatchHost" };
 			AddChild(_host);
