@@ -88,6 +88,7 @@ public static class SnapshotCodec
         for (int i = 0; i < changeCount; i++)
             changes.Add(new TileChange(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean(), (TileType)r.ReadInt32()));
 
-        return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds, secondsRemaining), changes);
+        return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds,
+            new List<MonsterSnapshot>(), secondsRemaining), changes);
     }
 }

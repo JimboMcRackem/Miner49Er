@@ -13,12 +13,17 @@ public readonly record struct ItemSnapshot(int X, int Y, ItemKind Kind, ItemPlac
 
 public readonly record struct MoldSnapshot(int X, int Y, double RemainingSeconds);
 
+public readonly record struct MonsterSnapshot(
+    int Id, int X, int Y, int Facing, MonsterKind Kind, bool Alive);
+
 /// <summary>One floor cell that changed; FromBlast drives the flash, NewType is
 /// the tile it became (Floor for mining/blasts, water for the flood).</summary>
 public readonly record struct TileChange(int X, int Y, bool FromBlast, TileType NewType = TileType.Floor);
 
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,
-    IReadOnlyList<ItemSnapshot> Items, IReadOnlyList<MoldSnapshot> Molds, float SecondsRemaining = -1f);
+    IReadOnlyList<ItemSnapshot> Items, IReadOnlyList<MoldSnapshot> Molds,
+    IReadOnlyList<MonsterSnapshot> Monsters,
+    float SecondsRemaining = -1f, bool EscapeOpen = false);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);
