@@ -166,8 +166,9 @@ public partial class Main : Node2D
 		if (_results != null) return;
 		_results = new ResultsOverlay { Name = "ResultsOverlay" };
 		AddChild(_results);
+		bool expedition = NetworkManager.Instance.MatchMode == GameMode.Expedition;
 		string label;
-		if (NetworkManager.Instance.MatchMode == GameMode.Expedition)
+		if (expedition)
 			label = winnerPeerId == NetworkManager.Instance.LocalId
 				? "You escaped with the gold!"
 				: "You died in the mine.";
@@ -175,13 +176,24 @@ public partial class Main : Node2D
 			label = winnerPeerId == -1
 				? "Draw — no survivors"
 				: $"Winner: {NameOf(winnerPeerId)}";
-		_results.Show(label, NetworkManager.Instance.IsHost);
+		_results.Show(label, NetworkManager.Instance.IsHost,
+			expedition ? "Return to Menu" : "Return to Lobby");
 	}
 
 	private static string NameOf(long peerId) =>
 		NetworkManager.Instance.Players.TryGetValue(peerId, out var info) ? info.Name : $"Peer {peerId}";
 
-	private void OnReturnToLobby() => GetTree().ChangeSceneToFile("res://game/ui/Lobby.tscn");
+	private void OnReturnToLobby()
+	{
+		// Solo Expedition has no lobby — tear down the host and go back to the menu.
+		if (NetworkManager.Instance.MatchMode == GameMode.Expedition)
+		{
+			NetworkManager.Instance.Leave();
+			GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");
+			return;
+		}
+		GetTree().ChangeSceneToFile("res://game/ui/Lobby.tscn");
+	}
 
 	private void OnDisconnected() => GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");
 }

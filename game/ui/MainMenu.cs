@@ -24,9 +24,12 @@ public partial class MainMenu : Control
 		};
 		AddChild(bg);
 
+		var center = new CenterContainer();
+		center.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(center);
+
 		var box = new VBoxContainer();
-		box.SetAnchorsPreset(LayoutPreset.Center);
-		AddChild(box);
+		center.AddChild(box);
 
 		var title = new Label { Text = "MINER 49ER" };
 		title.AddThemeFontSizeOverride("font_size", 48);

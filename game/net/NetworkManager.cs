@@ -54,6 +54,7 @@ public partial class NetworkManager : Node
 
 	public Error HostGame(string playerName, int colorIndex, bool overInternet = false, int port = DefaultPort)
 	{
+		ResetPeer(); // free the port if a prior session's peer is still bound (e.g. replaying solo)
 		var peer = new ENetMultiplayerPeer();
 		var err = peer.CreateServer(port, 8);
 		if (err != Error.Ok) return err;
@@ -92,6 +93,7 @@ public partial class NetworkManager : Node
 
 	public Error JoinGame(string address, string playerName, int colorIndex, int port = DefaultPort)
 	{
+		ResetPeer(); // drop any prior session's peer before connecting fresh
 		var peer = new ENetMultiplayerPeer();
 		var err = peer.CreateClient(address, port);
 		if (err != Error.Ok) return err;
@@ -125,9 +127,19 @@ public partial class NetworkManager : Node
 		_upnp.Release();
 		Status = InternetStatus.Off;
 		HostCode = null;
-		Multiplayer.MultiplayerPeer = null;
+		ResetPeer();
 		IsHost = false;
 		Players.Clear();
+	}
+
+	// Closes the active ENet peer and detaches it. Closing explicitly (not just
+	// nulling MultiplayerPeer) ensures the UDP socket is released so a later
+	// CreateServer on the same port doesn't fail with CantCreate.
+	private void ResetPeer()
+	{
+		if (Multiplayer.MultiplayerPeer is ENetMultiplayerPeer p)
+			p.Close();
+		Multiplayer.MultiplayerPeer = null;
 	}
 
 	// Connection callbacks ---------------------------------------------------

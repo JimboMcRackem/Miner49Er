@@ -26,9 +26,10 @@ public partial class ResultsOverlay : CanvasLayer
 		box.AddChild(_return);
 	}
 
-	public void Show(string text, bool hostControls)
+	public void Show(string text, bool hostControls, string buttonText = "Return to Lobby")
 	{
 		_label.Text = text;
+		_return.Text = buttonText;
 		_return.Visible = hostControls; // only the host returns everyone to the lobby
 	}
 }
