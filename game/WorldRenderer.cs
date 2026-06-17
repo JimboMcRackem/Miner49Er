@@ -38,6 +38,9 @@ public partial class WorldRenderer : Node2D
 	private Texture2D? _chargeTex;
 	private Texture2D? _toolboxTex;
 	private Texture2D? _moldPatchTex;
+	private Texture2D? _goldRockTex;
+	private Texture2D? _plankTex;
+	private Texture2D? _lavaVentTex;
 	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
 
 	public void Init(MatchClient client)
@@ -46,6 +49,9 @@ public partial class WorldRenderer : Node2D
 		_chargeTex    = GD.Load<Texture2D>("res://assets/objects/charge.png");
 		_toolboxTex   = GD.Load<Texture2D>("res://assets/objects/toolbox.png");
 		_moldPatchTex = GD.Load<Texture2D>("res://assets/objects/mold_patch.png");
+		_goldRockTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_6.png");
+		_plankTex     = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_1.png");
+		_lavaVentTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_5.png");
 		LoadItemTex(ItemKind.SpeedPotion,  "res://assets/objects/item_speed.png");
 		LoadItemTex(ItemKind.LongerVision, "res://assets/objects/item_vision.png");
 		LoadItemTex(ItemKind.BiggerBlast,  "res://assets/objects/item_blast.png");
@@ -79,17 +85,28 @@ public partial class WorldRenderer : Node2D
 		var grid = _client.Grid;
 		int ts = MatchClient.TileSize;
 
-		// LavaVent: no Wang tileset; TerrainMap handles everything else
-		foreach (var p in grid.Positions())
-			if (grid.Get(p) == TileType.LavaVent)
-				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), LavaVentColor);
-
-		// DeepWater: tileset maps it to the same Water terrain as ShallowWater; overlay a
-		// dark tint so the two are visually distinct.
+		// Single-pass tile overlays on top of TerrainMap (FogRenderer at ZIndex -5 covers these naturally).
 		var deepOverlay = new Color(0.0f, 0.05f, 0.35f, 0.55f);
 		foreach (var p in grid.Positions())
-			if (grid.Get(p) == TileType.DeepWater)
-				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), deepOverlay);
+		{
+			var r = new Rect2(p.X * ts, p.Y * ts, ts, ts);
+			switch (grid.Get(p))
+			{
+				case TileType.GoldRock:
+					if (_goldRockTex != null) DrawTextureRect(_goldRockTex, r, false);
+					break;
+				case TileType.Plank:
+					if (_plankTex != null) DrawTextureRect(_plankTex, r, false);
+					break;
+				case TileType.LavaVent:
+					if (_lavaVentTex != null) DrawTextureRect(_lavaVentTex, r, false);
+					else DrawRect(r, LavaVentColor);
+					break;
+				case TileType.DeepWater:
+					DrawRect(r, deepOverlay);
+					break;
+			}
+		}
 
 		foreach (var c in _client.Charges)
 		{
