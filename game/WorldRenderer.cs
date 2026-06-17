@@ -23,10 +23,15 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color PlankItemColor = new("c8a060");
 	private static readonly Color MoldItemColor  = new("8fae4f");
 	private static readonly Color MoldColor      = new("6f8f3a");
-	private static readonly Color SlimeColor     = new("5fbf4f");
-	private static readonly Color GhostColor     = new("dfe8ff");
-	private static readonly Color GoatColor      = new("b08050");
-	private static readonly Color ExitColor      = new("ffe24a");
+	private static readonly Color SlimeColor        = new("5fbf4f");
+	private static readonly Color SlimeOutlineColor = new("3a8f2a");
+	private static readonly Color GhostColor        = new("dfe8ff");
+	private static readonly Color GoatColor         = new("b08050");
+	private static readonly Color GoatHornColor     = new("6a4828");
+	private static readonly Color ExitColor         = new("ffe24a");
+	private static readonly Color LanternItemColor  = new("ffe090");
+	private static readonly Color LanternGlowColor  = new Color(1f, 0.9f, 0.3f, 0.18f);
+	private const int LanternRadius = 3;
 	private const int ListenItemRevealRadius = 6;
 
 	private Texture2D? _chargeTex;
@@ -77,6 +82,13 @@ public partial class WorldRenderer : Node2D
 		foreach (var p in grid.Positions())
 			if (grid.Get(p) == TileType.LavaVent)
 				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), LavaVentColor);
+
+		// DeepWater: tileset maps it to the same Water terrain as ShallowWater; overlay a
+		// dark tint so the two are visually distinct.
+		var deepOverlay = new Color(0.0f, 0.05f, 0.35f, 0.55f);
+		foreach (var p in grid.Positions())
+			if (grid.Get(p) == TileType.DeepWater)
+				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), deepOverlay);
 
 		foreach (var c in _client.Charges)
 		{
@@ -159,17 +171,58 @@ public partial class WorldRenderer : Node2D
 			var mp = new GridPos(mo.X, mo.Y);
 			if (!_client.Fog.IsVisible(mp)) continue;
 			var c = _client.MonsterVisualPos(mo.Id, mo.X, mo.Y);
+			var fwd  = FacingOffset(mo.Facing, ts * 0.12f);
+			var side = PerpendicularOffset(mo.Facing, ts * 0.10f);
 			switch (mo.Kind)
 			{
 				case MonsterKind.Slime:
+				{
 					DrawCircle(c, ts * 0.34f, SlimeColor);
+					DrawCircle(c, ts * 0.34f, SlimeOutlineColor, false, 1.5f);
+					var eye1 = c + fwd + side;
+					var eye2 = c + fwd - side;
+					DrawCircle(eye1, ts * 0.07f, Colors.White);
+					DrawCircle(eye1, ts * 0.04f, Colors.Black);
+					DrawCircle(eye2, ts * 0.07f, Colors.White);
+					DrawCircle(eye2, ts * 0.04f, Colors.Black);
 					break;
+				}
 				case MonsterKind.Ghost:
-					DrawCircle(c, ts * 0.36f, GhostColor with { A = 0.6f });
+				{
+					var ghostCol = GhostColor with { A = 0.6f };
+					var headOff  = new Vector2(0, -ts * 0.10f);
+					DrawCircle(c + headOff, ts * 0.28f, ghostCol);
+					DrawRect(new Rect2(c.X - ts * 0.28f, c.Y - ts * 0.10f, ts * 0.56f, ts * 0.28f), ghostCol);
+					for (int i = 0; i < 3; i++)
+					{
+						float xOff = (i - 1) * ts * 0.19f;
+						DrawColoredPolygon(new Vector2[] {
+							c + new Vector2(xOff - ts * 0.09f, ts * 0.18f),
+							c + new Vector2(xOff + ts * 0.09f, ts * 0.18f),
+							c + new Vector2(xOff,              ts * 0.36f),
+						}, ghostCol);
+					}
+					var eFwd  = FacingOffset(mo.Facing, ts * 0.08f);
+					var eSide = PerpendicularOffset(mo.Facing, ts * 0.09f);
+					var eyeBase = c + headOff + eFwd;
+					var eyeCol  = new Color(0.1f, 0.1f, 0.2f, 0.85f);
+					DrawCircle(eyeBase + eSide, ts * 0.065f, eyeCol);
+					DrawCircle(eyeBase - eSide, ts * 0.065f, eyeCol);
 					break;
+				}
 				case MonsterKind.Goat:
-					DrawRect(new Rect2(c.X - ts * 0.3f, c.Y - ts * 0.3f, ts * 0.6f, ts * 0.6f), GoatColor);
+				{
+					DrawCircle(c, ts * 0.28f, GoatColor);
+					var headPos = c + FacingOffset(mo.Facing, ts * 0.22f);
+					DrawCircle(headPos, ts * 0.16f, GoatColor);
+					var hSide = PerpendicularOffset(mo.Facing, ts * 0.10f);
+					var hFwd  = FacingOffset(mo.Facing, ts * 0.14f);
+					DrawLine(headPos + hSide, headPos + hSide * 1.8f + hFwd, GoatHornColor, 2.5f);
+					DrawLine(headPos - hSide, headPos - hSide * 1.8f + hFwd, GoatHornColor, 2.5f);
+					DrawCircle(headPos + PerpendicularOffset(mo.Facing, ts * 0.05f), ts * 0.04f, Colors.Black);
+					DrawCircle(headPos - PerpendicularOffset(mo.Facing, ts * 0.05f), ts * 0.04f, Colors.Black);
 					break;
+				}
 			}
 		}
 
@@ -201,6 +254,26 @@ public partial class WorldRenderer : Node2D
 
 	private static bool WithinReveal(GridPos local, int x, int y) =>
 		Mathf.Max(Mathf.Abs(local.X - x), Mathf.Abs(local.Y - y)) <= ListenItemRevealRadius;
+
+	// Returns a unit-scaled offset in the facing direction (0=N, 1=E, 2=S, 3=W).
+	private static Vector2 FacingOffset(int facing, float scale) => facing switch
+	{
+		0 => new Vector2(0f, -scale),
+		1 => new Vector2(scale, 0f),
+		2 => new Vector2(0f,  scale),
+		3 => new Vector2(-scale, 0f),
+		_ => Vector2.Zero,
+	};
+
+	// Returns a perpendicular offset 90° clockwise from facing.
+	private static Vector2 PerpendicularOffset(int facing, float scale) => facing switch
+	{
+		0 => new Vector2(scale, 0f),
+		1 => new Vector2(0f,  scale),
+		2 => new Vector2(-scale, 0f),
+		3 => new Vector2(0f, -scale),
+		_ => Vector2.Zero,
+	};
 
 	private void DrawShimmer(int x, int y, Color col, int ts)
 	{
