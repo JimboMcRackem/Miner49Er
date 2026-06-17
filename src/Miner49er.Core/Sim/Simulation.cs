@@ -293,6 +293,17 @@ public sealed class Simulation
 
             mo.MoveCooldownRemaining += MonsterCadence(mo.Kind) * mo.SlowMultiplier;
         }
+
+        // Kill any ghost currently inside a lantern's AOE
+        foreach (var mo in _monsters)
+        {
+            if (!mo.Alive || mo.Kind != MonsterKind.Ghost) continue;
+            if (InLanternLight(mo.Pos))
+            {
+                mo.Alive = false;
+                _events.Add(new MonsterKilled(mo.Id));
+            }
+        }
     }
 
     private void StepMonster(Monster mo, Miner? target)
@@ -333,6 +344,17 @@ public sealed class Simulation
         return Grid.Get(p).IsEnterable();
     }
 
+    private bool InLanternLight(GridPos pos)
+    {
+        foreach (var m in _miners.Values)
+            if (m.Alive && m.Held == ItemKind.Lantern)
+                if (pos.ChebyshevTo(m.Pos) <= Config.LanternRadius) return true;
+        foreach (var it in _items)
+            if (it.Kind == ItemKind.Lantern && it.Placement == ItemPlacement.Loose)
+                if (pos.ChebyshevTo(it.Pos) <= Config.LanternRadius) return true;
+        return false;
+    }
+
     private Direction? SlimeDir(Monster mo, Miner? target)
     {
         if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius)
@@ -343,7 +365,10 @@ public sealed class Simulation
     private Direction? GhostDir(Monster mo, Miner? target)
     {
         if (target is not { Alive: true }) return null;
-        return TowardDir(mo.Pos, target.Pos);   // always hunts; CanMonsterEnter lets it phase rock
+        var d = TowardDir(mo.Pos, target.Pos);
+        var next = mo.Pos + d.ToOffset();
+        if (InLanternLight(next)) return null;   // halt at AOE boundary rather than entering
+        return d;
     }
 
     private Direction? GoatDir(Monster mo, Miner? target)
@@ -539,6 +564,7 @@ public sealed class Simulation
         {
             ItemKind.WaterPlank => TryPlacePlank(m),
             ItemKind.SlowMold   => DropMold(m),
+            ItemKind.Lantern    => DropLantern(m),
             _ => false,
         };
     }
@@ -560,6 +586,13 @@ public sealed class Simulation
             }
         m.Held = null;
         _events.Add(new MoldDropped(m.Pos));
+        return true;
+    }
+
+    private bool DropLantern(Miner m)
+    {
+        _items.Add(new Item(m.Pos, ItemKind.Lantern, ItemPlacement.Loose));
+        m.Held = null;
         return true;
     }
 
