@@ -43,6 +43,7 @@ public partial class MatchClient : Node2D
 	private WorldRenderer _world = null!;
 	private FogRenderer _fogRenderer = null!;
 	private Node2D _camera = null!;
+	private Camera2D _cam = null!;
 	private Texture2D[,]? _minerTex; // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
 
 	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null)
@@ -69,9 +70,9 @@ public partial class MatchClient : Node2D
 
 		_camera = new Node2D { Name = "CameraRig" };
 		sceneRoot.AddChild(_camera);
-		var cam = new Camera2D { Zoom = new Vector2(1.5f, 1.5f) };
-		_camera.AddChild(cam);
-		cam.MakeCurrent();
+		_cam = new Camera2D { Zoom = new Vector2(1.5f, 1.5f) };
+		_camera.AddChild(_cam);
+		_cam.MakeCurrent();
 	}
 
 	public void ApplyUpdate(TickUpdate update)
@@ -109,6 +110,14 @@ public partial class MatchClient : Node2D
 
 	public override void _PhysicsProcess(double delta)
 	{
+		// Re-assert our camera after a scene swap: the previous scene's camera
+		// teardown can clobber this one's MakeCurrent() (a Godot _Ready ordering
+		// race), leaving the rig tracking the miner while the viewport stays at
+		// world origin — the symptom is a tracked-but-unseen miner and a fixed
+		// offset view. Cheap to check every frame and self-heals immediately.
+		if (_cam != null && !_cam.IsCurrent())
+			_cam.MakeCurrent();
+
 		// Smooth each miner visual toward its authoritative tile position.
 		foreach (var m in _miners)
 		{
