@@ -32,7 +32,17 @@ public static class SnapshotFactory
                 mo.Id, mo.Pos.X, mo.Pos.Y, (int)mo.Facing, mo.Kind, mo.Alive))
             .ToList();
 
+        OctopusSnapshot? octopus = null;
+        if (sim.Octopus is { } oct)
+        {
+            var armSnaps = new OctopusArmSnapshot[oct.Arms.Length];
+            for (int i = 0; i < oct.Arms.Length; i++)
+                armSnaps[i] = new OctopusArmSnapshot(
+                    oct.Arms[i].CurrentAngle, oct.Arms[i].PauseRemaining, oct.Arms[i].SwingDir);
+            octopus = new OctopusSnapshot(oct.Pos.X, oct.Pos.Y, armSnaps);
+        }
+
         return new WorldSnapshot(tick, miners, charges, items, molds, monsters,
-            (float)sim.SecondsRemaining, sim.EscapeOpen);
+            (float)sim.SecondsRemaining, sim.EscapeOpen, octopus);
     }
 }

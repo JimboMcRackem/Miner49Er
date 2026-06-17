@@ -20,10 +20,15 @@ public readonly record struct MonsterSnapshot(
 /// the tile it became (Floor for mining/blasts, water for the flood).</summary>
 public readonly record struct TileChange(int X, int Y, bool FromBlast, TileType NewType = TileType.Floor);
 
+public readonly record struct OctopusArmSnapshot(double Angle, double PauseRemaining, int SwingDir);
+
+public sealed record OctopusSnapshot(int X, int Y, OctopusArmSnapshot[] Arms);
+
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,
     IReadOnlyList<ItemSnapshot> Items, IReadOnlyList<MoldSnapshot> Molds,
     IReadOnlyList<MonsterSnapshot> Monsters,
-    float SecondsRemaining = -1f, bool EscapeOpen = false);
+    float SecondsRemaining = -1f, bool EscapeOpen = false,
+    OctopusSnapshot? Octopus = null);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);
