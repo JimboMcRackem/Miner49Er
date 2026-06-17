@@ -30,9 +30,11 @@ public partial class Main : Node2D
 
 		int localMinerId = nm.LocalMinerId();
 
+		GridPos? clientEscape = nm.MatchMode == GameMode.Expedition && map.Spawns.Count > 0
+			? map.Spawns[0] : null;
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
-		_client.Begin(map.Grid, map.Decoys, localMinerId, this);
+		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape);
 
 		_audio = new MatchAudio { Name = "MatchAudio" };
 		AddChild(_audio);
