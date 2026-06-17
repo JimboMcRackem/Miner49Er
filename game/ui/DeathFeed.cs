@@ -75,6 +75,7 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Fell => "YOU FELL INTO A PIT",
 			DeathCause.Crushed => "CAVED IN!",
 			DeathCause.Burned => "BURNED ALIVE!",
+			DeathCause.Mauled => "MAULED BY A MONSTER!",
 			_ => "YOU DIED",
 		};
 		_bannerLife = BannerSeconds;
@@ -98,6 +99,7 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Fell => $"{name} fell into a pit",
 			DeathCause.Crushed => $"{name} was caught in a cave-in",
 			DeathCause.Burned => $"{name} was incinerated",
+			DeathCause.Mauled => $"{name} was mauled",
 			_ => $"{name} died",
 		};
 		var label = new Label { Text = text };

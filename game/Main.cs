@@ -136,7 +136,10 @@ public partial class Main : Node2D
 						(int)ItemKind.SlowMold => "    Held: Mold",
 						_ => "",
 					};
-					_hud.SetText($"Gold: {m.Gold}    {status}{timeStr}{heldStr}");
+					string objective = NetworkManager.Instance.MatchMode == GameMode.Expedition
+						? (_client.EscapeOpen ? "ESCAPE at your start!" : $"Gold left: {_client.GoldRemaining}")
+						: $"Gold: {m.Gold}";
+					_hud.SetText($"{objective}    {status}{timeStr}{heldStr}");
 			}
 		if (Input.IsActionJustPressed(InputBindings.Settings))
 			_audioPanel.Toggle();
@@ -163,9 +166,15 @@ public partial class Main : Node2D
 		if (_results != null) return;
 		_results = new ResultsOverlay { Name = "ResultsOverlay" };
 		AddChild(_results);
-		string label = winnerPeerId == -1
-			? "Draw — no survivors"
-			: $"Winner: {NameOf(winnerPeerId)}";
+		string label;
+		if (NetworkManager.Instance.MatchMode == GameMode.Expedition)
+			label = winnerPeerId == NetworkManager.Instance.LocalId
+				? "You escaped with the gold!"
+				: "You died in the mine.";
+		else
+			label = winnerPeerId == -1
+				? "Draw — no survivors"
+				: $"Winner: {NameOf(winnerPeerId)}";
 		_results.Show(label, NetworkManager.Instance.IsHost);
 	}
 
