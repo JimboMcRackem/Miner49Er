@@ -29,6 +29,7 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color GoatColor         = new("b08050");
 	private static readonly Color GoatHornColor     = new("6a4828");
 	private static readonly Color ExitColor         = new("ffe24a");
+	private static readonly Color LadderColor       = new Color(0.68f, 0.52f, 0.28f, 0.50f);
 	private static readonly Color LanternItemColor  = new("ffe090");
 	private static readonly Color LanternGlowColor  = new Color(1f, 0.9f, 0.3f, 0.18f);
 	private const int LanternRadius = 3;
@@ -244,11 +245,31 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
-		if (_client.EscapeOpen && _client.EscapeTile is { } exit)
+		if (_client.EscapeTile is { } exit)
 		{
-			float pulse = 0.5f + 0.5f * Mathf.Sin((float)Time.GetTicksMsec() / 1000f * Mathf.Pi * 2f / 0.9f);
-			var col = ExitColor with { A = 0.4f + 0.5f * pulse };
-			DrawRect(new Rect2(exit.X * ts, exit.Y * ts, ts, ts), col, false, 3f);
+			float lx = exit.X * ts + ts * 0.31f;
+			float rx = exit.X * ts + ts * 0.69f;
+			float ty = exit.Y * ts + ts * 0.12f;
+			float by = exit.Y * ts + ts * 0.88f;
+			Color ladderCol;
+			if (_client.EscapeOpen)
+			{
+				float pulse = 0.5f + 0.5f * Mathf.Sin((float)Time.GetTicksMsec() / 1000f * Mathf.Pi * 2f / 0.9f);
+				DrawRect(new Rect2(exit.X * ts, exit.Y * ts, ts, ts), ExitColor with { A = 0.12f + 0.18f * pulse });
+				DrawRect(new Rect2(exit.X * ts, exit.Y * ts, ts, ts), ExitColor with { A = 0.55f + 0.4f * pulse }, false, 3f);
+				ladderCol = ExitColor with { A = 0.7f + 0.3f * pulse };
+			}
+			else
+			{
+				ladderCol = LadderColor;
+			}
+			DrawLine(new Vector2(lx, ty), new Vector2(lx, by), ladderCol, 2.5f);
+			DrawLine(new Vector2(rx, ty), new Vector2(rx, by), ladderCol, 2.5f);
+			for (int i = 0; i <= 3; i++)
+			{
+				float ry = ty + (by - ty) * i / 3f;
+				DrawLine(new Vector2(lx, ry), new Vector2(rx, ry), ladderCol, 2f);
+			}
 		}
 	}
 
