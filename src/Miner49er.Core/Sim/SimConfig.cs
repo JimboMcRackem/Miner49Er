@@ -37,7 +37,7 @@ public sealed class SimConfig
 
     // Monsters (Expedition). Cadence = seconds per one-tile step; lower is faster.
     public double MonsterSlimeMoveSeconds { get; set; } = 0.5;
-    public double MonsterGhostMoveSeconds { get; set; } = 0.35;
+    public double MonsterGhostMoveSeconds { get; set; } = 0.6;
     public double MonsterGoatMoveSeconds { get; set; } = 0.15;
     public int MonsterSenseRadius { get; set; } = 6;   // Manhattan range at which a monster locks on
 }
