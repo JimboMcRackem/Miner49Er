@@ -35,6 +35,22 @@ public class RoundResolverExpeditionTests
     }
 
     [Fact]
+    public void Chest_grabbed_wins_the_dungeon()
+    {
+        var grid = new TileGrid(6, 3, TileType.Floor);
+        var sim  = new Simulation(grid, new SimConfig(), escapeTile: null);
+        sim.AddItem(new Item(new GridPos(1, 1), ItemKind.Chest, ItemPlacement.Toolbox));
+        sim.AddMiner(1, new GridPos(1, 1));
+        sim.Tick(0.1);   // PickUpItems fires; miner starts on chest tile
+
+        var result = RoundResolver.Resolve(sim, GameMode.Expedition);
+
+        Assert.True(result.IsOver);
+        Assert.False(result.FloorCleared);
+        Assert.Equal(1, result.WinnerId);
+    }
+
+    [Fact]
     public void Miner_death_loses_the_run()
     {
         var (sim, miner) = SetupNoGold(new GridPos(0, 1), exit: new GridPos(0, 1));

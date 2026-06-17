@@ -13,6 +13,8 @@ public sealed class Simulation
     private readonly List<SimEvent> _events = new();
     private readonly List<Monster> _monsters = new();
     private readonly Random _rng;
+    private Octopus? _octopus;
+    public  Octopus? Octopus => _octopus;
 
     public IReadOnlyCollection<Miner> Miners => _miners.Values;
     public IReadOnlyList<Charge> Charges => _charges;
@@ -76,6 +78,8 @@ public sealed class Simulation
         _monsters.Add(mo);
         return mo;
     }
+
+    public void AddOctopus(GridPos pos) => _octopus = new Octopus(pos);
 
     internal void DropMoldAt(GridPos pos) =>
         _molds.Add(new MoldPatch(pos, Config.MoldSeconds));
@@ -503,6 +507,7 @@ public sealed class Simulation
         AdvanceCracks(dt);
         AdvanceLava(dt);
         AdvanceMonsters(dt);
+        AdvanceOctopus(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
@@ -640,6 +645,9 @@ public sealed class Simulation
             case ItemKind.BiggerBlast:
                 ApplyEffect(minerId, EffectKind.BiggerBlast, EffectChannel.BlastRadius,
                             Config.BlastBonus, Config.BlastSeconds);
+                break;
+            case ItemKind.Chest:
+                ChestGrabbedBy = minerId;
                 break;
         }
     }
@@ -779,6 +787,16 @@ public sealed class Simulation
         m.Activity = ActivityKind.None;
         m.DeathCause = DeathCause.Crushed;
         _events.Add(new MinerCrushed(m.Id));
+    }
+
+    private void AdvanceOctopus(double dt)
+    {
+        if (_octopus is null) return;
+        _octopus.Advance(dt);
+        var danger = new HashSet<GridPos>(_octopus.DangerTiles(Grid));
+        foreach (var m in _miners.Values)
+            if (m.Alive && danger.Contains(m.Pos))
+                CollapseKill(m);
     }
 
     // Kills any living miner standing on a now-lethal tile. Covers water rising

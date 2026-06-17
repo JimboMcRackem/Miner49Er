@@ -1,7 +1,7 @@
 namespace Miner49er.Core;
 
 /// <summary>Kinds of collectible item placed on the map.</summary>
-public enum ItemKind { SpeedPotion, LongerVision, BiggerBlast, WaterPlank, SlowMold, Lantern }
+public enum ItemKind { SpeedPotion, LongerVision, BiggerBlast, WaterPlank, SlowMold, Lantern, Chest }
 
 public static class ItemKindExtensions
 {
