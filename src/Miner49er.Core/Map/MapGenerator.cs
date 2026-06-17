@@ -509,4 +509,70 @@ public static class MapGenerator
             (list[i], list[j]) = (list[j], list[i]);
         }
     }
+
+    /// <summary>Produces the fixed-structure boss floor: a 40x40 arena with deep water
+    /// filling the interior, cross-shaped shallow-water corridors for navigation, a 5x5
+    /// central floor island, and the victory chest one tile south of center.</summary>
+    public static GeneratedMap GenerateBossFloor(int seed)
+    {
+        const int W = 40, H = 40;
+        var grid = new TileGrid(W, H);
+
+        // Fill interior with deep water.
+        foreach (var p in grid.Positions())
+            grid.Set(p, TileType.DeepWater);
+
+        // Border — impermeable rock.
+        for (int x = 0; x < W; x++)
+        {
+            grid.Set(new GridPos(x, 0),     TileType.ImpermeableRock);
+            grid.Set(new GridPos(x, H - 1), TileType.ImpermeableRock);
+        }
+        for (int y = 0; y < H; y++)
+        {
+            grid.Set(new GridPos(0,     y), TileType.ImpermeableRock);
+            grid.Set(new GridPos(W - 1, y), TileType.ImpermeableRock);
+        }
+
+        int cx = W / 2, cy = H / 2;
+
+        // Horizontal corridor (2 tiles wide, rows cy and cy+1).
+        for (int x = 1; x < W - 1; x++)
+        {
+            grid.Set(new GridPos(x, cy),     TileType.ShallowWater);
+            grid.Set(new GridPos(x, cy + 1), TileType.ShallowWater);
+        }
+
+        // Vertical corridor (2 tiles wide, columns cx and cx+1).
+        for (int y = 1; y < H - 1; y++)
+        {
+            grid.Set(new GridPos(cx,     y), TileType.ShallowWater);
+            grid.Set(new GridPos(cx + 1, y), TileType.ShallowWater);
+        }
+
+        // Central island — 5x5 Floor tiles (Chebyshev distance <= 2 from center).
+        for (int dy = -2; dy <= 2; dy++)
+            for (int dx = -2; dx <= 2; dx++)
+                grid.Set(new GridPos(cx + dx, cy + dy), TileType.Floor);
+
+        var center   = new GridPos(cx, cy);
+        var chestPos = new GridPos(cx, cy + 1);
+
+        var items = new List<Item>
+        {
+            new Item(chestPos, ItemKind.Chest, ItemPlacement.Toolbox),
+        };
+
+        // Spawn at the bottom of the south corridor, one row from the border.
+        var spawn = new GridPos(cx, H - 2);
+
+        return new GeneratedMap
+        {
+            Grid   = grid,
+            Spawns = new List<GridPos> { spawn },
+            Center = center,
+            Items  = items,
+            Decoys = System.Array.Empty<GridPos>(),
+        };
+    }
 }
