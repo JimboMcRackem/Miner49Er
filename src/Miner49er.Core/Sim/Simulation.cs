@@ -325,11 +325,11 @@ public sealed class Simulation
             MaulMiner(target, mo.Kind);
     }
 
-    // Rock blocks terrain-bound monsters; a ghost phases through anything in bounds.
+    // Rock blocks terrain-bound monsters; ghosts phase rock but are stopped by deep water.
     private bool CanMonsterEnter(Monster mo, GridPos p)
     {
         if (!Grid.InBounds(p)) return false;
-        if (mo.Kind == MonsterKind.Ghost) return true;
+        if (mo.Kind == MonsterKind.Ghost) return Grid.Get(p) != TileType.DeepWater;
         return Grid.Get(p).IsEnterable();
     }
 

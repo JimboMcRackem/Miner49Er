@@ -225,6 +225,21 @@ public class SimulationMonsterTests
     }
 
     [Fact]
+    public void Ghost_cannot_enter_deep_water()
+    {
+        var cfg = new SimConfig { MonsterGhostMoveSeconds = 0.1, MonsterSenseRadius = 99 };
+        var grid = new TileGrid(5, 3, TileType.Floor);
+        grid.Set(new GridPos(3, 1), TileType.DeepWater);   // deep water east of ghost
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(4, 1));                 // miner is east, ghost wants to go east
+        var ghost = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.Ghost);
+
+        sim.Tick(0.1);
+
+        Assert.Equal(new GridPos(2, 1), ghost.Pos);   // deep water blocked the ghost
+    }
+
+    [Fact]
     public void Slime_on_mold_tile_is_slowed()
     {
         // Slime cadence 0.1; slow factor 1.6 → effective cadence after landing = 0.1 * 1.6 = 0.16.
