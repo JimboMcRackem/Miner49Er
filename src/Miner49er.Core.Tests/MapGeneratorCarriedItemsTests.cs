@@ -44,4 +44,12 @@ public class MapGeneratorCarriedItemsTests
         var cb = b.Items.Where(i => i.Kind.IsCarried()).Select(i => (i.Pos, i.Kind)).ToList();
         Assert.Equal(ca, cb);
     }
+
+    [Fact]
+    public void Generates_the_configured_number_of_lanterns()
+    {
+        var cfg = new MapConfig { Seed = 77, PlayerCount = 2, LanternCount = 2 };
+        var map = MapGenerator.Generate(cfg);
+        Assert.Equal(2, map.Items.Count(i => i.Kind == ItemKind.Lantern));
+    }
 }

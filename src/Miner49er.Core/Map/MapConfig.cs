@@ -16,6 +16,7 @@ public sealed class MapConfig
     public int DecoyCount { get; set; } = 4;        // empty "suspicious spots" that shimmer under Listen but hold nothing
     public int WaterPlankCount { get; set; } = 3;   // visible carried water-planks scattered on Floor
     public int SlowMoldCount { get; set; } = 3;     // visible carried slow-molds scattered on Floor
+    public int LanternCount { get; set; } = 1;      // visible carried lanterns scattered on Floor
 
     // Bottomless pits (Phase 4d) — host lobby toggle, off by default.
     public bool Pits { get; set; } = false;            // gates the whole PlacePits pass

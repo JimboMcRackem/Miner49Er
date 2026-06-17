@@ -28,7 +28,7 @@ public static class MapGenerator
         PlaceGold(grid, rng, config.GoldVeinCount, region);
         int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
         var items = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
-        items.AddRange(PlaceCarriedItems(grid, rng, config.WaterPlankCount, config.SlowMoldCount, region, spawns, items));
+        items.AddRange(PlaceCarriedItems(grid, rng, config.WaterPlankCount, config.SlowMoldCount, config.LanternCount, region, spawns, items));
         var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
         if (config.CaveIns)
             PlaceCracks(grid, rng, config.CrackSiteCount + (config.PlayerCount - 1),
@@ -450,11 +450,11 @@ public static class MapGenerator
         return items;
     }
 
-    // Carried items (water-plank, slow-mold) sit visibly on Floor tiles in the traversable region,
-    // never on a spawn or a tile already holding an item. Deterministic: ordered grid scan then
-    // seed-shuffle, planks first then molds, so host and every client agree.
+    // Carried items (water-plank, slow-mold, lantern) sit visibly on Floor tiles in the traversable
+    // region, never on a spawn or a tile already holding an item. Deterministic: ordered grid scan
+    // then seed-shuffle, planks first then molds then lanterns, so host and every client agree.
     private static List<Item> PlaceCarriedItems(TileGrid g, Random rng, int plankCount, int moldCount,
-        HashSet<GridPos> region, List<GridPos> spawns, IEnumerable<Item> existing)
+        int lanternCount, HashSet<GridPos> region, List<GridPos> spawns, IEnumerable<Item> existing)
     {
         var taken = new HashSet<GridPos>(existing.Select(it => it.Pos));
         var spawnSet = new HashSet<GridPos>(spawns);
@@ -470,6 +470,8 @@ public static class MapGenerator
             result.Add(new Item(cands[idx], ItemKind.WaterPlank, ItemPlacement.Toolbox));
         for (int i = 0; i < moldCount && idx < cands.Count; i++, idx++)
             result.Add(new Item(cands[idx], ItemKind.SlowMold, ItemPlacement.Toolbox));
+        for (int i = 0; i < lanternCount && idx < cands.Count; i++, idx++)
+            result.Add(new Item(cands[idx], ItemKind.Lantern, ItemPlacement.Toolbox));
         return result;
     }
 
