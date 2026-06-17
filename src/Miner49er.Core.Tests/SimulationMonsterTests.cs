@@ -106,7 +106,7 @@ public class SimulationMonsterTests
         sim.Tick(0.1);
 
         Assert.False(miner.Alive);
-        Assert.Equal(DeathCause.Mauled, miner.DeathCause);
+        Assert.Equal(DeathCause.Slimed, miner.DeathCause);
         Assert.Contains(sim.DrainEvents(), e => e is MinerMauled mm && mm.MinerId == 1);
     }
 
@@ -121,7 +121,7 @@ public class SimulationMonsterTests
 
         Assert.True(moved);
         Assert.False(miner.Alive);
-        Assert.Equal(DeathCause.Mauled, miner.DeathCause);
+        Assert.Equal(DeathCause.Slimed, miner.DeathCause);
     }
 
     [Fact]
@@ -222,5 +222,44 @@ public class SimulationMonsterTests
         Assert.Equal(TileType.Lava, grid.Get(new GridPos(4, 1)));
         Assert.False(slime.Alive);
         Assert.Contains(sim.DrainEvents(), e => e is MonsterKilled mk && mk.MonsterId == 1);
+    }
+
+    [Fact]
+    public void Slime_on_mold_tile_is_slowed()
+    {
+        // Slime cadence 0.1; slow factor 1.6 → effective cadence after landing = 0.1 * 1.6 = 0.16.
+        // Initial cooldown = cadence (0.1), so first step lands exactly at Tick(0.1) with no carry.
+        // Reset = 0.0 + 0.1 * 1.6 = 0.16; second Tick(0.1) leaves 0.06 remaining → no step.
+        var cfg = new SimConfig { MonsterSlimeMoveSeconds = 0.1, MonsterSenseRadius = 99,
+                                  MoldSlowFactor = 1.6, MoldSlowSeconds = 3.0 };
+        var grid = new TileGrid(9, 3, TileType.Floor);
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(8, 1));
+        var slime = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.Slime);
+        sim.DropMoldAt(new GridPos(3, 1));
+
+        sim.Tick(0.1);   // slime moves from (2,1) to (3,1), lands on mold
+        sim.Tick(0.1);   // cooldown = 0.16 - 0.1 = 0.06 → no step yet
+
+        Assert.Equal(new GridPos(3, 1), slime.Pos);
+    }
+
+    [Fact]
+    public void Goat_on_mold_tile_is_slowed()
+    {
+        // Goat cadence 0.15; slow factor 1.6 → reset after landing = 0.15 * 1.6 = 0.24.
+        // Second Tick(0.15) leaves 0.09 remaining → no step.
+        var cfg = new SimConfig { MonsterGoatMoveSeconds = 0.15, MonsterSenseRadius = 99,
+                                  MoldSlowFactor = 1.6, MoldSlowSeconds = 3.0 };
+        var grid = new TileGrid(9, 3, TileType.Floor);
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(8, 1));
+        var goat = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.Goat);
+        sim.DropMoldAt(new GridPos(3, 1));
+
+        sim.Tick(0.15);   // goat steps onto (3,1), lands on mold
+        sim.Tick(0.15);   // cooldown = 0.24 - 0.15 = 0.09 → no step yet
+
+        Assert.Equal(new GridPos(3, 1), goat.Pos);
     }
 }

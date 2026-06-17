@@ -72,6 +72,9 @@ public sealed class Simulation
         return mo;
     }
 
+    internal void DropMoldAt(GridPos pos) =>
+        _molds.Add(new MoldPatch(pos, Config.MoldSeconds));
+
     private double MonsterCadence(MonsterKind kind) => kind switch
     {
         MonsterKind.Slime => Config.MonsterSlimeMoveSeconds,
@@ -268,10 +271,27 @@ public sealed class Simulation
         foreach (var mo in _monsters.OrderBy(x => x.Id))
         {
             if (!mo.Alive) continue;
+
+            if (mo.SlowTimer > 0)
+            {
+                mo.SlowTimer = Math.Max(0, mo.SlowTimer - dt);
+                if (mo.SlowTimer <= 0) mo.SlowMultiplier = 1.0;
+            }
+
             mo.MoveCooldownRemaining -= dt;
             if (mo.MoveCooldownRemaining > 0) continue;
-            mo.MoveCooldownRemaining += MonsterCadence(mo.Kind);   // += preserves sub-tick remainder
+
+            // Step first, THEN check mold so the cadence reset below uses
+            // the multiplier current AFTER landing (slow takes effect immediately).
             StepMonster(mo, target);
+
+            if (mo.Alive && mo.Kind != MonsterKind.Ghost && _molds.Any(mp => mp.Pos == mo.Pos))
+            {
+                mo.SlowTimer = Config.MoldSlowSeconds;
+                mo.SlowMultiplier = Config.MoldSlowFactor;
+            }
+
+            mo.MoveCooldownRemaining += MonsterCadence(mo.Kind) * mo.SlowMultiplier;
         }
     }
 
@@ -302,7 +322,7 @@ public sealed class Simulation
         }
 
         if (target is { Alive: true } && mo.Pos == target.Pos)
-            MaulMiner(target);
+            MaulMiner(target, mo.Kind);
     }
 
     // Rock blocks terrain-bound monsters; a ghost phases through anything in bounds.
@@ -385,8 +405,9 @@ public sealed class Simulation
             _events.Add(new CrackWeakened(from));
         }
 
-        if (m.Alive && _monsters.Any(mo => mo.Alive && mo.Pos == target))
-            MaulMiner(m);
+        var killer = _monsters.FirstOrDefault(mo => mo.Alive && mo.Pos == target);
+        if (m.Alive && killer != null)
+            MaulMiner(m, killer.Kind);
 
         if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive)
         {
@@ -660,12 +681,18 @@ public sealed class Simulation
         }
     }
 
-    private void MaulMiner(Miner m)
+    private void MaulMiner(Miner m, MonsterKind kind)
     {
         if (!m.Alive) return;
         m.Alive = false;
         m.Activity = ActivityKind.None;
-        m.DeathCause = DeathCause.Mauled;
+        m.DeathCause = kind switch
+        {
+            MonsterKind.Slime => DeathCause.Slimed,
+            MonsterKind.Ghost => DeathCause.Terrified,
+            MonsterKind.Goat  => DeathCause.Headbutted,
+            _ => DeathCause.Slimed,
+        };
         _events.Add(new MinerMauled(m.Id));
     }
 

@@ -12,6 +12,8 @@ public sealed class Monster
 
     public Direction ChargeDir { get; internal set; } = Direction.East;   // Goat heading
     public double MoveCooldownRemaining { get; internal set; }            // per-kind cadence gate
+    public double SlowTimer { get; internal set; }                        // seconds of mold-slow remaining
+    public double SlowMultiplier { get; internal set; } = 1.0;           // >1 = slower; 1.0 = normal
 
     internal Monster(int id, GridPos pos, MonsterKind kind)
     {
