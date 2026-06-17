@@ -387,9 +387,11 @@ public static class MapGenerator
     {
         var floors = region.Where(p => g.Get(p) == TileType.Floor && !IsWaterAdjacent(g, p))
             .OrderBy(p => p.Y).ThenBy(p => p.X).ToList();
-        if (floors.Count < count) // fallback: relax the water-adjacency rule if too few
+        if (floors.Count < count) // relax water-adjacency rule if too few
             floors = region.Where(p => g.Get(p) == TileType.Floor)
                 .OrderBy(p => p.Y).ThenBy(p => p.X).ToList();
+        if (floors.Count == 0)   // degenerate: all traversable tiles are water; use any traversable tile
+            floors = region.OrderBy(p => p.Y).ThenBy(p => p.X).ToList();
         return SpawnPlacement.SelectFarthest(floors, count);
     }
 

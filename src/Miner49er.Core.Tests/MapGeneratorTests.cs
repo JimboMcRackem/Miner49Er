@@ -18,6 +18,27 @@ public class MapGeneratorTests
         GoldVeinCount = 8,
     };
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(42)]
+    [InlineData(999)]
+    [InlineData(12345)]
+    [InlineData(99999)]
+    public void Spawns_never_empty_under_extreme_hazard_combos(int seed)
+    {
+        var cfg = new MapConfig
+        {
+            Seed = seed, PlayerCount = 1,
+            BaseWidth = 24, BaseHeight = 24,
+            Pits = true, CaveIns = true, Lava = true,
+            PoolCount = 5, RiverCount = 4,
+            LavaPoolCount = 4, LavaVentCount = 3,
+            PitSiteCount = 8,
+        };
+        var map = MapGenerator.Generate(cfg);
+        Assert.NotEmpty(map.Spawns);
+    }
+
     [Fact]
     public void Dimensions_scale_with_player_count()
     {
