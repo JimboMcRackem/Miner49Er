@@ -81,9 +81,9 @@ if (mo.Kind == MonsterKind.Ghost)
 
 ### 3b: Core — Simulation logic
 
-**Held lantern**: miner holds `ItemKind.Lantern` in `Miner.HeldItem`; the AOE is centered on the miner's position while alive.
+**Held lantern**: miner holds `ItemKind.Lantern` in `Miner.HeldItem`; the AOE is centered on the miner's position while alive. **No activation step** — possession = active. No new binding required.
 
-**Placed lantern**: sits in `_items` list with `ItemPlacement.Floor`. Miner walks over it → picked up (standard item pickup). Miner presses `InputBindings.UseItem` (Space / Y) while holding lantern → `sim.TryUseItem` drops it at current tile (same as SlowMold drop pattern).
+**Placed lantern**: sits in `_items` list with `ItemPlacement.Floor`. Miner walks over it → picked up automatically (standard item pickup, same as all floor items). Dropping uses the existing `InputBindings.UseItem` (Space / Y) → `sim.TryUseItem` drops it at the current tile, same as SlowMold.
 
 **AOE helper** (private, called each tick — uses existing `GridPos.ChebyshevTo`):
 ```csharp

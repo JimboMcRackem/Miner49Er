@@ -55,6 +55,10 @@ public partial class MainMenu : Control
 		_internet = new CheckBox { Text = "Host over internet (UPnP)", ButtonPressed = true };
 		box.AddChild(_internet);
 
+		var soloBtn = new Button { Text = "Expedition (Solo)" };
+		soloBtn.Pressed += OnSoloExpedition;
+		box.AddChild(soloBtn);
+
 		var hostBtn = new Button { Text = "Host Game" };
 		hostBtn.Pressed += OnHost;
 		box.AddChild(hostBtn);
@@ -62,10 +66,6 @@ public partial class MainMenu : Control
 		var joinBtn = new Button { Text = "Join Game" };
 		joinBtn.Pressed += OnJoin;
 		box.AddChild(joinBtn);
-
-		var soloBtn = new Button { Text = "Expedition (Solo)" };
-		soloBtn.Pressed += OnSoloExpedition;
-		box.AddChild(soloBtn);
 
 		var settingsBtn = new Button { Text = "Settings" };
 		settingsBtn.Pressed += () => _audioPanel.Open();

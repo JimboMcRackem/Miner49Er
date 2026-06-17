@@ -11,7 +11,8 @@ public partial class ResultsOverlay : CanvasLayer
 	{
 		Layer = 50;
 		var center = new CenterContainer();
-		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		center.AnchorLeft = 0f; center.AnchorRight = 1f;
+		center.AnchorTop = 0.05f; center.AnchorBottom = 0.35f;
 		AddChild(center);
 
 		var box = new VBoxContainer();
