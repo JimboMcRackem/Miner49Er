@@ -1,4 +1,5 @@
 using Godot;
+using Miner49er.Core;
 
 namespace Miner49er;
 
@@ -59,6 +60,10 @@ public partial class MainMenu : Control
 		joinBtn.Pressed += OnJoin;
 		box.AddChild(joinBtn);
 
+		var soloBtn = new Button { Text = "Expedition (Solo)" };
+		soloBtn.Pressed += OnSoloExpedition;
+		box.AddChild(soloBtn);
+
 		var settingsBtn = new Button { Text = "Settings" };
 		settingsBtn.Pressed += () => _audioPanel.Open();
 		box.AddChild(settingsBtn);
@@ -70,6 +75,7 @@ public partial class MainMenu : Control
 		AddChild(_audioPanel);
 
 		NetworkManager.Instance.JoinFailed += OnJoinFailed;
+		NetworkManager.Instance.MatchStarting += OnMatchStarting;
 	}
 
 	private void OnJoinFailed() => _status.Text = "Connection failed.";
@@ -84,7 +90,11 @@ public partial class MainMenu : Control
 		}
 	}
 
-	public override void _ExitTree() => NetworkManager.Instance.JoinFailed -= OnJoinFailed;
+	public override void _ExitTree()
+	{
+		NetworkManager.Instance.JoinFailed -= OnJoinFailed;
+		NetworkManager.Instance.MatchStarting -= OnMatchStarting;
+	}
 
 	private void OnHost()
 	{
@@ -99,6 +109,15 @@ public partial class MainMenu : Control
 		if (err != Error.Ok) { _status.Text = $"Join failed: {err}"; return; }
 		GetTree().ChangeSceneToFile("res://game/ui/Lobby.tscn");
 	}
+
+	private void OnSoloExpedition()
+	{
+		var err = NetworkManager.Instance.HostGame(_name.Text, _color.Selected, overInternet: false);
+		if (err != Error.Ok) { _status.Text = $"Host failed: {err}"; return; }
+		NetworkManager.Instance.StartMatch(GameMode.Expedition, 0, false, false, false, false, 0.12f);
+	}
+
+	private void OnMatchStarting() => GetTree().ChangeSceneToFile("res://game/Main.tscn");
 
 	private static Texture2D?[] BuildMinerIcons()
 	{
