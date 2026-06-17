@@ -11,6 +11,11 @@ public partial class MainMenu : Control
 	private CheckBox _internet = null!;
 	private Label _status = null!;
 	private SettingsPanel _audioPanel = null!;
+	private HSlider _sizeSlider = null!;
+	private CheckBox _soloFlood  = null!;
+	private CheckBox _soloPits   = null!;
+	private CheckBox _soloCaveIn = null!;
+	private CheckBox _soloLava   = null!;
 
 	public override void _Ready()
 	{
@@ -54,6 +59,27 @@ public partial class MainMenu : Control
 
 		_internet = new CheckBox { Text = "Host over internet (UPnP)", ButtonPressed = true };
 		box.AddChild(_internet);
+
+		box.AddChild(new HSeparator());
+
+		var sizeRow = new HBoxContainer();
+		sizeRow.AddChild(new Label { Text = "Map:" });
+		_sizeSlider = new HSlider { MinValue = 1, MaxValue = 4, Step = 1, Value = 1,
+			CustomMinimumSize = new Vector2(120, 0), TickCount = 4, TicksOnBorders = true };
+		var sizeName = new Label { Text = "Small" };
+		_sizeSlider.ValueChanged += v => sizeName.Text = v switch { 1 => "Small", 2 => "Medium", 3 => "Large", _ => "Huge" };
+		sizeRow.AddChild(_sizeSlider);
+		sizeRow.AddChild(sizeName);
+		box.AddChild(sizeRow);
+
+		_soloFlood  = new CheckBox { Text = "Flooding" };
+		_soloPits   = new CheckBox { Text = "Pits" };
+		_soloCaveIn = new CheckBox { Text = "Cave-ins" };
+		_soloLava   = new CheckBox { Text = "Lava" };
+		box.AddChild(_soloFlood);
+		box.AddChild(_soloPits);
+		box.AddChild(_soloCaveIn);
+		box.AddChild(_soloLava);
 
 		var soloBtn = new Button { Text = "Expedition (Solo)" };
 		soloBtn.Pressed += OnSoloExpedition;
@@ -117,7 +143,9 @@ public partial class MainMenu : Control
 	{
 		var err = NetworkManager.Instance.HostGame(_name.Text, _color.Selected, overInternet: false);
 		if (err != Error.Ok) { _status.Text = $"Host failed: {err}"; return; }
-		NetworkManager.Instance.StartMatch(GameMode.Expedition, 0, false, false, false, false, 0.12f);
+		NetworkManager.Instance.MatchMapScale = (int)_sizeSlider.Value;
+		NetworkManager.Instance.StartMatch(GameMode.Expedition, 0,
+			_soloFlood.ButtonPressed, _soloPits.ButtonPressed, _soloCaveIn.ButtonPressed, _soloLava.ButtonPressed, 0.12f);
 	}
 
 	private void OnMatchStarting() => GetTree().ChangeSceneToFile("res://game/Main.tscn");

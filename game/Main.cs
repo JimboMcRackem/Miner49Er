@@ -26,7 +26,7 @@ public partial class Main : Node2D
 
 		int seed = nm.MatchSeed;
 		int playerCount = nm.MatchPlayerCount;
-		var map = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava));
+		var map = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale));
 
 		int localMinerId = nm.LocalMinerId();
 
@@ -44,7 +44,7 @@ public partial class Main : Node2D
 
 		if (nm.IsHost)
 		{
-			var hostMap = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava));
+			var hostMap = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale));
 			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.Spawns[0] : null;
 			var sim = new Simulation(
 				hostMap.Grid,

@@ -237,6 +237,7 @@ public partial class NetworkManager : Node
 	public bool MatchCaveIns { get; private set; }
 	public bool MatchLava { get; private set; }
 	public float MatchBaseMoveSeconds { get; private set; } = 0.12f;
+	public int MatchMapScale { get; set; } = 1;
 	public long[] PeerOrder { get; private set; } = System.Array.Empty<long>();
 
 	private MatchHost? _matchHost;
