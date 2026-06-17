@@ -23,6 +23,10 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color PlankItemColor = new("c8a060");
 	private static readonly Color MoldItemColor  = new("8fae4f");
 	private static readonly Color MoldColor      = new("6f8f3a");
+	private static readonly Color SlimeColor     = new("5fbf4f");
+	private static readonly Color GhostColor     = new("dfe8ff");
+	private static readonly Color GoatColor      = new("b08050");
+	private static readonly Color ExitColor      = new("ffe24a");
 	private const int ListenItemRevealRadius = 6;
 
 	private Texture2D? _chargeTex;
@@ -147,6 +151,33 @@ public partial class WorldRenderer : Node2D
 		{
 			var col = FlashColor with { A = Mathf.Clamp(life / 0.4f, 0f, 1f) };
 			DrawRect(new Rect2(pos.X * ts, pos.Y * ts, ts, ts), col);
+		}
+
+		foreach (var mo in _client.Monsters)
+		{
+			if (!mo.Alive) continue;
+			var mp = new GridPos(mo.X, mo.Y);
+			if (!_client.Fog.IsVisible(mp)) continue;
+			var c = _client.MonsterVisualPos(mo.Id, mo.X, mo.Y);
+			switch (mo.Kind)
+			{
+				case MonsterKind.Slime:
+					DrawCircle(c, ts * 0.34f, SlimeColor);
+					break;
+				case MonsterKind.Ghost:
+					DrawCircle(c, ts * 0.36f, GhostColor with { A = 0.6f });
+					break;
+				case MonsterKind.Goat:
+					DrawRect(new Rect2(c.X - ts * 0.3f, c.Y - ts * 0.3f, ts * 0.6f, ts * 0.6f), GoatColor);
+					break;
+			}
+		}
+
+		if (_client.EscapeOpen && _client.EscapeTile is { } exit)
+		{
+			float pulse = 0.5f + 0.5f * Mathf.Sin((float)Time.GetTicksMsec() / 1000f * Mathf.Pi * 2f / 0.9f);
+			var col = ExitColor with { A = 0.4f + 0.5f * pulse };
+			DrawRect(new Rect2(exit.X * ts, exit.Y * ts, ts, ts), col, false, 3f);
 		}
 	}
 
