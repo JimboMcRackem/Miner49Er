@@ -2,7 +2,7 @@ namespace Miner49er.Core;
 
 public sealed class SimConfig
 {
-    public double PickaxeSeconds { get; set; } = 6.0;
+    public double PickaxeSeconds { get; set; } = 3.0;
     public double PlantSeconds { get; set; } = 1.0;
     public double FuseSeconds { get; set; } = 3.0;
     public int BlastRockRadius { get; set; } = 1;   // Manhattan radius of rock destruction
