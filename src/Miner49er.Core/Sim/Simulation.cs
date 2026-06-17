@@ -29,6 +29,10 @@ public sealed class Simulation
     public bool EscapeOpen { get; private set; }
     private int _goldRemaining;
     public bool AllGoldCleared => _goldRemaining == 0;
+    public int StartingGoldCount { get; private set; }
+    public double GoldCollectedFraction =>
+        StartingGoldCount == 0 ? 1.0 : 1.0 - (double)_goldRemaining / StartingGoldCount;
+    public int ChestGrabbedBy { get; private set; } = -1;
 
     private readonly double? _timeLimit;
     private readonly bool _flooding;
@@ -55,6 +59,7 @@ public sealed class Simulation
                 _lavaVents.Add(new LavaVent { Pos = p, Budget = config.LavaVentBudget });
             if (Grid.Get(p) == TileType.GoldRock) _goldRemaining++;
         }
+        StartingGoldCount = _goldRemaining;
         if (EscapeTile is not null && _goldRemaining == 0) EscapeOpen = true;   // gold-less map: open at once
     }
 
@@ -734,7 +739,8 @@ public sealed class Simulation
     private void OnGoldCleared()
     {
         if (_goldRemaining > 0) _goldRemaining--;
-        if (_goldRemaining == 0 && EscapeTile is not null && !EscapeOpen)
+        if (!EscapeOpen && EscapeTile is not null
+            && StartingGoldCount > 0 && GoldCollectedFraction >= 0.5)
         {
             EscapeOpen = true;
             _events.Add(new EscapeOpened());

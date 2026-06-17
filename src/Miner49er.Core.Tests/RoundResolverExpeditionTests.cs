@@ -23,13 +23,14 @@ public class RoundResolverExpeditionTests
     }
 
     [Fact]
-    public void Reaching_the_exit_with_all_gold_cleared_wins()
+    public void Reaching_the_exit_clears_the_floor_not_the_game()
     {
         var (sim, _) = SetupNoGold(new GridPos(0, 1), exit: new GridPos(0, 1));   // already on the exit
 
         var result = RoundResolver.Resolve(sim, GameMode.Expedition);
 
-        Assert.True(result.IsOver);
+        Assert.False(result.IsOver);
+        Assert.True(result.FloorCleared);
         Assert.Equal(1, result.WinnerId);
     }
 

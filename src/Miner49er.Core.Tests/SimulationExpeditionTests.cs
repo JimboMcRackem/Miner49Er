@@ -17,28 +17,40 @@ public class SimulationExpeditionTests
     }
 
     [Fact]
-    public void Escape_stays_shut_until_the_last_vein_is_cleared()
+    public void Escape_opens_at_50_percent_gold_collected()
     {
+        // Setup: 2 gold veins — 50% threshold = 1 vein
         var (sim, miner) = Setup();
 
-        miner.Facing = Direction.East;                 // faces (2,1) gold
-        Assert.True(sim.TryStartMining(1));
-        sim.Tick(0.1);                                 // first vein cleared
+        Assert.False(sim.EscapeOpen);   // starts locked
 
-        Assert.False(sim.AllGoldCleared);
-        Assert.False(sim.EscapeOpen);
+        // Clear first vein (50%)
+        miner.Facing = Direction.East;
+        sim.TryStartMining(1);
+        sim.Tick(0.1);
 
-        // Walk to the second vein and clear it. A Tick between moves clears the per-tile
-        // move-cooldown gate (TryMove refuses a second step while the cooldown is live).
-        Assert.True(sim.TryMove(1, Direction.East));   // (1,1) -> (2,1)
-        sim.Tick(0.2);                                 // let the move cooldown lapse
-        Assert.True(sim.TryMove(1, Direction.East));   // (2,1) -> (3,1)
-        miner.Facing = Direction.East;                 // faces (4,1) gold
-        Assert.True(sim.TryStartMining(1));
-        sim.Tick(0.1);                                 // second vein cleared
-
-        Assert.True(sim.AllGoldCleared);
-        Assert.True(sim.EscapeOpen);
+        Assert.False(sim.AllGoldCleared);   // still 1 remaining
+        Assert.True(sim.EscapeOpen);        // escape open at 50%
         Assert.Contains(sim.DrainEvents(), e => e is EscapeOpened);
+    }
+
+    [Fact]
+    public void Escape_does_not_open_below_50_percent()
+    {
+        // 4 gold veins — need >= 2 before escape opens
+        var grid = new TileGrid(12, 3, TileType.Floor);
+        for (int x = 2; x <= 8; x += 2)
+            grid.Set(new GridPos(x, 1), TileType.GoldRock);   // 4 veins at x=2,4,6,8
+        var sim = new Simulation(grid, new SimConfig { PickaxeSeconds = 0.1 },
+            escapeTile: new GridPos(0, 1));
+        var miner = sim.AddMiner(1, new GridPos(1, 1));
+
+        // Clear first vein (25%) — escape stays shut
+        miner.Facing = Direction.East;
+        sim.TryStartMining(1);
+        sim.Tick(0.1);
+        sim.DrainEvents();   // discard
+
+        Assert.False(sim.EscapeOpen);
     }
 }

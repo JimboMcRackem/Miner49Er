@@ -22,4 +22,29 @@ public class MonsterRosterTests
     {
         Assert.True(MonsterRoster.CountFor(w, h) >= 3);
     }
+
+    [Fact]
+    public void Floor_bonus_zero_before_floor_8()
+    {
+        Assert.Equal(3, MonsterRoster.CountFor(24, 24, 7));
+    }
+
+    [Fact]
+    public void Floor_8_adds_one()
+    {
+        Assert.Equal(4, MonsterRoster.CountFor(24, 24, 8));
+    }
+
+    [Fact]
+    public void Floor_14_adds_two()
+    {
+        Assert.Equal(5, MonsterRoster.CountFor(24, 24, 14));
+    }
+
+    [Fact]
+    public void Floor_bonus_is_capped_at_seven()
+    {
+        Assert.Equal(7, MonsterRoster.CountFor(48, 48, 20));
+        Assert.Equal(7, MonsterRoster.CountFor(200, 200, 20));
+    }
 }

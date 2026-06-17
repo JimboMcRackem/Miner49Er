@@ -7,8 +7,9 @@ namespace Miner49er.Core;
 /// pick the count before seeding <see cref="MonsterSpawner"/>.</summary>
 public static class MonsterRoster
 {
-    public const int Min = 3;
-    public const int Max = 5;
+    public const int Min      = 3;
+    public const int Max      = 5;
+    public const int FloorMax = 7;
 
     /// <summary>One extra monster per ~512 tiles above the base 24x24 map, clamped to [3, 5].</summary>
     public static int CountFor(int width, int height)
@@ -16,5 +17,13 @@ public static class MonsterRoster
         int area = width * height;
         int extra = Math.Max(0, (area - 24 * 24) / 512);
         return Math.Clamp(Min + extra, Min, Max);
+    }
+
+    /// <summary>Area-based count plus a floor difficulty bonus at floors 8 and 14,
+    /// hard-capped at <see cref="FloorMax"/>.</summary>
+    public static int CountFor(int width, int height, int floor)
+    {
+        int bonus = (floor >= 8 ? 1 : 0) + (floor >= 14 ? 1 : 0);
+        return Math.Clamp(CountFor(width, height) + bonus, Min, FloorMax);
     }
 }
