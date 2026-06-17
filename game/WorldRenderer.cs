@@ -122,6 +122,11 @@ public partial class WorldRenderer : Node2D
 				var inner = new Rect2(icenter.X - hs / 2f, icenter.Y - hs / 2f, hs, hs);
 				if (_itemTex.TryGetValue(it.Kind, out var itex2))
 					DrawTextureRect(itex2, inner, false);
+				else if (it.Kind == ItemKind.Lantern)
+				{
+					DrawCircle(icenter, ts * 0.15f, LanternItemColor);
+					DrawCircle(icenter, ts * 0.15f, new Color(0.5f, 0.4f, 0.1f), false, 1.5f);
+				}
 				else
 					DrawCircle(icenter, ts * 0.15f, ItemColor(it.Kind));
 			}
@@ -129,6 +134,11 @@ public partial class WorldRenderer : Node2D
 			{
 				if (_itemTex.TryGetValue(it.Kind, out var itex))
 					DrawTextureRect(itex, r, false);
+				else if (it.Kind == ItemKind.Lantern)
+				{
+					DrawCircle(icenter, ts * 0.22f, LanternItemColor);
+					DrawCircle(icenter, ts * 0.22f, new Color(0.5f, 0.4f, 0.1f), false, 1.5f);
+				}
 				else
 					DrawCircle(icenter, ts * 0.22f, ItemColor(it.Kind));
 			}
@@ -163,6 +173,14 @@ public partial class WorldRenderer : Node2D
 		{
 			var col = FlashColor with { A = Mathf.Clamp(life / 0.4f, 0f, 1f) };
 			DrawRect(new Rect2(pos.X * ts, pos.Y * ts, ts, ts), col);
+		}
+
+		// Lantern light: dim glow over fog-visible tiles within AOE of held or placed lanterns
+		foreach (var p in grid.Positions())
+		{
+			if (!_client.Fog.IsVisible(p)) continue;
+			if (IsInLanternLight(p))
+				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), LanternGlowColor);
 		}
 
 		foreach (var mo in _client.Monsters)
@@ -254,6 +272,17 @@ public partial class WorldRenderer : Node2D
 
 	private static bool WithinReveal(GridPos local, int x, int y) =>
 		Mathf.Max(Mathf.Abs(local.X - x), Mathf.Abs(local.Y - y)) <= ListenItemRevealRadius;
+
+	private bool IsInLanternLight(GridPos pos)
+	{
+		foreach (var m in _client.Miners)
+			if (m.Alive && m.Held == (int)ItemKind.Lantern)
+				if (Mathf.Max(Mathf.Abs(pos.X - m.X), Mathf.Abs(pos.Y - m.Y)) <= LanternRadius) return true;
+		foreach (var it in _client.Items)
+			if (it.Kind == ItemKind.Lantern && it.Placement == ItemPlacement.Loose)
+				if (Mathf.Max(Mathf.Abs(pos.X - it.X), Mathf.Abs(pos.Y - it.Y)) <= LanternRadius) return true;
+		return false;
+	}
 
 	// Returns a unit-scaled offset in the facing direction (0=N, 1=E, 2=S, 3=W).
 	private static Vector2 FacingOffset(int facing, float scale) => facing switch
