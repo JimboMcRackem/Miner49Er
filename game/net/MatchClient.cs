@@ -49,8 +49,10 @@ public partial class MatchClient : Node2D
 	private FogRenderer _fogRenderer = null!;
 	private Node2D _camera = null!;
 	private Camera2D _cam = null!;
-	private Texture2D[,]?  _minerTex;     // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
-	private Texture2D[,,]? _minerWalkTex; // [colorIndex, facing, frame 0-3]
+	private Texture2D[,]?  _minerTex;      // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
+	private Texture2D[,,]? _minerWalkTex;  // [colorIndex, facing, frame 0-3]
+	private Texture2D[,,]? _minerMineTex;  // [colorIndex, facing, frame 0-6]
+	private Texture2D[,,]? _minerPlantTex; // [colorIndex, facing, frame 0-4]
 	private readonly Dictionary<int, (int X, int Y)> _lastMinerPos = new();
 	private readonly Dictionary<int, double> _walkUntil = new();
 
@@ -76,8 +78,10 @@ public partial class MatchClient : Node2D
 		sceneRoot.AddChild(_fogRenderer);
 		_fogRenderer.Init(this);
 
-		_minerTex     = BuildMinerTextures();
-		_minerWalkTex = BuildMinerWalkTextures();
+		_minerTex      = BuildMinerTextures();
+		_minerWalkTex  = BuildMinerWalkTextures();
+		_minerMineTex  = BuildMinerActivityTextures("mine",  7);
+		_minerPlantTex = BuildMinerActivityTextures("plant", 5);
 
 		_camera = new Node2D { Name = "CameraRig" };
 		sceneRoot.AddChild(_camera);
@@ -218,17 +222,32 @@ public partial class MatchClient : Node2D
 			int facing   = m.Facing;
 
 			double drawNow = Time.GetTicksMsec() / 1000.0;
-			bool walking = _walkUntil.TryGetValue(m.Id, out double until) && drawNow < until;
 			Texture2D? tex;
-			if (walking && _minerWalkTex != null)
+			if (m.Activity == 1 && m.ActivityRemaining > 0 && _minerMineTex != null)
 			{
-				double elapsed = m.MoveSeconds - (until - drawNow);
-				int frame = (int)(elapsed / m.MoveSeconds * 4) % 4;
-				tex = _minerWalkTex[colorIdx, facing, frame];
+				// Mining: loop 6 animated frames (1-6) at 6 fps
+				int frame = (int)(drawNow * 6 % 6) + 1;
+				tex = _minerMineTex[colorIdx, facing, frame];
+			}
+			else if (m.Activity == 2 && m.ActivityRemaining > 0 && _minerPlantTex != null)
+			{
+				// Planting: loop 4 animated frames (1-4) at 4 fps
+				int frame = (int)(drawNow * 4 % 4) + 1;
+				tex = _minerPlantTex[colorIdx, facing, frame];
 			}
 			else
 			{
-				tex = _minerTex?[colorIdx, facing];
+				bool walking = _walkUntil.TryGetValue(m.Id, out double until) && drawNow < until;
+				if (walking && _minerWalkTex != null)
+				{
+					double elapsed = m.MoveSeconds - (until - drawNow);
+					int frame = (int)(elapsed / m.MoveSeconds * 4) % 4;
+					tex = _minerWalkTex[colorIdx, facing, frame];
+				}
+				else
+				{
+					tex = _minerTex?[colorIdx, facing];
+				}
 			}
 
 			if (tex != null)
@@ -291,6 +310,26 @@ public partial class MatchClient : Node2D
 		for (int c = 0; c < PlayerColors.Palette.Length; c++)
 			for (int d = 0; d < 4; d++)
 				for (int f = 0; f < 4; f++)
+					if (srcs[d, f] != null)
+						tex[c, d, f] = ImageTexture.CreateFromImage(TintMiner(srcs[d, f]!, PlayerColors.At(c)));
+		return tex;
+	}
+
+	private static Texture2D[,,] BuildMinerActivityTextures(string folder, int frameCount)
+	{
+		var dirLetter = new[] { "n", "e", "s", "w" };
+		var srcs = new Image?[4, frameCount];
+		for (int d = 0; d < 4; d++)
+			for (int f = 0; f < frameCount; f++)
+			{
+				var img = new Image();
+				string path = $"res://assets/miners/{folder}/{dirLetter[d]}{f}.png";
+				if (img.Load(path) == Error.Ok) { img.Convert(Image.Format.Rgba8); srcs[d, f] = img; }
+			}
+		var tex = new Texture2D[PlayerColors.Palette.Length, 4, frameCount];
+		for (int c = 0; c < PlayerColors.Palette.Length; c++)
+			for (int d = 0; d < 4; d++)
+				for (int f = 0; f < frameCount; f++)
 					if (srcs[d, f] != null)
 						tex[c, d, f] = ImageTexture.CreateFromImage(TintMiner(srcs[d, f]!, PlayerColors.At(c)));
 		return tex;
