@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using Miner49er.Core;
 
@@ -18,6 +19,12 @@ public partial class Main : Node2D
 	private DeathFeed _deathFeed = null!;
 	private SettingsPanel _audioPanel = null!;
 	private bool _wasListening;
+
+	private Label? _floorBanner;
+	private float  _floorBannerTimer;
+	private const float BannerFade  = 0.3f;
+	private const float BannerHold  = 1.5f;
+	private const float BannerTotal = BannerHold + BannerFade * 2;
 
 	public override void _Ready()
 	{
@@ -91,6 +98,7 @@ public partial class Main : Node2D
 
 		nm.RegisterMatch(_host, _client);
 		nm.MatchEnded += OnMatchEnded;
+		nm.NewFloor += OnNewFloor;
 		nm.ReturnToLobbyRequested += OnReturnToLobby;
 		nm.Disconnected += OnDisconnected;
 	}
@@ -99,6 +107,7 @@ public partial class Main : Node2D
 	{
 		var nm = NetworkManager.Instance;
 		nm.MatchEnded -= OnMatchEnded;
+		nm.NewFloor -= OnNewFloor;
 		nm.ReturnToLobbyRequested -= OnReturnToLobby;
 		nm.Disconnected -= OnDisconnected;
 		nm.RegisterMatch(null, null);
@@ -117,6 +126,20 @@ public partial class Main : Node2D
 
 	public override void _PhysicsProcess(double delta)
 	{
+		if (_floorBanner != null)
+		{
+			_floorBannerTimer -= (float)delta;
+			float alpha;
+			if (_floorBannerTimer > BannerHold + BannerFade)
+				alpha = 1f - (_floorBannerTimer - BannerHold - BannerFade) / BannerFade;
+			else if (_floorBannerTimer > BannerFade)
+				alpha = 1f;
+			else
+				alpha = Math.Max(0f, _floorBannerTimer / BannerFade);
+			if (_floorBannerTimer <= 0f) { _floorBanner.QueueFree(); _floorBanner = null; }
+			else _floorBanner.Modulate = new Color(1, 1, 1, alpha);
+		}
+
 		// Disable input + HUD activity once the local miner is dead (spectate).
 		bool sawLocal = false;
 		bool localAlive = false;
@@ -138,9 +161,30 @@ public partial class Main : Node2D
 						(int)ItemKind.SlowMold => "    Held: Mold",
 						_ => "",
 					};
-					string objective = NetworkManager.Instance.MatchMode == GameMode.Expedition
-						? (_client.EscapeOpen ? "ESCAPE at your start!" : $"Gold left: {_client.GoldRemaining}")
-						: $"Gold: {m.Gold}";
+					string objective;
+					if (NetworkManager.Instance.MatchMode == GameMode.Expedition)
+					{
+						var nm2 = NetworkManager.Instance;
+						if (nm2.MatchFloor == 21)
+						{
+							objective = "BOSS FLOOR  Reach the chest!";
+						}
+						else if (_client.EscapeOpen)
+						{
+							objective = $"Floor {nm2.MatchFloor}/20  Gold ✓ — ESCAPE!";
+						}
+						else
+						{
+							int pct = _client.StartingGoldCount > 0
+								? (int)(100.0 * (_client.StartingGoldCount - _client.GoldRemaining) / _client.StartingGoldCount)
+								: 0;
+							objective = $"Floor {nm2.MatchFloor}/20  Gold: {pct}% (need 50%)";
+						}
+					}
+					else
+					{
+						objective = $"Gold: {m.Gold}";
+					}
 					_hud.SetText($"{objective}    {status}{timeStr}{heldStr}");
 			}
 		if (Input.IsActionJustPressed(InputBindings.Settings))
@@ -163,6 +207,25 @@ public partial class Main : Node2D
 			AudioManager.Instance.ToggleMute();
 	}
 
+	private void OnNewFloor(int floor)
+	{
+		_client.ResetFloor(floor);
+
+		_floorBanner?.QueueFree();
+		_floorBanner = new Label
+		{
+			Text = floor == 21 ? "BOSS FLOOR" : $"FLOOR {floor}",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AnchorLeft = 0f, AnchorRight = 1f,
+			AnchorTop = 0.45f, AnchorBottom = 0.45f,
+			Modulate = new Color(1, 1, 1, 0f),
+			ZIndex = 20,
+		};
+		_floorBanner.AddThemeFontSizeOverride("font_size", 64);
+		AddChild(_floorBanner);
+		_floorBannerTimer = BannerTotal;
+	}
+
 	private void OnMatchEnded(long winnerPeerId)
 	{
 		if (_results != null) return;
@@ -172,7 +235,9 @@ public partial class Main : Node2D
 		string label;
 		if (expedition)
 			label = winnerPeerId == NetworkManager.Instance.LocalId
-				? "You escaped with the gold!"
+				? (NetworkManager.Instance.MatchFloor == 21
+					? "You conquered the dungeon!"
+					: "You escaped with the gold!")
 				: "You died in the mine.";
 		else
 			label = winnerPeerId == -1
