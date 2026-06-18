@@ -64,16 +64,24 @@ public partial class Main : Node2D
 			foreach (var item in hostMap.Items)
 				sim.AddItem(item);
 			var peerToMiner = new System.Collections.Generic.Dictionary<long, int>();
+			GridPos soloSpawn = hostMap.Spawns.Count > 0 ? hostMap.Spawns[0] : hostMap.Center;
+			if (nm.MatchMode == GameMode.Expedition && hostMap.EscapeTile is GridPos esc0 && soloSpawn == esc0)
+			{
+				var east = new GridPos(soloSpawn.X + 1, soloSpawn.Y);
+				if (east.X < hostMap.Grid.Width && hostMap.Grid.Get(east) == TileType.Floor)
+					soloSpawn = east;
+			}
 			for (int i = 0; i < nm.PeerOrder.Length; i++)
 			{
 				int minerId = i + 1;
-				sim.AddMiner(minerId, hostMap.Spawns[i]);
+				GridPos sp = (nm.MatchMode == GameMode.Expedition && i == 0) ? soloSpawn : hostMap.Spawns[i];
+				sim.AddMiner(minerId, sp);
 				peerToMiner[nm.PeerOrder[i]] = minerId;
 			}
 			if (nm.MatchMode == GameMode.Expedition)
 			{
 				int monsterCount = MonsterRoster.CountFor(hostMap.Grid.Width, hostMap.Grid.Height);
-				var roster = MonsterSpawner.Place(hostMap.Grid, hostMap.Spawns[0], monsterCount);
+				var roster = MonsterSpawner.Place(hostMap.Grid, soloSpawn, monsterCount);
 				for (int i = 0; i < roster.Count; i++)
 					sim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
 			}

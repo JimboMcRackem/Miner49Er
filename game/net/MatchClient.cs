@@ -77,7 +77,7 @@ public partial class MatchClient : Node2D
 
 		_camera = new Node2D { Name = "CameraRig" };
 		sceneRoot.AddChild(_camera);
-		_cam = new Camera2D { Zoom = new Vector2(1.5f, 1.5f) };
+		_cam = new Camera2D { Zoom = new Vector2(2.0f, 2.0f) };
 		_camera.AddChild(_cam);
 		_cam.MakeCurrent();
 	}

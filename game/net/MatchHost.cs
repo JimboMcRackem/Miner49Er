@@ -208,6 +208,13 @@ public partial class MatchHost : Node
 			newSim.AddItem(item);
 
 		GridPos spawn = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : newMap.Center;
+		// Nudge one East of the escape ladder so the player isn't standing on the exit
+		if (newMap.EscapeTile is GridPos escapePos && spawn == escapePos)
+		{
+			var east = new GridPos(spawn.X + 1, spawn.Y);
+			if (east.X < newMap.Grid.Width && newMap.Grid.Get(east) == TileType.Floor)
+				spawn = east;
+		}
 		newSim.AddMiner(minerId, spawn, invulRemaining: 3.0);
 
 		if (_permLevels.TryGetValue(minerId, out var levels))
