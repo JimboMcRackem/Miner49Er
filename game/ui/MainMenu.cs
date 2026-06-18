@@ -11,6 +11,7 @@ public partial class MainMenu : Control
 	private CheckBox _internet = null!;
 	private Label _status = null!;
 	private SettingsPanel _audioPanel = null!;
+	private HighScorePanel _highScorePanel = null!;
 	private HSlider _sizeSlider = null!;
 	private CheckBox _soloFlood  = null!;
 	private CheckBox _soloPits   = null!;
@@ -97,11 +98,18 @@ public partial class MainMenu : Control
 		settingsBtn.Pressed += () => _audioPanel.Open();
 		box.AddChild(settingsBtn);
 
+		var scoresBtn = new Button { Text = "High Scores" };
+		scoresBtn.Pressed += () => _highScorePanel.Open();
+		box.AddChild(scoresBtn);
+
 		_status = new Label { Text = "" };
 		box.AddChild(_status);
 
 		_audioPanel = new SettingsPanel { Name = "SettingsPanel" };
 		AddChild(_audioPanel);
+
+		_highScorePanel = new HighScorePanel { Name = "HighScorePanel" };
+		AddChild(_highScorePanel);
 
 		NetworkManager.Instance.JoinFailed += OnJoinFailed;
 		NetworkManager.Instance.MatchStarting += OnMatchStarting;
@@ -114,8 +122,9 @@ public partial class MainMenu : Control
 		if (@event.IsActionPressed(InputBindings.Exit))
 		{
 			GetViewport().SetInputAsHandled();
-			if (_audioPanel.IsOpen) { _audioPanel.Close(); return; } // ESC backs out of Settings first
-			GetTree().Quit(); // main menu: ESC exits the app
+			if (_audioPanel.IsOpen)     { _audioPanel.Close();     return; }
+			if (_highScorePanel.IsOpen) { _highScorePanel.Close(); return; }
+			GetTree().Quit();
 		}
 	}
 

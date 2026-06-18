@@ -29,6 +29,7 @@ public partial class MatchClient : Node2D
 	public bool Listening; // set by Main each frame; gates the buried-item shimmer
 	public IReadOnlyList<GridPos> Decoys { get; private set; } = System.Array.Empty<GridPos>();
 	public float SecondsRemaining { get; private set; } = -1f;
+	public int Lives { get; private set; } = 3;
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
 
 	private List<MinerSnapshot> _miners = new();
@@ -112,6 +113,7 @@ public partial class MatchClient : Node2D
 		GoldRemaining = CountGold(Grid);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;
 		Octopus = update.Snapshot.Octopus;
+		Lives = update.Snapshot.Lives;
 		UpdateFog();
 	}
 
@@ -124,18 +126,10 @@ public partial class MatchClient : Node2D
 		var nm = NetworkManager.Instance;
 		int floorSeed = nm.MatchSeed + floor * 1000;
 
-		GeneratedMap newMap;
-		if (floor == 21)
-		{
-			newMap = MapGenerator.GenerateBossFloor(floorSeed);
-			EscapeTile = null;
-		}
-		else
-		{
-			var cfg = MapConfig.FloorConfig(floor, floorSeed);
-			newMap = MapGenerator.Generate(cfg);
-			EscapeTile = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : null;
-		}
+		GeneratedMap newMap = (floor == 21)
+			? MapGenerator.GenerateBossFloor(floorSeed)
+			: MapGenerator.Generate(MapConfig.FloorConfig(floor, floorSeed));
+		EscapeTile = newMap.EscapeTile;
 
 		Grid              = newMap.Grid;
 		Decoys            = newMap.Decoys;
@@ -202,13 +196,26 @@ public partial class MatchClient : Node2D
 		{
 			if (!m.Alive) continue;
 			var p = _visualPos.TryGetValue(m.Id, out var v) ? v : Vector2.Zero;
+
+			float alpha = 1f;
+			if (m.InvulRemaining > 0f)
+			{
+				float fraction = 1f - (m.InvulRemaining / 3f);
+				float phase    = (float)(Time.GetTicksMsec() * 0.001 * 4.0) % 1f;
+				alpha = phase < fraction ? 1f : 0.2f;
+			}
+
 			int colorIdx = (m.Id - 1) % PlayerColors.Palette.Length;
-			int facing = m.Facing; // 0=N 1=E 2=S 3=W
-			var tex = _minerTex?[colorIdx, facing];
+			int facing   = m.Facing;
+			var tex      = _minerTex?[colorIdx, facing];
 			if (tex != null)
-				DrawTextureRect(tex, new Rect2(p.X - 16, p.Y - 16, 32, 32), false);
+				DrawTextureRect(tex, new Rect2(p.X - 16, p.Y - 16, 32, 32), false, new Color(1, 1, 1, alpha));
 			else
-				DrawRect(new Rect2(p.X - 10, p.Y - 10, 20, 20), PlayerColors.At(m.Id - 1));
+			{
+				var col = PlayerColors.At(m.Id - 1);
+				col.A = alpha;
+				DrawRect(new Rect2(p.X - 10, p.Y - 10, 20, 20), col);
+			}
 		}
 	}
 

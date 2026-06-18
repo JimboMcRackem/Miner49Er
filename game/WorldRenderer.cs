@@ -130,6 +130,23 @@ public partial class WorldRenderer : Node2D
 			var r = new Rect2(it.X * ts, it.Y * ts, ts, ts);
 			var icenter = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
 
+			if (it.Kind == ItemKind.LifePotion)
+			{
+				var font = ThemeDB.FallbackFont;
+				int fontSize = ts * 2 / 3;
+				DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
+					"♥", HorizontalAlignment.Center, -1, fontSize, new Color(1f, 0.15f, 0.15f, 0.95f));
+				continue;
+			}
+			if (it.Kind == ItemKind.BossChest)
+			{
+				var font = ThemeDB.FallbackFont;
+				int fontSize = ts * 2 / 3;
+				DrawRect(r, new Color(0.9f, 0.75f, 0.1f, 0.9f));
+				DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
+					"★", HorizontalAlignment.Center, -1, fontSize, Colors.Black);
+				continue;
+			}
 			if (it.Kind == ItemKind.Chest)
 			{
 				var font = ThemeDB.FallbackFont;

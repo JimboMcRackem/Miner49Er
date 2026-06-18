@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Miner49er.Core;
@@ -7,22 +8,27 @@ using Miner49er.Core.Net;
 namespace Miner49er;
 
 /// <summary>Host-only authoritative simulation driver. Steps a fixed 30 Hz tick,
-/// applies queued inputs (with a per-miner move cadence gate), and broadcasts a
-/// TickUpdate each step via NetworkManager.</summary>
+/// applies queued inputs, and broadcasts a TickUpdate each step via NetworkManager.
+/// Manages lives, permanent buff levels, and cumulative gold across floors.</summary>
 public partial class MatchHost : Node
 {
 	public const double TickSeconds = 1.0 / 30.0;
 
 	private Simulation _sim = null!;
 	private readonly Dictionary<long, int> _peerToMiner = new();
-	private readonly Dictionary<int, int> _pendingDir = new();   // minerId -> Direction(int) or -1
-	private readonly HashSet<int> _pendingMine = new();
+	private readonly Dictionary<int, int> _pendingDir   = new();
+	private readonly HashSet<int> _pendingMine  = new();
 	private readonly HashSet<int> _pendingPlant = new();
-	private readonly HashSet<int> _pendingUse = new();
+	private readonly HashSet<int> _pendingUse   = new();
 
 	private int _tick;
 	private double _accum;
 	private bool _running;
+
+	private int _livesRemaining;
+	private int _livesMax;
+	private int _cumulativeGold;
+	private readonly Dictionary<int, (int Speed, int Vision, int Blast)> _permLevels = new();
 
 	public void Begin(Simulation sim, Dictionary<long, int> peerToMiner)
 	{
@@ -32,6 +38,9 @@ public partial class MatchHost : Node
 			_peerToMiner[peer] = miner;
 			_pendingDir[miner] = -1;
 		}
+		var nm       = NetworkManager.Instance;
+		_livesMax       = (nm.MatchMode == GameMode.Expedition && nm.MatchPlayerCount == 1) ? 3 : 1;
+		_livesRemaining = _livesMax;
 		_running = true;
 	}
 
@@ -43,9 +52,9 @@ public partial class MatchHost : Node
 	public void SetAction(long peerId, bool mine, bool plant, bool use)
 	{
 		if (!_peerToMiner.TryGetValue(peerId, out int minerId)) return;
-		if (mine) _pendingMine.Add(minerId);
+		if (mine)  _pendingMine.Add(minerId);
 		if (plant) _pendingPlant.Add(minerId);
-		if (use) _pendingUse.Add(minerId);
+		if (use)   _pendingUse.Add(minerId);
 	}
 
 	public void EliminatePeer(long peerId)
@@ -68,11 +77,11 @@ public partial class MatchHost : Node
 			_sim.TryMove(minerId, (Direction)dir);
 		}
 
-		foreach (var minerId in _pendingMine) _sim.TryStartMining(minerId);
+		foreach (var minerId in _pendingMine)  _sim.TryStartMining(minerId);
 		_pendingMine.Clear();
 		foreach (var minerId in _pendingPlant) _sim.TryStartPlanting(minerId);
 		_pendingPlant.Clear();
-		foreach (var minerId in _pendingUse) _sim.TryUseItem(minerId);
+		foreach (var minerId in _pendingUse)   _sim.TryUseItem(minerId);
 		_pendingUse.Clear();
 
 		_sim.Tick(TickSeconds);
@@ -108,59 +117,101 @@ public partial class MatchHost : Node
 				case LavaQuenched lq:
 					changes.Add(new TileChange(lq.Pos.X, lq.Pos.Y, false, TileType.Cracked));
 					break;
+				case LifeRestored:
+					_livesRemaining = Math.Min(_livesRemaining + 1, _livesMax);
+					break;
 			}
 		}
 
-		var update = new TickUpdate(SnapshotFactory.Capture(_sim, _tick), changes);
+		var update = new TickUpdate(SnapshotFactory.Capture(_sim, _tick, _livesRemaining), changes);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
 
-		var result = RoundResolver.Resolve(_sim, NetworkManager.Instance.MatchMode);
+		var nm     = NetworkManager.Instance;
+		var result = RoundResolver.Resolve(_sim, nm.MatchMode);
+
 		if (result.FloorCleared)
 		{
+			foreach (var m in _sim.Miners) _cumulativeGold += m.GoldCollected;
+			SavePermLevels();
 			AdvanceFloor(result.WinnerId);
-			return;   // skip tick broadcast — new floor starts next tick
+			return;
 		}
+
 		if (result.IsOver)
 		{
+			bool expeditionLoss = nm.MatchMode == GameMode.Expedition && result.WinnerId == -1;
+			if (expeditionLoss)
+			{
+				_livesRemaining--;
+				if (_livesRemaining > 0)
+				{
+					int soloMiner = _peerToMiner.Values.First();
+					AdvanceFloor(soloMiner, sameFloor: true);
+					return;
+				}
+			}
 			_running = false;
+			if (nm.MatchMode == GameMode.Expedition)
+			{
+				int score = 100 * nm.MatchFloor + _cumulativeGold;
+				string name = nm.Players.TryGetValue(nm.LocalId, out var info) ? info.Name : "Player";
+				ScoreStore.Submit(name, score, nm.MatchFloor);
+			}
 			long winnerPeer = _peerToMiner.FirstOrDefault(kv => kv.Value == result.WinnerId).Key;
-			NetworkManager.Instance.BroadcastResult(result.WinnerId == -1 ? -1 : winnerPeer);
+			nm.BroadcastResult(result.WinnerId == -1 ? -1 : winnerPeer);
 		}
 	}
 
-	private void AdvanceFloor(int minerId)
+	private void SavePermLevels()
+	{
+		foreach (var m in _sim.Miners)
+			_permLevels[m.Id] = (m.PermSpeedLevel, m.PermVisionLevel, m.PermBlastLevel);
+	}
+
+	private void AdvanceFloor(int minerId, bool sameFloor = false)
 	{
 		var nm = NetworkManager.Instance;
-		int newFloor = nm.MatchFloor + 1;
+		int newFloor  = sameFloor ? nm.MatchFloor : nm.MatchFloor + 1;
 		int floorSeed = nm.MatchSeed + newFloor * 1000;
 
+		if (newFloor > 21)
+		{
+			int score = 100 * nm.MatchFloor + _cumulativeGold;
+			string name = nm.Players.TryGetValue(nm.LocalId, out var winfo) ? winfo.Name : "Player";
+			ScoreStore.Submit(name, score, nm.MatchFloor);
+			_running = false;
+			long winnerPeer = _peerToMiner.FirstOrDefault(kv => kv.Value == minerId).Key;
+			nm.BroadcastResult(winnerPeer);
+			return;
+		}
+
 		GeneratedMap newMap;
-		GridPos? escapeTile;
 		if (newFloor == 21)
-		{
-			newMap     = MapGenerator.GenerateBossFloor(floorSeed);
-			escapeTile = null;
-		}
+			newMap = MapGenerator.GenerateBossFloor(floorSeed);
 		else
-		{
-			var cfg    = MapConfig.FloorConfig(newFloor, floorSeed);
-			newMap     = MapGenerator.Generate(cfg);
-			escapeTile = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : null;
-		}
+			newMap = MapGenerator.Generate(MapConfig.FloorConfig(newFloor, floorSeed));
 
 		var newSim = new Simulation(
 			newMap.Grid,
-			new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds, Seed = floorSeed },
+			new SimConfig
+			{
+				BaseMoveSeconds       = nm.MatchBaseMoveSeconds,
+				Seed                  = floorSeed,
+				RequireChestForEscape = newFloor == 21,
+			},
 			newMap.Center,
 			timeLimitSeconds: null,
 			flooding: false,
-			escapeTile);
+			newMap.EscapeTile);
 
 		foreach (var item in newMap.Items)
 			newSim.AddItem(item);
 
 		GridPos spawn = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : newMap.Center;
-		newSim.AddMiner(minerId, spawn);
+		newSim.AddMiner(minerId, spawn, invulRemaining: 3.0);
+
+		if (_permLevels.TryGetValue(minerId, out var levels))
+			newSim.SetPermLevels(minerId, levels.Speed, levels.Vision, levels.Blast);
 
 		if (newFloor == 21)
 		{

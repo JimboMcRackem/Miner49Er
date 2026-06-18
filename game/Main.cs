@@ -37,8 +37,7 @@ public partial class Main : Node2D
 
 		int localMinerId = nm.LocalMinerId();
 
-		GridPos? clientEscape = nm.MatchMode == GameMode.Expedition && map.Spawns.Count > 0
-			? map.Spawns[0] : null;
+		GridPos? clientEscape = nm.MatchMode == GameMode.Expedition ? map.EscapeTile : null;
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
 		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape);
@@ -54,7 +53,7 @@ public partial class Main : Node2D
 		if (nm.IsHost)
 		{
 			var hostMap = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale));
-			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.Spawns[0] : null;
+			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.EscapeTile : null;
 			var sim = new Simulation(
 				hostMap.Grid,
 				new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds, Seed = seed },
@@ -165,20 +164,21 @@ public partial class Main : Node2D
 					if (NetworkManager.Instance.MatchMode == GameMode.Expedition)
 					{
 						var nm2 = NetworkManager.Instance;
+						string hearts = new string('♥', Math.Max(0, _client.Lives));
 						if (nm2.MatchFloor == 21)
 						{
-							objective = "BOSS FLOOR  Reach the chest!";
+							objective = $"{hearts}  BOSS FLOOR  Reach the chest!";
 						}
 						else if (_client.EscapeOpen)
 						{
-							objective = $"Floor {nm2.MatchFloor}/20  Gold ✓ — ESCAPE!";
+							objective = $"{hearts}  Floor {nm2.MatchFloor}/20  Gold ✓ — ESCAPE!";
 						}
 						else
 						{
 							int pct = _client.StartingGoldCount > 0
 								? (int)(100.0 * (_client.StartingGoldCount - _client.GoldRemaining) / _client.StartingGoldCount)
 								: 0;
-							objective = $"Floor {nm2.MatchFloor}/20  Gold: {pct}% (need 50%)";
+							objective = $"{hearts}  Floor {nm2.MatchFloor}/20  Gold: {pct}% (need 50%)";
 						}
 					}
 					else
@@ -231,20 +231,26 @@ public partial class Main : Node2D
 		if (_results != null) return;
 		_results = new ResultsOverlay { Name = "ResultsOverlay" };
 		AddChild(_results);
-		bool expedition = NetworkManager.Instance.MatchMode == GameMode.Expedition;
+		var nm = NetworkManager.Instance;
+		bool expedition = nm.MatchMode == GameMode.Expedition;
 		string label;
+		string scoreText = "";
 		if (expedition)
-			label = winnerPeerId == NetworkManager.Instance.LocalId
-				? (NetworkManager.Instance.MatchFloor == 21
-					? "You conquered the dungeon!"
-					: "You escaped with the gold!")
+		{
+			bool won = winnerPeerId == nm.LocalId;
+			label = won
+				? (nm.MatchFloor == 21 ? "You conquered the dungeon!" : "You escaped with the gold!")
 				: "You died in the mine.";
+			scoreText = $"Floor {nm.MatchFloor}  (score submitted)";
+		}
 		else
+		{
 			label = winnerPeerId == -1
 				? "Draw — no survivors"
 				: $"Winner: {NameOf(winnerPeerId)}";
-		_results.Show(label, NetworkManager.Instance.IsHost,
-			expedition ? "Return to Menu" : "Return to Lobby");
+		}
+		_results.Show(label, nm.IsHost,
+			expedition ? "Return to Menu" : "Return to Lobby", scoreText);
 	}
 
 	private static string NameOf(long peerId) =>
