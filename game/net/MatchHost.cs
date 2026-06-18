@@ -115,11 +115,73 @@ public partial class MatchHost : Node
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
 
 		var result = RoundResolver.Resolve(_sim, NetworkManager.Instance.MatchMode);
+		if (result.FloorCleared)
+		{
+			AdvanceFloor(result.WinnerId);
+			return;   // skip tick broadcast — new floor starts next tick
+		}
 		if (result.IsOver)
 		{
 			_running = false;
 			long winnerPeer = _peerToMiner.FirstOrDefault(kv => kv.Value == result.WinnerId).Key;
 			NetworkManager.Instance.BroadcastResult(result.WinnerId == -1 ? -1 : winnerPeer);
 		}
+	}
+
+	private void AdvanceFloor(int minerId)
+	{
+		var nm = NetworkManager.Instance;
+		int newFloor = nm.MatchFloor + 1;
+		int floorSeed = nm.MatchSeed + newFloor * 1000;
+
+		GeneratedMap newMap;
+		GridPos? escapeTile;
+		if (newFloor == 21)
+		{
+			newMap     = MapGenerator.GenerateBossFloor(floorSeed);
+			escapeTile = null;
+		}
+		else
+		{
+			var cfg    = MapConfig.FloorConfig(newFloor, floorSeed);
+			newMap     = MapGenerator.Generate(cfg);
+			escapeTile = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : null;
+		}
+
+		var newSim = new Simulation(
+			newMap.Grid,
+			new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds, Seed = floorSeed },
+			newMap.Center,
+			timeLimitSeconds: null,
+			flooding: false,
+			escapeTile);
+
+		foreach (var item in newMap.Items)
+			newSim.AddItem(item);
+
+		GridPos spawn = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : newMap.Center;
+		newSim.AddMiner(minerId, spawn);
+
+		if (newFloor == 21)
+		{
+			newSim.AddOctopus(newMap.Center);
+		}
+		else
+		{
+			int monsterCount = MonsterRoster.CountFor(newMap.Grid.Width, newMap.Grid.Height, newFloor);
+			var roster = MonsterSpawner.Place(newMap.Grid, spawn, monsterCount);
+			for (int i = 0; i < roster.Count; i++)
+				newSim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
+		}
+
+		_sim  = newSim;
+		_tick = 0;
+
+		foreach (var key in _pendingDir.Keys.ToList()) _pendingDir[key] = -1;
+		_pendingMine.Clear();
+		_pendingPlant.Clear();
+		_pendingUse.Clear();
+
+		nm.BroadcastNewFloor(newFloor);
 	}
 }
