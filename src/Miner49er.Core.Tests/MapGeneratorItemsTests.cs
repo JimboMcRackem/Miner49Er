@@ -63,7 +63,9 @@ public class MapGeneratorItemsTests
     public void Buff_kinds_are_assigned_round_robin_in_placement_order()
     {
         var map = MapGenerator.Generate(Cfg(players: 4));
-        var kinds = System.Enum.GetValues<ItemKind>().Where(k => !k.IsCarried()).ToArray();
+        // PlaceItems cycles only through the three placeable buff kinds; Chest/LifePotion/BossChest
+        // are placed separately via PlaceChests/GenerateBossFloor and are excluded from BuffItems.
+        var kinds = new[] { ItemKind.SpeedPotion, ItemKind.LongerVision, ItemKind.BiggerBlast };
         var buff = BuffItems(map);
         for (int i = 0; i < buff.Count; i++)
             Assert.Equal(kinds[i % kinds.Length], buff[i].Kind);

@@ -22,6 +22,7 @@ public static class SnapshotCodec
             w.Write(m.Id); w.Write(m.X); w.Write(m.Y); w.Write(m.Facing);
             w.Write(m.Alive); w.Write(m.Gold); w.Write(m.Activity); w.Write(m.ActivityRemaining);
             w.Write(m.MoveSeconds); w.Write(m.VisionRadius); w.Write(m.Held); w.Write((byte)m.Cause);
+            w.Write(m.InvulRemaining);
         }
 
         w.Write(snap.Charges.Count);
@@ -50,6 +51,7 @@ public static class SnapshotCodec
         }
 
         w.Write(snap.EscapeOpen);
+        w.Write(snap.Lives);
 
         w.Write(snap.Octopus is not null);
         if (snap.Octopus is { } oct)
@@ -86,7 +88,7 @@ public static class SnapshotCodec
             miners.Add(new MinerSnapshot(
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
                 r.ReadBoolean(), r.ReadInt32(), r.ReadInt32(), r.ReadDouble(), r.ReadDouble(),
-                r.ReadInt32(), r.ReadInt32(), (DeathCause)r.ReadByte()));
+                r.ReadInt32(), r.ReadInt32(), (DeathCause)r.ReadByte(), r.ReadSingle()));
 
         int chargeCount = r.ReadInt32();
         var charges = new List<ChargeSnapshot>(chargeCount);
@@ -111,6 +113,7 @@ public static class SnapshotCodec
                 r.ReadInt32(), (MonsterKind)r.ReadInt32(), r.ReadBoolean()));
 
         bool escapeOpen = r.ReadBoolean();
+        int lives = r.ReadInt32();
 
         OctopusSnapshot? octopus = null;
         if (r.ReadBoolean())
@@ -129,6 +132,6 @@ public static class SnapshotCodec
             changes.Add(new TileChange(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean(), (TileType)r.ReadInt32()));
 
         return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds,
-            monsters, secondsRemaining, escapeOpen, octopus), changes);
+            monsters, secondsRemaining, escapeOpen, octopus, lives), changes);
     }
 }

@@ -21,9 +21,8 @@ public class SimulationItemsTests
         sim.Tick(0.0);                  // pickup pass runs in Tick
 
         Assert.Empty(sim.Items);
-        var e = Assert.Single(m.Effects);
-        Assert.Equal(EffectKind.SpeedPotion, e.Kind);
-        Assert.Equal(EffectChannel.MoveSpeed, e.Channel);
+        Assert.Equal(1, m.PermSpeedLevel); // permanent, not timed
+        Assert.Empty(m.Effects);           // no StatusEffect added
     }
 
     [Fact]
@@ -33,7 +32,7 @@ public class SimulationItemsTests
         sim.AddItem(new Item(new GridPos(2, 2), ItemKind.LongerVision));
         sim.TryMove(1, Direction.East);
         sim.Tick(0.0);
-        Assert.Equal(8, sim.EffectiveVisionRadius(1)); // 5 + VisionBonus(3)
+        Assert.Equal(6, sim.EffectiveVisionRadius(1)); // 5 base + 1 perm level * 1 bonus
     }
 
     [Fact]
@@ -60,6 +59,7 @@ public class SimulationItemsTests
         sim.KillMiner(1);
         sim.Tick(0.0);
         Assert.Single(sim.Items);
+        Assert.Equal(0, m.PermSpeedLevel);
     }
 
     [Fact]
@@ -85,8 +85,9 @@ public class SimulationItemsTests
         sim.TryMove(1, Direction.East); // step onto (2,2)
         sim.Tick(0.0);
 
-        Assert.Single(sim.Items);       // still there
-        Assert.Empty(m.Effects);        // no buff applied
+        Assert.Single(sim.Items);          // still there
+        Assert.Empty(m.Effects);           // no StatusEffect applied
+        Assert.Equal(0, m.PermSpeedLevel); // no perm buff applied
     }
 
     [Fact]
@@ -99,7 +100,7 @@ public class SimulationItemsTests
         sim.Tick(0.0);
 
         Assert.Empty(sim.Items);
-        Assert.Single(m.Effects);
+        Assert.Equal(1, m.PermSpeedLevel); // perm buff applied
     }
 
     [Fact]

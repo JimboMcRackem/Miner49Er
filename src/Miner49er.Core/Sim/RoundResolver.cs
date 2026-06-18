@@ -25,7 +25,6 @@ public static class RoundResolver
         if (mode == GameMode.Expedition)
         {
             if (alive.Count == 0) return RoundResult.Loss();
-            if (sim.ChestGrabbedBy >= 0) return RoundResult.Win(sim.ChestGrabbedBy);
             if (sim.EscapeOpen && sim.EscapeTile is { } exit)
             {
                 var winner = alive.FirstOrDefault(m => m.Pos == exit);

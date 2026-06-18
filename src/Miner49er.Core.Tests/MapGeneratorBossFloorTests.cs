@@ -43,12 +43,20 @@ public class MapGeneratorBossFloorTests
     }
 
     [Fact]
-    public void Chest_is_one_south_of_center()
+    public void BossChest_is_one_south_of_center()
     {
         var map    = Make();
         var center = map.Center;
-        var chest  = map.Items.FirstOrDefault(i => i.Kind == ItemKind.Chest);
+        var chest  = map.Items.FirstOrDefault(i => i.Kind == ItemKind.BossChest);
         Assert.Equal(new GridPos(center.X, center.Y + 1), chest.Pos);
+    }
+
+    [Fact]
+    public void EscapeTile_is_at_top_of_north_corridor()
+    {
+        var map = Make();
+        Assert.NotNull(map.EscapeTile);
+        Assert.Equal(new GridPos(20, 1), map.EscapeTile!.Value);
     }
 
     [Fact]

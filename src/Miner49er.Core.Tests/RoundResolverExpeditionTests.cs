@@ -35,19 +35,17 @@ public class RoundResolverExpeditionTests
     }
 
     [Fact]
-    public void Chest_grabbed_wins_the_dungeon()
+    public void Chest_pickup_does_not_win_the_dungeon()
     {
         var grid = new TileGrid(6, 3, TileType.Floor);
-        var sim  = new Simulation(grid, new SimConfig(), escapeTile: null);
+        var sim  = new Simulation(grid, new SimConfig { Seed = 1 }, escapeTile: null);
         sim.AddItem(new Item(new GridPos(1, 1), ItemKind.Chest, ItemPlacement.Toolbox));
         sim.AddMiner(1, new GridPos(1, 1));
-        sim.Tick(0.1);   // PickUpItems fires; miner starts on chest tile
+        sim.Tick(0.1);   // PickUpItems fires; chest rolls a buff
 
         var result = RoundResolver.Resolve(sim, GameMode.Expedition);
 
-        Assert.True(result.IsOver);
-        Assert.False(result.FloorCleared);
-        Assert.Equal(1, result.WinnerId);
+        Assert.False(result.IsOver);   // picking up a chest is no longer a win condition
     }
 
     [Fact]

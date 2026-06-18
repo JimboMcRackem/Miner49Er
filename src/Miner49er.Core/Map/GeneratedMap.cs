@@ -7,4 +7,5 @@ public sealed class GeneratedMap
     public required GridPos Center { get; init; }
     public required IReadOnlyList<Item> Items { get; init; }
     public required IReadOnlyList<GridPos> Decoys { get; init; }
+    public GridPos? EscapeTile { get; init; }
 }

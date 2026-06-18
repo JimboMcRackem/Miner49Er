@@ -35,25 +35,28 @@ public class SimulationOctopusTests
     }
 
     [Fact]
-    public void Chest_item_pickup_sets_chest_grabbed_by()
+    public void Chest_item_pickup_consumes_it_and_applies_a_perm_buff()
     {
         var grid  = new TileGrid(6, 3, TileType.Floor);
-        var sim   = new Simulation(grid, new SimConfig());
+        var sim   = new Simulation(grid, new SimConfig { Seed = 1 });
         var chest = new GridPos(2, 1);
         sim.AddItem(new Item(chest, ItemKind.Chest, ItemPlacement.Toolbox));
-        sim.AddMiner(1, new GridPos(1, 1));
+        var m = sim.AddMiner(1, new GridPos(1, 1));
 
-        sim.TryMove(1, Direction.East);   // miner moves to (2,1)
-        sim.Tick(0.5);                    // PickUpItems fires
+        sim.TryMove(1, Direction.East);
+        sim.Tick(0.5);
 
-        Assert.Equal(1, sim.ChestGrabbedBy);
+        Assert.Empty(sim.Items);   // chest consumed
+        // at least one perm buff must have been applied
+        Assert.True(m.PermSpeedLevel + m.PermVisionLevel + m.PermBlastLevel > 0
+                    || sim.DrainEvents().Any(e => e is LifeRestored));
     }
 
     [Fact]
-    public void Chest_pickup_makes_resolver_return_win()
+    public void Chest_pickup_does_not_win_the_dungeon()
     {
         var grid = new TileGrid(6, 3, TileType.Floor);
-        var sim  = new Simulation(grid, new SimConfig(), escapeTile: null);
+        var sim  = new Simulation(grid, new SimConfig { Seed = 1 }, escapeTile: null);
         sim.AddItem(new Item(new GridPos(2, 1), ItemKind.Chest, ItemPlacement.Toolbox));
         sim.AddMiner(1, new GridPos(1, 1));
 
@@ -61,8 +64,6 @@ public class SimulationOctopusTests
         sim.Tick(0.5);
 
         var result = RoundResolver.Resolve(sim, GameMode.Expedition);
-        Assert.True(result.IsOver);
-        Assert.False(result.FloorCleared);
-        Assert.Equal(1, result.WinnerId);
+        Assert.False(result.IsOver);
     }
 }

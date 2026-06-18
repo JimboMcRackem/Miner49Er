@@ -26,3 +26,4 @@ public sealed record MonsterMoved(int MonsterId, GridPos From, GridPos To) : Sim
 public sealed record MinerMauled(int MinerId) : SimEvent;
 public sealed record MonsterKilled(int MonsterId) : SimEvent;
 public sealed record EscapeOpened : SimEvent;
+public sealed record LifeRestored(int MinerId) : SimEvent;

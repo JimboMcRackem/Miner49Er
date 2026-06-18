@@ -157,4 +157,26 @@ public class SnapshotCodecTests
         var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
         Assert.Null(back.Snapshot.Octopus);
     }
+
+    [Fact]
+    public void Round_trips_invul_remaining_and_lives()
+    {
+        var miners = new List<MinerSnapshot>
+        {
+            new(1, 0, 0, 0, true,  0, 0, 0.0, 0.12, 5, -1, DeathCause.None, 1.5f),
+            new(2, 1, 1, 0, true,  0, 0, 0.0, 0.12, 5, -1, DeathCause.None, 0f),
+        };
+        var update = new TickUpdate(
+            new WorldSnapshot(1, miners,
+                new List<ChargeSnapshot>(), new List<ItemSnapshot>(),
+                new List<MoldSnapshot>(),   new List<MonsterSnapshot>(),
+                Lives: 2),
+            new List<TileChange>());
+
+        var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
+
+        Assert.Equal(1.5f, back.Snapshot.Miners[0].InvulRemaining, 3);
+        Assert.Equal(0f,   back.Snapshot.Miners[1].InvulRemaining, 3);
+        Assert.Equal(2,    back.Snapshot.Lives);
+    }
 }

@@ -17,6 +17,7 @@ public sealed class MapConfig
     public int WaterPlankCount { get; set; } = 3;   // visible carried water-planks scattered on Floor
     public int SlowMoldCount { get; set; } = 3;     // visible carried slow-molds scattered on Floor
     public int LanternCount { get; set; } = 1;      // visible carried lanterns scattered on Floor
+    public int ChestCount { get; set; } = 0;        // visible Chest toolboxes per floor
 
     // Bottomless pits (Phase 4d) — host lobby toggle, off by default.
     public bool Pits { get; set; } = false;            // gates the whole PlacePits pass
@@ -75,9 +76,11 @@ public sealed class MapConfig
     public static MapConfig FloorConfig(int floor, int seed)
     {
         int mapScale = floor switch { <= 5 => 1, <= 10 => 2, <= 15 => 3, _ => 4 };
-        bool pits   = floor >= 6;
+        bool pits    = floor >= 6;
         bool caveIns = floor >= 11;
         bool lava    = floor >= 16;
-        return For(GameMode.Expedition, seed, 1, pits, caveIns, lava, mapScale);
+        var cfg = For(GameMode.Expedition, seed, 1, pits, caveIns, lava, mapScale);
+        cfg.ChestCount = floor <= 10 ? 1 : 2;
+        return cfg;
     }
 }

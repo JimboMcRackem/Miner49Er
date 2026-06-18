@@ -1,14 +1,24 @@
 namespace Miner49er.Core;
 
 /// <summary>Kinds of collectible item placed on the map.</summary>
-public enum ItemKind { SpeedPotion, LongerVision, BiggerBlast, WaterPlank, SlowMold, Lantern, Chest }
+public enum ItemKind
+{
+    SpeedPotion, LongerVision, BiggerBlast,
+    WaterPlank, SlowMold, Lantern,
+    Chest,      // loot container: rolls ChestLootTable on pickup
+    LifePotion, // from Chest loot only; fires LifeRestored event
+    BossChest,  // boss floor only; opens the escape tile
+}
 
 public static class ItemKindExtensions
 {
-    /// <summary>Carried kinds are not auto-applied on walk-over; they go into the
-    /// 1-slot inventory and are triggered with the Use verb. The other kinds auto-apply.</summary>
+    /// <summary>Carried kinds go into the 1-slot inventory; triggered with Use verb.</summary>
     public static bool IsCarried(this ItemKind k) =>
         k is ItemKind.WaterPlank or ItemKind.SlowMold or ItemKind.Lantern;
+
+    /// <summary>Placeable kinds cycle in PlaceItems (random floor placement).</summary>
+    public static bool IsPlaceable(this ItemKind k) =>
+        k is ItemKind.SpeedPotion or ItemKind.LongerVision or ItemKind.BiggerBlast;
 }
 
 /// <summary>Where an item sits and how it can be collected.</summary>

@@ -42,4 +42,13 @@ public sealed class SimConfig
     public int MonsterSenseRadius { get; set; } = 6;   // Manhattan range at which a monster locks on
 
     public int LanternRadius { get; set; } = 3;   // Chebyshev radius — ghosts inside are killed; ghosts won't enter
+
+    public double PermSpeedFactor    { get; set; } = 0.85;  // per-level move-cadence multiplier
+    public int    PermVisionBonus    { get; set; } = 1;      // +tiles of fog radius per level
+    public int    PermBlastBonus     { get; set; } = 1;      // +radius per level
+    public int    MaxPermSpeedLevel  { get; set; } = 5;
+    public int    MaxPermVisionLevel { get; set; } = 5;
+    public int    MaxPermBlastLevel  { get; set; } = 3;
+
+    public bool RequireChestForEscape { get; set; } = false;
 }

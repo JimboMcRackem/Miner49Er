@@ -28,6 +28,7 @@ public static class MapGenerator
         PlaceGold(grid, rng, config.GoldVeinCount, region);
         int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
         var items = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
+        items.AddRange(PlaceChests(grid, rng, config.ChestCount, region, spawns, items));
         items.AddRange(PlaceCarriedItems(grid, rng, config.WaterPlankCount, config.SlowMoldCount, config.LanternCount, region, spawns, items));
         var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
         if (config.CaveIns)
@@ -36,8 +37,11 @@ public static class MapGenerator
                         region, spawns, center, items);
         if (config.Lava)
             PlaceLavaVents(grid, rng, config.LavaVentCount + (config.PlayerCount - 1), region, items, decoys);
-
-        return new GeneratedMap { Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys };
+        return new GeneratedMap
+        {
+            Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys,
+            EscapeTile = spawns.Count > 0 ? spawns[0] : null,
+        };
     }
 
     private static bool IsBorder(TileGrid g, GridPos p) =>
@@ -445,7 +449,7 @@ public static class MapGenerator
         for (int i = 0; i < visible; i++) placed.Add((floorCands[i], ItemPlacement.Toolbox));
         for (int i = 0; i < buried; i++) placed.Add((rockCands[i], ItemPlacement.Buried));
 
-        var kinds = Enum.GetValues<ItemKind>().Where(k => !k.IsCarried()).ToArray();
+        var kinds = new[] { ItemKind.SpeedPotion, ItemKind.LongerVision, ItemKind.BiggerBlast };
         var items = new List<Item>();
         for (int i = 0; i < placed.Count; i++)
             items.Add(new Item(placed[i].Pos, kinds[i % kinds.Length], placed[i].Placement));
@@ -474,6 +478,23 @@ public static class MapGenerator
             result.Add(new Item(cands[idx], ItemKind.SlowMold, ItemPlacement.Toolbox));
         for (int i = 0; i < lanternCount && idx < cands.Count; i++, idx++)
             result.Add(new Item(cands[idx], ItemKind.Lantern, ItemPlacement.Toolbox));
+        return result;
+    }
+
+    private static List<Item> PlaceChests(TileGrid g, Random rng, int count,
+        HashSet<GridPos> region, List<GridPos> spawns, IEnumerable<Item> existing)
+    {
+        if (count <= 0) return new List<Item>();
+        var taken    = new HashSet<GridPos>(existing.Select(it => it.Pos));
+        var spawnSet = new HashSet<GridPos>(spawns);
+        var cands = g.Positions()
+            .Where(p => region.Contains(p) && g.Get(p) == TileType.Floor
+                        && !spawnSet.Contains(p) && !taken.Contains(p))
+            .ToList();
+        Shuffle(cands, rng);
+        var result = new List<Item>();
+        for (int i = 0; i < count && i < cands.Count; i++)
+            result.Add(new Item(cands[i], ItemKind.Chest, ItemPlacement.Toolbox));
         return result;
     }
 
@@ -560,7 +581,7 @@ public static class MapGenerator
 
         var items = new List<Item>
         {
-            new Item(chestPos, ItemKind.Chest, ItemPlacement.Toolbox),
+            new Item(chestPos, ItemKind.BossChest, ItemPlacement.Toolbox),
         };
 
         // Spawn at the bottom of the south corridor, one row from the border.
@@ -568,11 +589,12 @@ public static class MapGenerator
 
         return new GeneratedMap
         {
-            Grid   = grid,
-            Spawns = new List<GridPos> { spawn },
-            Center = center,
-            Items  = items,
-            Decoys = System.Array.Empty<GridPos>(),
+            Grid       = grid,
+            Spawns     = new List<GridPos> { spawn },
+            Center     = center,
+            Items      = items,
+            Decoys     = System.Array.Empty<GridPos>(),
+            EscapeTile = new GridPos(cx, 1),   // top of north corridor
         };
     }
 }

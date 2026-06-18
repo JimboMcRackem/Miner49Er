@@ -5,7 +5,7 @@ namespace Miner49er.Core.Net;
 public readonly record struct MinerSnapshot(
     int Id, int X, int Y, int Facing, bool Alive, int Gold, int Activity,
     double ActivityRemaining, double MoveSeconds, int VisionRadius, int Held,
-    DeathCause Cause = DeathCause.None);
+    DeathCause Cause = DeathCause.None, float InvulRemaining = 0f);
 
 public readonly record struct ChargeSnapshot(int OwnerId, int X, int Y, double FuseRemaining);
 
@@ -29,6 +29,6 @@ public sealed record WorldSnapshot(
     IReadOnlyList<ItemSnapshot> Items, IReadOnlyList<MoldSnapshot> Molds,
     IReadOnlyList<MonsterSnapshot> Monsters,
     float SecondsRemaining = -1f, bool EscapeOpen = false,
-    OctopusSnapshot? Octopus = null);
+    OctopusSnapshot? Octopus = null, int Lives = 3);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);

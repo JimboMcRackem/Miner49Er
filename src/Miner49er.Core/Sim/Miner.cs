@@ -24,5 +24,11 @@ public sealed class Miner
     public IReadOnlyList<StatusEffect> Effects => _effects;
     internal List<StatusEffect> EffectsInternal => _effects;
 
+    public int PermSpeedLevel  { get; internal set; }
+    public int PermVisionLevel { get; internal set; }
+    public int PermBlastLevel  { get; internal set; }
+
+    public double InvulnerableRemaining { get; internal set; }
+
     internal Miner(int id, GridPos pos) { Id = id; Pos = pos; }
 }

@@ -34,7 +34,6 @@ public sealed class Simulation
     public int StartingGoldCount { get; private set; }
     public double GoldCollectedFraction =>
         StartingGoldCount == 0 ? 1.0 : 1.0 - (double)_goldRemaining / StartingGoldCount;
-    public int ChestGrabbedBy { get; private set; } = -1;
 
     private readonly double? _timeLimit;
     private readonly bool _flooding;
@@ -62,12 +61,13 @@ public sealed class Simulation
             if (Grid.Get(p) == TileType.GoldRock) _goldRemaining++;
         }
         StartingGoldCount = _goldRemaining;
-        if (EscapeTile is not null && _goldRemaining == 0) EscapeOpen = true;   // gold-less map: open at once
+        if (EscapeTile is not null && _goldRemaining == 0 && !Config.RequireChestForEscape)
+            EscapeOpen = true;   // gold-less map: open at once (unless boss floor)
     }
 
-    public Miner AddMiner(int id, GridPos pos)
+    public Miner AddMiner(int id, GridPos pos, double invulRemaining = 0.0)
     {
-        var m = new Miner(id, pos);
+        var m = new Miner(id, pos) { InvulnerableRemaining = invulRemaining };
         _miners[id] = m;
         return m;
     }
@@ -146,11 +146,18 @@ public sealed class Simulation
         }
     }
 
+    private void AdvanceInvulnerability(double dt)
+    {
+        foreach (var m in _miners.Values)
+            if (m.InvulnerableRemaining > 0)
+                m.InvulnerableRemaining = Math.Max(0, m.InvulnerableRemaining - dt);
+    }
+
     public double EffectiveMoveSeconds(int minerId) => EffectiveMoveSeconds(_miners[minerId]);
 
     private double EffectiveMoveSeconds(Miner m)
     {
-        double mult = 1.0;
+        double mult = Math.Pow(Config.PermSpeedFactor, m.PermSpeedLevel);
         foreach (var e in m.EffectsInternal)
             if (e.Channel == EffectChannel.MoveSpeed) mult *= e.Magnitude;
         double tile = Grid.Get(m.Pos).MoveCostMultiplier();   // shallow water = ×2
@@ -162,7 +169,7 @@ public sealed class Simulation
 
     private int EffectiveVisionRadius(Miner m)
     {
-        int bonus = 0;
+        int bonus = m.PermVisionLevel * Config.PermVisionBonus;
         foreach (var e in m.EffectsInternal)
             if (e.Channel == EffectChannel.VisionRadius) bonus += (int)e.Magnitude;
         return Config.VisionRadius + bonus;
@@ -172,10 +179,18 @@ public sealed class Simulation
 
     private int EffectiveBlastBonus(Miner m)
     {
-        int bonus = 0;
+        int bonus = m.PermBlastLevel * Config.PermBlastBonus;
         foreach (var e in m.EffectsInternal)
             if (e.Channel == EffectChannel.BlastRadius) bonus += (int)e.Magnitude;
         return bonus;
+    }
+
+    public void SetPermLevels(int minerId, int speed, int vision, int blast)
+    {
+        if (!_miners.TryGetValue(minerId, out var m)) return;
+        m.PermSpeedLevel  = Math.Clamp(speed,  0, Config.MaxPermSpeedLevel);
+        m.PermVisionLevel = Math.Clamp(vision, 0, Config.MaxPermVisionLevel);
+        m.PermBlastLevel  = Math.Clamp(blast,  0, Config.MaxPermBlastLevel);
     }
 
     private void AdvanceMolds(double dt)
@@ -502,6 +517,7 @@ public sealed class Simulation
     {
         Elapsed += dt;
         AdvanceEffects(dt);
+        AdvanceInvulnerability(dt);
         AdvanceMolds(dt);
         AdvanceCooldowns(dt);
         AdvanceCracks(dt);
@@ -632,22 +648,30 @@ public sealed class Simulation
 
     private void ApplyBuff(int minerId, ItemKind kind)
     {
+        var m = _miners[minerId];
         switch (kind)
         {
             case ItemKind.SpeedPotion:
-                ApplyEffect(minerId, EffectKind.SpeedPotion, EffectChannel.MoveSpeed,
-                            Config.SpeedPotionFactor, Config.SpeedPotionSeconds);
+                m.PermSpeedLevel = Math.Min(m.PermSpeedLevel + 1, Config.MaxPermSpeedLevel);
                 break;
             case ItemKind.LongerVision:
-                ApplyEffect(minerId, EffectKind.LongerVision, EffectChannel.VisionRadius,
-                            Config.VisionBonus, Config.VisionSeconds);
+                m.PermVisionLevel = Math.Min(m.PermVisionLevel + 1, Config.MaxPermVisionLevel);
                 break;
             case ItemKind.BiggerBlast:
-                ApplyEffect(minerId, EffectKind.BiggerBlast, EffectChannel.BlastRadius,
-                            Config.BlastBonus, Config.BlastSeconds);
+                m.PermBlastLevel = Math.Min(m.PermBlastLevel + 1, Config.MaxPermBlastLevel);
                 break;
             case ItemKind.Chest:
-                ChestGrabbedBy = minerId;
+                ApplyBuff(minerId, ChestLootTable.Roll(_rng));
+                break;
+            case ItemKind.BossChest:
+                if (!EscapeOpen && EscapeTile is not null)
+                {
+                    EscapeOpen = true;
+                    _events.Add(new EscapeOpened());
+                }
+                break;
+            case ItemKind.LifePotion:
+                _events.Add(new LifeRestored(minerId));
                 break;
         }
     }
@@ -729,7 +753,7 @@ public sealed class Simulation
 
     private void MaulMiner(Miner m, MonsterKind kind)
     {
-        if (!m.Alive) return;
+        if (!m.Alive || m.InvulnerableRemaining > 0) return;
         m.Alive = false;
         m.Activity = ActivityKind.None;
         m.DeathCause = kind switch
@@ -759,6 +783,7 @@ public sealed class Simulation
     // a pit makes you Fall, lava burns you, deep water makes you Drown.
     private void KillByTile(Miner m)
     {
+        if (m.InvulnerableRemaining > 0) return;
         m.Alive = false;
         m.Activity = ActivityKind.None;
         var t = Grid.Get(m.Pos);
@@ -783,6 +808,7 @@ public sealed class Simulation
     // assigns Fell/Drowned for stepping onto an already-lethal pit/deep-water tile).
     private void CollapseKill(Miner m)
     {
+        if (!m.Alive || m.InvulnerableRemaining > 0) return;
         m.Alive = false;
         m.Activity = ActivityKind.None;
         m.DeathCause = DeathCause.Crushed;

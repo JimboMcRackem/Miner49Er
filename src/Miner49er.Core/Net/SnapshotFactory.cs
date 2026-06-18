@@ -5,14 +5,14 @@ namespace Miner49er.Core.Net;
 /// <summary>Captures authoritative simulation state into a transmittable snapshot.</summary>
 public static class SnapshotFactory
 {
-    public static WorldSnapshot Capture(Simulation sim, int tick)
+    public static WorldSnapshot Capture(Simulation sim, int tick, int lives = 3)
     {
         var miners = sim.Miners
             .Select(m => new MinerSnapshot(
                 m.Id, m.Pos.X, m.Pos.Y, (int)m.Facing, m.Alive,
                 m.GoldCollected, (int)m.Activity, m.ActivitySecondsRemaining,
                 sim.EffectiveMoveSeconds(m.Id), sim.EffectiveVisionRadius(m.Id),
-                m.Held is { } h ? (int)h : -1, m.DeathCause))
+                m.Held is { } h ? (int)h : -1, m.DeathCause, (float)m.InvulnerableRemaining))
             .ToList();
 
         var charges = sim.Charges
@@ -43,6 +43,6 @@ public static class SnapshotFactory
         }
 
         return new WorldSnapshot(tick, miners, charges, items, molds, monsters,
-            (float)sim.SecondsRemaining, sim.EscapeOpen, octopus);
+            (float)sim.SecondsRemaining, sim.EscapeOpen, octopus, lives);
     }
 }
