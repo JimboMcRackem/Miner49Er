@@ -28,9 +28,13 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color GhostColor        = new("dfe8ff");
 	private static readonly Color GoatColor         = new("b08050");
 	private static readonly Color GoatHornColor     = new("6a4828");
-	private static readonly Color ExitColor         = new("ffe24a");
-	private static readonly Color LadderColor       = new Color(0.68f, 0.52f, 0.28f, 0.50f);
-	private static readonly Color LanternItemColor  = new("ffe090");
+	private static readonly Color ExitColor          = new("ffe24a");
+	private static readonly Color LadderColor        = new Color(0.68f, 0.52f, 0.28f, 0.50f);
+	private static readonly Color LadderLockedColor  = new Color(0.4f, 0.4f, 0.4f, 0.40f);
+	private static readonly Color OctopusColor       = new Color(0.8f, 0.1f, 0.7f, 0.85f);
+	private static readonly Color OctopusArmColor    = new Color(0.9f, 0.2f, 0.6f, 0.45f);
+	private static readonly Color ChestColor         = new Color(0.9f, 0.8f, 0.1f, 0.95f);
+	private static readonly Color LanternItemColor   = new("ffe090");
 	private static readonly Color LanternGlowColor  = new Color(1f, 0.9f, 0.3f, 0.18f);
 	private const int LanternRadius = 3;
 	private const int ListenItemRevealRadius = 6;
@@ -125,6 +129,16 @@ public partial class WorldRenderer : Node2D
 
 			var r = new Rect2(it.X * ts, it.Y * ts, ts, ts);
 			var icenter = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
+
+			if (it.Kind == ItemKind.Chest)
+			{
+				var font = ThemeDB.FallbackFont;
+				int fontSize = ts * 2 / 3;
+				DrawRect(r, ChestColor);
+				DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
+					"♦", HorizontalAlignment.Center, -1, fontSize, Colors.Black);
+				continue;
+			}
 
 			if (it.Placement == ItemPlacement.Toolbox)
 			{
@@ -262,6 +276,28 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
+		if (_client.Octopus is { } octSnap)
+		{
+			var font = ThemeDB.FallbackFont;
+			int fontSize = ts * 2 / 3;
+
+			var snapOct = new Octopus(new GridPos(octSnap.X, octSnap.Y));
+			for (int i = 0; i < snapOct.Arms.Length && i < octSnap.Arms.Length; i++)
+			{
+				snapOct.Arms[i].CurrentAngle   = octSnap.Arms[i].Angle;
+				snapOct.Arms[i].PauseRemaining = octSnap.Arms[i].PauseRemaining;
+				snapOct.Arms[i].SwingDir       = octSnap.Arms[i].SwingDir;
+			}
+
+			foreach (var p in snapOct.DangerTiles(_client.Grid))
+				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), OctopusArmColor);
+
+			var br = new Rect2(octSnap.X * ts, octSnap.Y * ts, ts, ts);
+			DrawRect(br, OctopusColor);
+			DrawString(font, new Vector2(octSnap.X * ts + ts / 2f, octSnap.Y * ts + ts * 0.65f),
+				"✦", HorizontalAlignment.Center, -1, fontSize, Colors.White);
+		}
+
 		if (_client.EscapeTile is { } exit)
 		{
 			float lx = exit.X * ts + ts * 0.31f;
@@ -278,7 +314,7 @@ public partial class WorldRenderer : Node2D
 			}
 			else
 			{
-				ladderCol = LadderColor;
+				ladderCol = LadderLockedColor;
 			}
 			DrawLine(new Vector2(lx, ty), new Vector2(lx, by), ladderCol, 2.5f);
 			DrawLine(new Vector2(rx, ty), new Vector2(rx, by), ladderCol, 2.5f);
