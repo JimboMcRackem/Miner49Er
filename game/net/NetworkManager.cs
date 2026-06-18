@@ -239,6 +239,23 @@ public partial class NetworkManager : Node
 	public float MatchBaseMoveSeconds { get; private set; } = 0.12f;
 	public int MatchMapScale { get; set; } = 1;
 	public long[] PeerOrder { get; private set; } = System.Array.Empty<long>();
+	public int MatchFloor { get; set; } = 1;
+
+	public event System.Action<int>? NewFloor;
+
+	public void BroadcastNewFloor(int floor)
+	{
+		MatchFloor = floor;
+		Rpc(nameof(ReceiveNewFloor), floor);
+		ReceiveNewFloor(floor);   // host applies locally too
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.Authority, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+	public void ReceiveNewFloor(int floor)
+	{
+		MatchFloor = floor;
+		NewFloor?.Invoke(floor);
+	}
 
 	private MatchHost? _matchHost;
 	private MatchClient? _matchClient;

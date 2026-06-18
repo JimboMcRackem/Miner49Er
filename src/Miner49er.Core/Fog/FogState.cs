@@ -12,6 +12,12 @@ public sealed class FogState
         foreach (var p in visible) _explored.Add(p);
     }
 
+    public void Reset()
+    {
+        _explored.Clear();
+        Visible = new HashSet<GridPos>();
+    }
+
     public bool IsVisible(GridPos p) => Visible.Contains(p);
     public bool IsExplored(GridPos p) => _explored.Contains(p);
 }

@@ -39,6 +39,10 @@ public partial class MatchClient : Node2D
 	private readonly Dictionary<int, Vector2> _monsterVisualPos = new(); // monsterId -> smoothed pixels
 	private readonly Dictionary<int, Vector2> _visualPos = new(); // minerId -> smoothed pixels
 
+	private Node2D _sceneRoot = null!;
+	public int StartingGoldCount { get; private set; }
+	public OctopusSnapshot? Octopus { get; private set; }
+
 	private TerrainMap _terrainMap = null!;
 	private WorldRenderer _world = null!;
 	private FogRenderer _fogRenderer = null!;
@@ -48,11 +52,13 @@ public partial class MatchClient : Node2D
 
 	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null)
 	{
+		_sceneRoot = sceneRoot;
 		Grid = grid;
 		LocalMinerId = localMinerId;
 		Decoys = decoys;
 		EscapeTile = escapeTile;
 		GoldRemaining = CountGold(grid);
+		StartingGoldCount = GoldRemaining;
 
 		_terrainMap = new TerrainMap { Name = "TerrainMap", ZIndex = -10 };
 		sceneRoot.AddChild(_terrainMap);
@@ -105,7 +111,56 @@ public partial class MatchClient : Node2D
 		EscapeOpen = update.Snapshot.EscapeOpen;
 		GoldRemaining = CountGold(Grid);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;
+		Octopus = update.Snapshot.Octopus;
 		UpdateFog();
+	}
+
+	public void ResetFloor(int floor)
+	{
+		_terrainMap?.QueueFree(); _terrainMap = null!;
+		_world?.QueueFree();      _world = null!;
+		_fogRenderer?.QueueFree(); _fogRenderer = null!;
+
+		var nm = NetworkManager.Instance;
+		int floorSeed = nm.MatchSeed + floor * 1000;
+
+		GeneratedMap newMap;
+		if (floor == 21)
+		{
+			newMap = MapGenerator.GenerateBossFloor(floorSeed);
+			EscapeTile = null;
+		}
+		else
+		{
+			var cfg = MapConfig.FloorConfig(floor, floorSeed);
+			newMap = MapGenerator.Generate(cfg);
+			EscapeTile = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : null;
+		}
+
+		Grid              = newMap.Grid;
+		Decoys            = newMap.Decoys;
+		GoldRemaining     = CountGold(newMap.Grid);
+		StartingGoldCount = GoldRemaining;
+		EscapeOpen        = false;
+		Octopus           = null;
+
+		Fog.Reset();
+		_visualPos.Clear();
+		_monsterVisualPos.Clear();
+		_miners.Clear();
+		_monsters.Clear();
+
+		_terrainMap = new TerrainMap { Name = "TerrainMap", ZIndex = -10 };
+		_sceneRoot.AddChild(_terrainMap);
+		_terrainMap.Init(this);
+
+		_world = new WorldRenderer { Name = "WorldRenderer", ZIndex = -9 };
+		_sceneRoot.AddChild(_world);
+		_world.Init(this);
+
+		_fogRenderer = new FogRenderer { Name = "FogRenderer", ZIndex = -5 };
+		_sceneRoot.AddChild(_fogRenderer);
+		_fogRenderer.Init(this);
 	}
 
 	public override void _PhysicsProcess(double delta)
