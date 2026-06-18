@@ -49,7 +49,10 @@ public partial class MatchClient : Node2D
 	private FogRenderer _fogRenderer = null!;
 	private Node2D _camera = null!;
 	private Camera2D _cam = null!;
-	private Texture2D[,]? _minerTex; // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
+	private Texture2D[,]?  _minerTex;     // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
+	private Texture2D[,,]? _minerWalkTex; // [colorIndex, facing, frame 0-3]
+	private readonly Dictionary<int, (int X, int Y)> _lastMinerPos = new();
+	private readonly Dictionary<int, double> _walkUntil = new();
 
 	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null)
 	{
@@ -73,7 +76,8 @@ public partial class MatchClient : Node2D
 		sceneRoot.AddChild(_fogRenderer);
 		_fogRenderer.Init(this);
 
-		_minerTex = BuildMinerTextures();
+		_minerTex     = BuildMinerTextures();
+		_minerWalkTex = BuildMinerWalkTextures();
 
 		_camera = new Node2D { Name = "CameraRig" };
 		sceneRoot.AddChild(_camera);
@@ -168,12 +172,17 @@ public partial class MatchClient : Node2D
 			_cam.MakeCurrent();
 
 		// Smooth each miner visual toward its authoritative tile position.
+		double now = Time.GetTicksMsec() / 1000.0;
 		foreach (var m in _miners)
 		{
 			var target = new Vector2(m.X * TileSize + TileSize / 2f, m.Y * TileSize + TileSize / 2f);
 			var cur = _visualPos.TryGetValue(m.Id, out var v) ? v : target;
 			float pixelsPerSec = TileSize / (float)m.MoveSeconds;
 			_visualPos[m.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
+
+			if (_lastMinerPos.TryGetValue(m.Id, out var last) && (last.X != m.X || last.Y != m.Y))
+				_walkUntil[m.Id] = now + m.MoveSeconds;
+			_lastMinerPos[m.Id] = (m.X, m.Y);
 
 			if (m.Id == LocalMinerId)
 				_camera.Position = _visualPos[m.Id];
@@ -205,18 +214,42 @@ public partial class MatchClient : Node2D
 				alpha = phase < fraction ? 1f : 0.2f;
 			}
 
-			int colorIdx = (m.Id - 1) % PlayerColors.Palette.Length;
+			int colorIdx = MinerColorIndex(m.Id);
 			int facing   = m.Facing;
-			var tex      = _minerTex?[colorIdx, facing];
+
+			double drawNow = Time.GetTicksMsec() / 1000.0;
+			bool walking = _walkUntil.TryGetValue(m.Id, out double until) && drawNow < until;
+			Texture2D? tex;
+			if (walking && _minerWalkTex != null)
+			{
+				double elapsed = m.MoveSeconds - (until - drawNow);
+				int frame = (int)(elapsed / m.MoveSeconds * 4) % 4;
+				tex = _minerWalkTex[colorIdx, facing, frame];
+			}
+			else
+			{
+				tex = _minerTex?[colorIdx, facing];
+			}
+
 			if (tex != null)
 				DrawTextureRect(tex, new Rect2(p.X - 16, p.Y - 16, 32, 32), false, new Color(1, 1, 1, alpha));
 			else
 			{
-				var col = PlayerColors.At(m.Id - 1);
+				var col = PlayerColors.At(colorIdx);
 				col.A = alpha;
 				DrawRect(new Rect2(p.X - 10, p.Y - 10, 20, 20), col);
 			}
 		}
+	}
+
+	private static int MinerColorIndex(int minerId)
+	{
+		var nm = NetworkManager.Instance;
+		int idx = minerId - 1;
+		if (idx >= 0 && idx < nm.PeerOrder.Length &&
+		    nm.Players.TryGetValue(nm.PeerOrder[idx], out var info))
+			return info.ColorIndex;
+		return idx % PlayerColors.Palette.Length;
 	}
 
 	private static Texture2D[,] BuildMinerTextures()
@@ -239,6 +272,27 @@ public partial class MatchClient : Node2D
 			for (int d = 0; d < 4; d++)
 				if (srcs[d] != null)
 					tex[c, d] = ImageTexture.CreateFromImage(TintMiner(srcs[d]!, PlayerColors.At(c)));
+		return tex;
+	}
+
+	private static Texture2D[,,] BuildMinerWalkTextures()
+	{
+		// direction suffix (N=0,E=1,S=2,W=3) → folder letter
+		var dirLetter = new[] { "n", "e", "s", "w" };
+		var srcs = new Image?[4, 4]; // [facing, frame]
+		for (int d = 0; d < 4; d++)
+			for (int f = 0; f < 4; f++)
+			{
+				var img = new Image();
+				string path = $"res://assets/miners/walk/{dirLetter[d]}{f}.png";
+				if (img.Load(path) == Error.Ok) { img.Convert(Image.Format.Rgba8); srcs[d, f] = img; }
+			}
+		var tex = new Texture2D[PlayerColors.Palette.Length, 4, 4];
+		for (int c = 0; c < PlayerColors.Palette.Length; c++)
+			for (int d = 0; d < 4; d++)
+				for (int f = 0; f < 4; f++)
+					if (srcs[d, f] != null)
+						tex[c, d, f] = ImageTexture.CreateFromImage(TintMiner(srcs[d, f]!, PlayerColors.At(c)));
 		return tex;
 	}
 
