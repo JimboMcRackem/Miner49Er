@@ -364,6 +364,15 @@ public partial class WorldRenderer : Node2D
 				DrawLine(new Vector2(lx, ry), new Vector2(rx, ry), ladderCol, 2f);
 			}
 		}
+
+		// Shopkeeper tile
+		if (_client.ShopPos is GridPos sp && _client.Fog.IsVisible(sp))
+		{
+			var shopRect = new Rect2(sp.X * ts + 2, sp.Y * ts + 2, ts - 4, ts - 4);
+			DrawRect(shopRect, new Color(0.78f, 0.63f, 0.13f));
+			DrawString(ThemeDB.FallbackFont, new Vector2(sp.X * ts + 4, sp.Y * ts + ts - 6),
+				"$", HorizontalAlignment.Left, -1, 16, new Color(0.1f, 0.05f, 0f));
+		}
 	}
 
 	private static Color ItemColor(ItemKind kind) => kind switch

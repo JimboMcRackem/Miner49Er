@@ -18,7 +18,9 @@ public partial class Main : Node2D
 	private Compass _compass = null!;
 	private DeathFeed _deathFeed = null!;
 	private SettingsPanel _audioPanel = null!;
+	private ShopPanel _shopPanel = null!;
 	private bool _wasListening;
+	private bool _wasAtShop;
 
 	private Label? _floorBanner;
 	private float  _floorBannerTimer;
@@ -109,6 +111,9 @@ public partial class Main : Node2D
 		_audioPanel = new SettingsPanel { Name = "SettingsPanel" };
 		AddChild(_audioPanel);
 
+		_shopPanel = new ShopPanel { Name = "ShopPanel" };
+		AddChild(_shopPanel);
+
 		nm.RegisterMatch(_host, _client);
 		nm.MatchEnded += OnMatchEnded;
 		nm.NewFloor += OnNewFloor;
@@ -174,6 +179,7 @@ public partial class Main : Node2D
 						(int)ItemKind.SlowMold => "    Held: Mold",
 						_ => "",
 					};
+					string stonesStr = m.StoneCount > 0 ? $"    Stones: {m.StoneCount}" : "";
 					string objective;
 					if (NetworkManager.Instance.MatchMode == GameMode.Expedition)
 					{
@@ -201,12 +207,25 @@ public partial class Main : Node2D
 					{
 						objective = $"Gold: {m.Gold}";
 					}
-					_hud.SetText($"{objective}    {status}{timeStr}{heldStr}");
+					_hud.SetText($"{objective}    {status}{timeStr}{heldStr}{stonesStr}");
+
+					// Shop proximity — Expedition only
+					if (localAlive && NetworkManager.Instance.MatchMode == GameMode.Expedition)
+					{
+						var localPos = new GridPos(m.X, m.Y);
+						bool atShop = _client.ShopPos is GridPos sPos && localPos == sPos;
+						_shopPanel.UpdateSnapshot(m, _client.Lives, 3);
+						if (atShop && !_wasAtShop && !_shopPanel.IsOpen)
+							_shopPanel.Open(m, _client.Lives, 3);
+						else if (!atShop && _shopPanel.IsOpen)
+							_shopPanel.Close();
+						_wasAtShop = atShop;
+					}
 			}
 		if (Input.IsActionJustPressed(InputBindings.Settings))
 			_audioPanel.Toggle();
 		bool panelOpen = _audioPanel.IsOpen;
-		if (_input != null) _input.Enabled = (!sawLocal || localAlive) && !panelOpen;
+		if (_input != null) _input.Enabled = (!sawLocal || localAlive) && !panelOpen && !_shopPanel.IsOpen;
 
 		bool listening = localAlive && !panelOpen && Input.IsActionPressed(InputBindings.Listen);
 		if (_input != null) _input.Listening = listening;

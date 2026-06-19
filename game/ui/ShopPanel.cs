@@ -109,7 +109,7 @@ public partial class ShopPanel : Control
 			Refresh();
 			GetViewport().SetInputAsHandled();
 		}
-		else if (@event.IsActionJustPressed(InputBindings.UseItem))
+		else if (@event.IsActionPressed(InputBindings.UseItem))
 		{
 			TryBuy();
 			GetViewport().SetInputAsHandled();
