@@ -12,7 +12,8 @@ public static class SnapshotFactory
                 m.Id, m.Pos.X, m.Pos.Y, (int)m.Facing, m.Alive,
                 m.GoldCollected, (int)m.Activity, m.ActivitySecondsRemaining,
                 sim.EffectiveMoveSeconds(m.Id), sim.EffectiveVisionRadius(m.Id),
-                m.Held is { } h ? (int)h : -1, m.DeathCause, (float)m.InvulnerableRemaining))
+                m.Held is { } h ? (int)h : -1, m.DeathCause, (float)m.InvulnerableRemaining,
+                m.StoneCount))
             .ToList();
 
         var charges = sim.Charges

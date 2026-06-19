@@ -13,7 +13,7 @@ public class SnapshotCodecTests
                 Tick: 7,
                 Miners: new List<MinerSnapshot>
                 {
-                    new(1, 3, 4, 2, true, 5, 1, 2.5, 0.09, 8, (int)ItemKind.WaterPlank),
+                    new(1, 3, 4, 2, true, 5, 1, 2.5, 0.09, 8, (int)ItemKind.WaterPlank, StoneCount: 4),
                     new(2, 9, 0, 0, false, 0, 0, 0.0, 0.24, 5, -1),
                 },
                 Charges: new List<ChargeSnapshot> { new(1, 8, 8, 1.25) },
@@ -67,6 +67,8 @@ public class SnapshotCodecTests
         Assert.Equal(MonsterKind.Ghost, back.Snapshot.Monsters[1].Kind);
         Assert.False(back.Snapshot.Monsters[1].Alive);
         Assert.True(back.Snapshot.EscapeOpen);
+        Assert.Equal(4, back.Snapshot.Miners[0].StoneCount);
+        Assert.Equal(0, back.Snapshot.Miners[1].StoneCount);
     }
 
     [Fact]

@@ -22,7 +22,7 @@ public static class SnapshotCodec
             w.Write(m.Id); w.Write(m.X); w.Write(m.Y); w.Write(m.Facing);
             w.Write(m.Alive); w.Write(m.Gold); w.Write(m.Activity); w.Write(m.ActivityRemaining);
             w.Write(m.MoveSeconds); w.Write(m.VisionRadius); w.Write(m.Held); w.Write((byte)m.Cause);
-            w.Write(m.InvulRemaining);
+            w.Write(m.InvulRemaining); w.Write(m.StoneCount);
         }
 
         w.Write(snap.Charges.Count);
@@ -88,7 +88,7 @@ public static class SnapshotCodec
             miners.Add(new MinerSnapshot(
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
                 r.ReadBoolean(), r.ReadInt32(), r.ReadInt32(), r.ReadDouble(), r.ReadDouble(),
-                r.ReadInt32(), r.ReadInt32(), (DeathCause)r.ReadByte(), r.ReadSingle()));
+                r.ReadInt32(), r.ReadInt32(), (DeathCause)r.ReadByte(), r.ReadSingle(), r.ReadInt32()));
 
         int chargeCount = r.ReadInt32();
         var charges = new List<ChargeSnapshot>(chargeCount);
