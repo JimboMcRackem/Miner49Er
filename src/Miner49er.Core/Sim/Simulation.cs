@@ -12,8 +12,15 @@ public sealed class Simulation
     private readonly List<LavaVent> _lavaVents = new();
     private readonly List<SimEvent> _events = new();
     private readonly List<Monster> _monsters = new();
+    private readonly List<NoiseSource> _noiseSources = new();
     private readonly Random _rng;
     private Octopus? _octopus;
+
+    private sealed class NoiseSource
+    {
+        public GridPos Pos;
+        public double LifetimeRemaining;
+    }
     public  Octopus? Octopus => _octopus;
 
     public IReadOnlyCollection<Miner> Miners => _miners.Values;
@@ -205,6 +212,25 @@ public sealed class Simulation
         m.GoldCollected = Math.Max(0, m.GoldCollected - amount);
     }
 
+    public void TryThrowStone(int minerId)
+    {
+        if (!_miners.TryGetValue(minerId, out var m) || !m.Alive) return;
+        if (m.StoneCount <= 0) return;
+
+        var offset = m.Facing.ToOffset();
+        GridPos land = m.Pos;
+        for (int i = 1; i <= 64; i++)
+        {
+            var next = new GridPos(m.Pos.X + offset.X * i, m.Pos.Y + offset.Y * i);
+            if (!Grid.InBounds(next) || !Grid.Get(next).IsEnterable()) break;
+            land = next;
+        }
+
+        m.StoneCount--;
+        _noiseSources.Add(new NoiseSource { Pos = land, LifetimeRemaining = 4.0 });
+        _events.Add(new StoneThrown(minerId, land));
+    }
+
     private void AdvanceMolds(double dt)
     {
         for (int i = _molds.Count - 1; i >= 0; i--)
@@ -216,6 +242,28 @@ public sealed class Simulation
                 _molds.RemoveAt(i);
             }
         }
+    }
+
+    private void AdvanceNoiseSources(double dt)
+    {
+        for (int i = _noiseSources.Count - 1; i >= 0; i--)
+        {
+            _noiseSources[i].LifetimeRemaining -= dt;
+            if (_noiseSources[i].LifetimeRemaining <= 0)
+                _noiseSources.RemoveAt(i);
+        }
+    }
+
+    private NoiseSource? NearestNoiseSourceInRange(GridPos pos, int radius)
+    {
+        NoiseSource? best = null;
+        int bestDist = int.MaxValue;
+        foreach (var ns in _noiseSources)
+        {
+            int d = pos.ManhattanTo(ns.Pos);
+            if (d <= radius && d < bestDist) { best = ns; bestDist = d; }
+        }
+        return best;
     }
 
     private void AdvanceCooldowns(double dt)
@@ -393,6 +441,8 @@ public sealed class Simulation
 
     private Direction? SlimeDir(Monster mo, Miner? target)
     {
+        var noise = NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius);
+        if (noise is { } n) return TowardDir(mo.Pos, n.Pos);
         if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius)
             return TowardDir(mo.Pos, target.Pos);
         return Card[_rng.Next(Card.Length)];
@@ -400,8 +450,11 @@ public sealed class Simulation
 
     private Direction? GhostDir(Monster mo, Miner? target)
     {
-        if (target is not { Alive: true }) return null;
-        var d = TowardDir(mo.Pos, target.Pos);
+        var noise = NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius);
+        if (noise == null && target is not { Alive: true }) return null;
+        var dest = noise is { } n ? n.Pos
+            : target!.Pos;
+        var d = TowardDir(mo.Pos, dest);
         var next = mo.Pos + d.ToOffset();
         if (InLanternLight(next)) return null;   // halt at AOE boundary rather than entering
         return d;
@@ -409,6 +462,10 @@ public sealed class Simulation
 
     private Direction? GoatDir(Monster mo, Miner? target)
     {
+        var noise = NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius);
+        if (noise is { } n)
+            mo.ChargeDir = TowardDir(mo.Pos, n.Pos);
+
         var ahead = mo.Pos + mo.ChargeDir.ToOffset();
         if (CanMonsterEnter(mo, ahead)) return mo.ChargeDir;
 
@@ -531,6 +588,7 @@ public sealed class Simulation
         AdvanceEffects(dt);
         AdvanceInvulnerability(dt);
         AdvanceMolds(dt);
+        AdvanceNoiseSources(dt);
         AdvanceCooldowns(dt);
         AdvanceCracks(dt);
         AdvanceLava(dt);
