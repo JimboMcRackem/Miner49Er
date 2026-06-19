@@ -33,7 +33,10 @@ public partial class Main : Node2D
 
 		int seed = nm.MatchSeed;
 		int playerCount = nm.MatchPlayerCount;
-		var map = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale));
+		var f1Modifier = nm.MatchMode == GameMode.Expedition ? FloorModifiers.Pick(seed, 1) : FloorModifier.None;
+		var clientMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale);
+		FloorModifiers.Apply(f1Modifier, clientMapCfg, new SimConfig());
+		var map = MapGenerator.Generate(clientMapCfg);
 
 		int localMinerId = nm.LocalMinerId();
 
@@ -52,11 +55,14 @@ public partial class Main : Node2D
 
 		if (nm.IsHost)
 		{
-			var hostMap = MapGenerator.Generate(MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale));
+			var hostMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale);
+			var f1SimCfg = new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds, Seed = seed };
+			FloorModifiers.Apply(f1Modifier, hostMapCfg, f1SimCfg);
+			var hostMap = MapGenerator.Generate(hostMapCfg);
 			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.EscapeTile : null;
 			var sim = new Simulation(
 				hostMap.Grid,
-				new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds, Seed = seed },
+				f1SimCfg,
 				hostMap.Center,
 				nm.MatchTimeLimitSeconds > 0 ? nm.MatchTimeLimitSeconds : (double?)null,
 				nm.MatchFlooding,
@@ -173,20 +179,22 @@ public partial class Main : Node2D
 					{
 						var nm2 = NetworkManager.Instance;
 						string hearts = new string('♥', Math.Max(0, _client.Lives));
+						var hudMod = FloorModifiers.Pick(nm2.MatchSeed, nm2.MatchFloor);
+						string modTag = hudMod != FloorModifier.None ? $"  [{FloorModifiers.DisplayName(hudMod)}]" : "";
 						if (nm2.MatchFloor == 21)
 						{
 							objective = $"{hearts}  BOSS FLOOR  Reach the chest!";
 						}
 						else if (_client.EscapeOpen)
 						{
-							objective = $"{hearts}  Floor {nm2.MatchFloor}/20  Gold ✓ — ESCAPE!";
+							objective = $"{hearts}  Floor {nm2.MatchFloor}/20  Gold ✓ — ESCAPE!{modTag}";
 						}
 						else
 						{
 							int pct = _client.StartingGoldCount > 0
 								? (int)(100.0 * (_client.StartingGoldCount - _client.GoldRemaining) / _client.StartingGoldCount)
 								: 0;
-							objective = $"{hearts}  Floor {nm2.MatchFloor}/20  Gold: {pct}% (need 50%)";
+							objective = $"{hearts}  Floor {nm2.MatchFloor}/20  Gold: {pct}%{modTag}";
 						}
 					}
 					else
@@ -219,10 +227,14 @@ public partial class Main : Node2D
 	{
 		_client.ResetFloor(floor);
 
+		var bannerMod = FloorModifiers.Pick(NetworkManager.Instance.MatchSeed, floor);
+		string bannerText = floor == 21 ? "BOSS FLOOR"
+			: bannerMod != FloorModifier.None ? $"FLOOR {floor}: {FloorModifiers.DisplayName(bannerMod)}"
+			: $"FLOOR {floor}";
 		_floorBanner?.QueueFree();
 		_floorBanner = new Label
 		{
-			Text = floor == 21 ? "BOSS FLOOR" : $"FLOOR {floor}",
+			Text = bannerText,
 			HorizontalAlignment = HorizontalAlignment.Center,
 			AnchorLeft = 0f, AnchorRight = 1f,
 			AnchorTop = 0.45f, AnchorBottom = 0.45f,

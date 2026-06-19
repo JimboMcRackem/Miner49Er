@@ -134,9 +134,17 @@ public partial class MatchClient : Node2D
 		var nm = NetworkManager.Instance;
 		int floorSeed = nm.MatchSeed + floor * 1000;
 
-		GeneratedMap newMap = (floor == 21)
-			? MapGenerator.GenerateBossFloor(floorSeed)
-			: MapGenerator.Generate(MapConfig.FloorConfig(floor, floorSeed));
+		GeneratedMap newMap;
+		if (floor == 21)
+		{
+			newMap = MapGenerator.GenerateBossFloor(floorSeed);
+		}
+		else
+		{
+			var mapCfg = MapConfig.FloorConfig(floor, floorSeed);
+			FloorModifiers.Apply(FloorModifiers.Pick(nm.MatchSeed, floor), mapCfg, new SimConfig());
+			newMap = MapGenerator.Generate(mapCfg);
+		}
 		EscapeTile = newMap.EscapeTile;
 
 		Grid              = newMap.Grid;
