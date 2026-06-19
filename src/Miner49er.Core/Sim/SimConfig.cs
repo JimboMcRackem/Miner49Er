@@ -51,4 +51,6 @@ public sealed class SimConfig
     public int    MaxPermBlastLevel  { get; set; } = 3;
 
     public bool RequireChestForEscape { get; set; } = false;
+
+    public float MonsterCountMultiplier { get; set; } = 1.0f;
 }
