@@ -193,6 +193,18 @@ public sealed class Simulation
         m.PermBlastLevel  = Math.Clamp(blast,  0, Config.MaxPermBlastLevel);
     }
 
+    public void AddStones(int minerId, int count)
+    {
+        if (!_miners.TryGetValue(minerId, out var m)) return;
+        m.StoneCount = Math.Min(9, m.StoneCount + count);
+    }
+
+    public void DeductGold(int minerId, int amount)
+    {
+        if (!_miners.TryGetValue(minerId, out var m)) return;
+        m.GoldCollected = Math.Max(0, m.GoldCollected - amount);
+    }
+
     private void AdvanceMolds(double dt)
     {
         for (int i = _molds.Count - 1; i >= 0; i--)

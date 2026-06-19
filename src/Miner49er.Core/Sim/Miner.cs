@@ -28,6 +28,8 @@ public sealed class Miner
     public int PermVisionLevel { get; internal set; }
     public int PermBlastLevel  { get; internal set; }
 
+    public int StoneCount { get; internal set; }
+
     public double InvulnerableRemaining { get; internal set; }
 
     internal Miner(int id, GridPos pos) { Id = id; Pos = pos; }
