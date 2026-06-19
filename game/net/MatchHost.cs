@@ -185,20 +185,30 @@ public partial class MatchHost : Node
 			return;
 		}
 
+		var modifier = FloorModifiers.Pick(nm.MatchSeed, newFloor);
+
+		var simCfg = new SimConfig
+		{
+			BaseMoveSeconds       = nm.MatchBaseMoveSeconds,
+			Seed                  = floorSeed,
+			RequireChestForEscape = newFloor == 21,
+		};
+
 		GeneratedMap newMap;
 		if (newFloor == 21)
+		{
 			newMap = MapGenerator.GenerateBossFloor(floorSeed);
+		}
 		else
-			newMap = MapGenerator.Generate(MapConfig.FloorConfig(newFloor, floorSeed));
+		{
+			var mapCfg = MapConfig.FloorConfig(newFloor, floorSeed);
+			FloorModifiers.Apply(modifier, mapCfg, simCfg);
+			newMap = MapGenerator.Generate(mapCfg);
+		}
 
 		var newSim = new Simulation(
 			newMap.Grid,
-			new SimConfig
-			{
-				BaseMoveSeconds       = nm.MatchBaseMoveSeconds,
-				Seed                  = floorSeed,
-				RequireChestForEscape = newFloor == 21,
-			},
+			simCfg,
 			newMap.Center,
 			timeLimitSeconds: null,
 			flooding: false,
@@ -226,7 +236,8 @@ public partial class MatchHost : Node
 		}
 		else
 		{
-			int monsterCount = MonsterRoster.CountFor(newMap.Grid.Width, newMap.Grid.Height, newFloor);
+			int monsterCount = (int)(MonsterRoster.CountFor(newMap.Grid.Width, newMap.Grid.Height, newFloor)
+			                         * simCfg.MonsterCountMultiplier);
 			var roster = MonsterSpawner.Place(newMap.Grid, spawn, monsterCount);
 			for (int i = 0; i < roster.Count; i++)
 				newSim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
