@@ -12,6 +12,7 @@ public partial class WorldRenderer : Node2D
 	private MatchClient _client = null!;
 	private readonly List<(GridPos pos, float life)> _flashes = new();
 
+	private static readonly Color CrackColor     = new Color(0.15f, 0.08f, 0.0f, 0.70f);
 	private static readonly Color LavaVentColor  = new("ff7a2a");
 	private static readonly Color ChargeColor    = new("ff5530");
 	private static readonly Color FlashColor     = new("ffd27f");
@@ -109,6 +110,28 @@ public partial class WorldRenderer : Node2D
 				case TileType.DeepWater:
 					DrawRect(r, deepOverlay);
 					break;
+				case TileType.Cracked:
+				{
+					// Single hairline crack: two segments with a jog at the midpoint
+					float x0 = p.X * ts, y0 = p.Y * ts;
+					var ca = new Vector2(x0 + ts * 0.45f, y0 + ts * 0.10f);
+					var cb = new Vector2(x0 + ts * 0.52f, y0 + ts * 0.52f);
+					var cc = new Vector2(x0 + ts * 0.60f, y0 + ts * 0.90f);
+					DrawLine(ca, cb, CrackColor, 1.5f);
+					DrawLine(cb, cc, CrackColor, 1.5f);
+					break;
+				}
+				case TileType.Crumbling:
+				{
+					// X crack: two diagonals meeting at a shifted centre for a jagged feel
+					float x0 = p.X * ts, y0 = p.Y * ts;
+					var cen = new Vector2(x0 + ts * 0.52f, y0 + ts * 0.48f);
+					DrawLine(new Vector2(x0 + ts * 0.10f, y0 + ts * 0.10f), cen, CrackColor, 1.5f);
+					DrawLine(cen, new Vector2(x0 + ts * 0.90f, y0 + ts * 0.90f), CrackColor, 1.5f);
+					DrawLine(new Vector2(x0 + ts * 0.90f, y0 + ts * 0.10f), cen, CrackColor, 1.5f);
+					DrawLine(cen, new Vector2(x0 + ts * 0.10f, y0 + ts * 0.90f), CrackColor, 1.5f);
+					break;
+				}
 			}
 		}
 
