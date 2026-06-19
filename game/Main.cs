@@ -43,7 +43,7 @@ public partial class Main : Node2D
 		GridPos? clientEscape = nm.MatchMode == GameMode.Expedition ? map.EscapeTile : null;
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
-		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape);
+		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos);
 
 		_audio = new MatchAudio { Name = "MatchAudio" };
 		AddChild(_audio);
