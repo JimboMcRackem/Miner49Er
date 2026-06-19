@@ -22,19 +22,20 @@ public static class InputBindings
 	public const string Mute = "mute";          // master mute (Phase 3)
 	public const string Exit = "exit";          // context back-out / quit (Phase 4)
 	public const string Settings = "settings";  // open the audio settings panel
+	public const string Throw    = "throw_stone";
 
 	// Everything except Exit is user-rebindable. AllActions also carries Exit so
 	// its ESC code occupies a slot in the BindingSet (so nothing can steal ESC).
 	public static readonly string[] RebindableActions =
 	{
 		MoveUp, MoveDown, MoveLeft, MoveRight,
-		Pickaxe, Plant, Listen, UseItem, Restart, Mute, Settings,
+		Pickaxe, Plant, Listen, UseItem, Restart, Mute, Settings, Throw,
 	};
 
 	private static readonly string[] AllActions =
 	{
 		MoveUp, MoveDown, MoveLeft, MoveRight,
-		Pickaxe, Plant, Listen, UseItem, Restart, Mute, Settings, Exit,
+		Pickaxe, Plant, Listen, UseItem, Restart, Mute, Settings, Exit, Throw,
 	};
 
 	public static void EnsureDefaults()
@@ -51,6 +52,7 @@ public static class InputBindings
 		Bind(Mute, Key.M, JoyButton.Back);
 		Bind(Exit, Key.Escape);
 		Bind(Settings, Key.O);
+		Bind(Throw, Key.T, JoyButton.LeftShoulder);
 
 		// Overlay any saved user rebindings onto the freshly-registered defaults.
 		// Idempotent: re-applying the same set is a harmless InputMap rewrite.

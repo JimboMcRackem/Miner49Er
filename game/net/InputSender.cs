@@ -23,10 +23,12 @@ public partial class InputSender : Node
 		int dir = ReadDir();
 		NetworkManager.Instance.SendDir(dir);
 
-		bool mine = Input.IsActionJustPressed(InputBindings.Pickaxe);
+		bool mine  = Input.IsActionJustPressed(InputBindings.Pickaxe);
 		bool plant = Input.IsActionJustPressed(InputBindings.Plant);
-		bool use = Input.IsActionJustPressed(InputBindings.UseItem);
-		if (mine || plant || use) NetworkManager.Instance.SendAction(mine, plant, use);
+		bool use   = Input.IsActionJustPressed(InputBindings.UseItem);
+		bool throwStone = Input.IsActionJustPressed(InputBindings.Throw);
+		if (mine || plant || use || throwStone)
+			NetworkManager.Instance.SendAction(mine, plant, use, throwStone);
 	}
 
 	private static int ReadDir()

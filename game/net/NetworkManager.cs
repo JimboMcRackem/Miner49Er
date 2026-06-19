@@ -306,18 +306,28 @@ public partial class NetworkManager : Node
 		RpcId(1, nameof(ReceiveDir), dir);
 	}
 
-	public void SendAction(bool mine, bool plant, bool use)
+	public void SendAction(bool mine, bool plant, bool use, bool throwStone = false)
 	{
-		if (IsHost) { _matchHost?.SetAction(LocalId, mine, plant, use); return; }
-		RpcId(1, nameof(ReceiveAction), mine, plant, use);
+		if (IsHost) { _matchHost?.SetAction(LocalId, mine, plant, use, throwStone); return; }
+		RpcId(1, nameof(ReceiveAction), mine, plant, use, throwStone);
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Unreliable)]
 	public void ReceiveDir(int dir) => _matchHost?.SetDir(Multiplayer.GetRemoteSenderId(), dir);
 
 	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
-	public void ReceiveAction(bool mine, bool plant, bool use) =>
-		_matchHost?.SetAction(Multiplayer.GetRemoteSenderId(), mine, plant, use);
+	public void ReceiveAction(bool mine, bool plant, bool use, bool throwStone) =>
+		_matchHost?.SetAction(Multiplayer.GetRemoteSenderId(), mine, plant, use, throwStone);
+
+	public void BuyShopItem(ShopItemKind kind)
+	{
+		if (IsHost) { _matchHost?.ReceiveBuy(LocalId, kind); return; }
+		RpcId(1, nameof(ReceiveBuy), (int)kind);
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+	public void ReceiveBuy(int kind) =>
+		_matchHost?.ReceiveBuy(Multiplayer.GetRemoteSenderId(), (ShopItemKind)kind);
 
 	// Tick + result broadcast ------------------------------------------------
 	public void BroadcastTick(byte[] bytes)

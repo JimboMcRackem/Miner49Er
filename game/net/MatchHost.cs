@@ -20,6 +20,7 @@ public partial class MatchHost : Node
 	private readonly HashSet<int> _pendingMine  = new();
 	private readonly HashSet<int> _pendingPlant = new();
 	private readonly HashSet<int> _pendingUse   = new();
+	private readonly HashSet<int> _pendingThrow = new();
 
 	private int _tick;
 	private double _accum;
@@ -49,17 +50,54 @@ public partial class MatchHost : Node
 		if (_peerToMiner.TryGetValue(peerId, out int minerId)) _pendingDir[minerId] = dir;
 	}
 
-	public void SetAction(long peerId, bool mine, bool plant, bool use)
+	public void SetAction(long peerId, bool mine, bool plant, bool use, bool throwStone = false)
 	{
 		if (!_peerToMiner.TryGetValue(peerId, out int minerId)) return;
-		if (mine)  _pendingMine.Add(minerId);
-		if (plant) _pendingPlant.Add(minerId);
-		if (use)   _pendingUse.Add(minerId);
+		if (mine)        _pendingMine.Add(minerId);
+		if (plant)       _pendingPlant.Add(minerId);
+		if (use)         _pendingUse.Add(minerId);
+		if (throwStone)  _pendingThrow.Add(minerId);
 	}
 
 	public void EliminatePeer(long peerId)
 	{
 		if (_peerToMiner.TryGetValue(peerId, out int minerId)) _sim.KillMiner(minerId);
+	}
+
+	public void ReceiveBuy(long peerId, ShopItemKind kind)
+	{
+		if (!_peerToMiner.TryGetValue(peerId, out int minerId)) return;
+		var miner = _sim.Miners.FirstOrDefault(m => m.Id == minerId);
+		if (miner == null || !miner.Alive) return;
+
+		int price = ShopPrices.Price(kind);
+		if (miner.GoldCollected < price) return;
+
+		switch (kind)
+		{
+			case ShopItemKind.SpeedUp:
+				if (miner.PermSpeedLevel >= _sim.Config.MaxPermSpeedLevel) return;
+				_sim.SetPermLevels(minerId, miner.PermSpeedLevel + 1, miner.PermVisionLevel, miner.PermBlastLevel);
+				break;
+			case ShopItemKind.VisionUp:
+				if (miner.PermVisionLevel >= _sim.Config.MaxPermVisionLevel) return;
+				_sim.SetPermLevels(minerId, miner.PermSpeedLevel, miner.PermVisionLevel + 1, miner.PermBlastLevel);
+				break;
+			case ShopItemKind.BlastUp:
+				if (miner.PermBlastLevel >= _sim.Config.MaxPermBlastLevel) return;
+				_sim.SetPermLevels(minerId, miner.PermSpeedLevel, miner.PermVisionLevel, miner.PermBlastLevel + 1);
+				break;
+			case ShopItemKind.LifePotion:
+				if (_livesRemaining >= _livesMax) return;
+				_livesRemaining = Math.Min(_livesRemaining + 1, _livesMax);
+				break;
+			case ShopItemKind.Stones3:
+				if (miner.StoneCount >= 9) return;
+				_sim.AddStones(minerId, 3);
+				break;
+			default: return;
+		}
+		_sim.DeductGold(minerId, price);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -83,6 +121,8 @@ public partial class MatchHost : Node
 		_pendingPlant.Clear();
 		foreach (var minerId in _pendingUse)   _sim.TryUseItem(minerId);
 		_pendingUse.Clear();
+		foreach (var minerId in _pendingThrow) _sim.TryThrowStone(minerId);
+		_pendingThrow.Clear();
 
 		_sim.Tick(TickSeconds);
 		_tick++;
@@ -250,6 +290,7 @@ public partial class MatchHost : Node
 		_pendingMine.Clear();
 		_pendingPlant.Clear();
 		_pendingUse.Clear();
+		_pendingThrow.Clear();
 
 		nm.BroadcastNewFloor(newFloor);
 	}
