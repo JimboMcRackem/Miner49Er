@@ -8,4 +8,5 @@ public sealed class GeneratedMap
     public required IReadOnlyList<Item> Items { get; init; }
     public required IReadOnlyList<GridPos> Decoys { get; init; }
     public GridPos? EscapeTile { get; init; }
+    public GridPos? ShopPos { get; init; }
 }

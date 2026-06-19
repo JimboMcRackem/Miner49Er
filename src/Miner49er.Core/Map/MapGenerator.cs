@@ -37,11 +37,38 @@ public static class MapGenerator
                         region, spawns, center, items);
         if (config.Lava)
             PlaceLavaVents(grid, rng, config.LavaVentCount + (config.PlayerCount - 1), region, items, decoys);
+        GridPos? shopPos = config.HasShop
+            ? PlaceShopkeeper(grid, spawns, spawns.Count > 0 ? spawns[0] : (GridPos?)null)
+            : null;
         return new GeneratedMap
         {
             Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys,
             EscapeTile = spawns.Count > 0 ? spawns[0] : null,
+            ShopPos = shopPos,
         };
+    }
+
+    private static GridPos? PlaceShopkeeper(TileGrid grid, IReadOnlyList<GridPos> spawns, GridPos? escapeTile)
+    {
+        if (spawns.Count == 0) return null;
+        var origin = spawns[0];
+        var queue = new Queue<GridPos>();
+        var seen  = new HashSet<GridPos> { origin };
+        queue.Enqueue(origin);
+        while (queue.Count > 0)
+        {
+            var p = queue.Dequeue();
+            foreach (var d in Card)
+            {
+                var n = p + d.ToOffset();
+                if (!grid.InBounds(n) || !seen.Add(n)) continue;
+                if (grid.Get(n) != TileType.Floor) continue;
+                if (n == origin || n == escapeTile) { queue.Enqueue(n); continue; }
+                return n;
+            }
+            if (seen.Count > 50) break;
+        }
+        return null;
     }
 
     private static bool IsBorder(TileGrid g, GridPos p) =>
