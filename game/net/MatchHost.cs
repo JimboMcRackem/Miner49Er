@@ -40,7 +40,7 @@ public partial class MatchHost : Node
 			_pendingDir[miner] = -1;
 		}
 		var nm       = NetworkManager.Instance;
-		_livesMax       = (nm.MatchMode == GameMode.Expedition && nm.MatchPlayerCount == 1) ? 3 : 1;
+		_livesMax       = nm.MatchMode == GameMode.Expedition ? 2 * nm.MatchPlayerCount : 1;
 		_livesRemaining = _livesMax;
 		_running = true;
 	}
@@ -185,8 +185,7 @@ public partial class MatchHost : Node
 				_livesRemaining--;
 				if (_livesRemaining > 0)
 				{
-					int soloMiner = _peerToMiner.Values.First();
-					AdvanceFloor(soloMiner, sameFloor: true);
+					AdvanceFloor(_peerToMiner.Values.First(), sameFloor: true);
 					return;
 				}
 			}
@@ -241,7 +240,7 @@ public partial class MatchHost : Node
 		}
 		else
 		{
-			var mapCfg = MapConfig.FloorConfig(newFloor, floorSeed);
+			var mapCfg = MapConfig.FloorConfig(newFloor, floorSeed, nm.MatchPlayerCount);
 			FloorModifiers.Apply(modifier, mapCfg, simCfg);
 			newMap = MapGenerator.Generate(mapCfg);
 		}
@@ -257,18 +256,22 @@ public partial class MatchHost : Node
 		foreach (var item in newMap.Items)
 			newSim.AddItem(item);
 
-		GridPos spawn = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : newMap.Center;
-		// Nudge one East of the escape ladder so the player isn't standing on the exit
-		if (newMap.EscapeTile is GridPos escapePos && spawn == escapePos)
+		// Spawn every peer; miner IDs are 1-based so spawn index = minerId - 1.
+		GridPos monsterRef = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : newMap.Center;
+		foreach (var mid in _peerToMiner.Values)
 		{
-			var east = new GridPos(spawn.X + 1, spawn.Y);
-			if (east.X < newMap.Grid.Width && newMap.Grid.Get(east) == TileType.Floor)
-				spawn = east;
+			int idx = mid - 1;
+			GridPos sp = idx < newMap.Spawns.Count ? newMap.Spawns[idx] : newMap.Spawns[0];
+			if (newMap.EscapeTile is GridPos escapePos && sp == escapePos)
+			{
+				var east = new GridPos(sp.X + 1, sp.Y);
+				if (east.X < newMap.Grid.Width && newMap.Grid.Get(east) == TileType.Floor)
+					sp = east;
+			}
+			newSim.AddMiner(mid, sp, invulRemaining: 3.0);
+			if (_permLevels.TryGetValue(mid, out var lvl))
+				newSim.SetPermLevels(mid, lvl.Speed, lvl.Vision, lvl.Blast);
 		}
-		newSim.AddMiner(minerId, spawn, invulRemaining: 3.0);
-
-		if (_permLevels.TryGetValue(minerId, out var levels))
-			newSim.SetPermLevels(minerId, levels.Speed, levels.Vision, levels.Blast);
 
 		if (newFloor == 21)
 		{
@@ -278,7 +281,7 @@ public partial class MatchHost : Node
 		{
 			int monsterCount = (int)(MonsterRoster.CountFor(newMap.Grid.Width, newMap.Grid.Height, newFloor)
 			                         * simCfg.MonsterCountMultiplier);
-			var roster = MonsterSpawner.Place(newMap.Grid, spawn, monsterCount);
+			var roster = MonsterSpawner.Place(newMap.Grid, monsterRef, monsterCount);
 			for (int i = 0; i < roster.Count; i++)
 				newSim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
 		}
