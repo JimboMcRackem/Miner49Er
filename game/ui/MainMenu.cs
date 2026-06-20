@@ -276,9 +276,9 @@ public partial class MainMenu : Control
 			_soloCaveIn.ButtonPressed, _soloLava.ButtonPressed);
 		var err = NetworkManager.Instance.HostGame(_soloName.Text, _soloColor.Selected, overInternet: false);
 		if (err != Error.Ok) return;
-		NetworkManager.Instance.MatchMapScale = (int)_sizeSlider.Value;
 		NetworkManager.Instance.StartMatch(GameMode.Expedition, 0,
-			_soloFlood.ButtonPressed, _soloPits.ButtonPressed, _soloCaveIn.ButtonPressed, _soloLava.ButtonPressed, 0.12f);
+			_soloFlood.ButtonPressed, _soloPits.ButtonPressed, _soloCaveIn.ButtonPressed, _soloLava.ButtonPressed, 0.12f,
+			(int)_sizeSlider.Value);
 	}
 
 	private void OnMatchStarting() => GetTree().ChangeSceneToFile("res://game/Main.tscn");

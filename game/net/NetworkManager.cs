@@ -56,7 +56,7 @@ public partial class NetworkManager : Node
 	{
 		ResetPeer(); // free the port if a prior session's peer is still bound (e.g. replaying solo)
 		var peer = new ENetMultiplayerPeer();
-		var err = peer.CreateServer(port, 8);
+		var err = peer.CreateServer(port, 7); // 7 clients + 1 host = 8 total
 		if (err != Error.Ok) return err;
 		Multiplayer.MultiplayerPeer = peer;
 		IsHost = true;
@@ -266,18 +266,18 @@ public partial class NetworkManager : Node
 		_matchClient = client;
 	}
 
-	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds)
+	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1)
 	{
 		if (!IsHost) return;
 		if (flooding && timeLimitSeconds <= 0) timeLimitSeconds = 60; // a flooded match needs a clock
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
 		int seed = System.Random.Shared.Next();
-		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, order);
-		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, order); // host applies locally too
+		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, order);
+		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, order); // host applies locally too
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority)]
-	public void BeginMatch(int seed, int playerCount, int mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, long[] peerOrder)
+	public void BeginMatch(int seed, int playerCount, int mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale, long[] peerOrder)
 	{
 		MatchSeed = seed;
 		MatchPlayerCount = playerCount;
@@ -288,6 +288,7 @@ public partial class NetworkManager : Node
 		MatchCaveIns = caveIns;
 		MatchLava = lava;
 		MatchBaseMoveSeconds = baseMoveSeconds;
+		MatchMapScale = mapScale;
 		PeerOrder = peerOrder;
 		MatchStarting?.Invoke();
 	}
