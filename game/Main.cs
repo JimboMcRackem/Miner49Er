@@ -180,34 +180,33 @@ public partial class Main : Node2D
 						_ => "",
 					};
 					string stonesStr = m.StoneCount > 0 ? $"    Stones: {m.StoneCount}" : "";
-					string objective;
 					if (NetworkManager.Instance.MatchMode == GameMode.Expedition)
 					{
 						var nm2 = NetworkManager.Instance;
-						string hearts = new string('♥', Math.Max(0, _client.Lives));
 						var hudMod = FloorModifiers.Pick(nm2.MatchSeed, nm2.MatchFloor);
 						string modTag = hudMod != FloorModifier.None ? $"  [{FloorModifiers.DisplayName(hudMod)}]" : "";
+						string objective;
 						if (nm2.MatchFloor == 21)
 						{
-							objective = $"{hearts}  BOSS FLOOR  Reach the chest!";
+							objective = "BOSS FLOOR  Reach the chest!";
 						}
 						else if (_client.EscapeOpen)
 						{
-							objective = $"{hearts}  Floor {nm2.MatchFloor}/20  Gold ✓ — ESCAPE!{modTag}";
+							objective = $"Floor {nm2.MatchFloor}/20  Gold ✓ — ESCAPE!{modTag}";
 						}
 						else
 						{
 							int pct = _client.StartingGoldCount > 0
 								? (int)(100.0 * (_client.StartingGoldCount - _client.GoldRemaining) / _client.StartingGoldCount)
 								: 0;
-							objective = $"{hearts}  Floor {nm2.MatchFloor}/20  Gold: {pct}%{modTag}";
+							objective = $"Floor {nm2.MatchFloor}/20  Gold: {pct}%{modTag}";
 						}
+						_hud.SetHud(Math.Max(0, _client.Lives), $"  {objective}    {status}{timeStr}{heldStr}{stonesStr}");
 					}
 					else
 					{
-						objective = $"Gold: {m.Gold}";
+						_hud.SetText($"Gold: {m.Gold}    {status}{timeStr}{heldStr}{stonesStr}");
 					}
-					_hud.SetText($"{objective}    {status}{timeStr}{heldStr}{stonesStr}");
 
 					// Shop proximity — Expedition only
 					if (localAlive && NetworkManager.Instance.MatchMode == GameMode.Expedition)

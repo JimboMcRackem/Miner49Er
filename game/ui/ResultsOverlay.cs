@@ -33,7 +33,7 @@ public partial class ResultsOverlay : CanvasLayer
 	}
 
 	public void Show(string text, bool hostControls, string buttonText = "Return to Lobby",
-	                 string scoreText = "")
+					 string scoreText = "")
 	{
 		_label.Text      = text;
 		_scoreLabel.Text = scoreText;

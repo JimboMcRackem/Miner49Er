@@ -39,8 +39,8 @@ public sealed class UpnpService
 				int add = upnp.AddPortMapping(port, port, "Miner49er", "UDP", 0);
 				string ext = upnp.QueryExternalAddress();
 				bool ok = add == (int)Upnp.UpnpResult.Success
-				          && IPAddress.TryParse(ext, out var parsed)
-				          && parsed.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork;
+						  && IPAddress.TryParse(ext, out var parsed)
+						  && parsed.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork;
 				if (ok) { _upnp = upnp; _mapped = true; }
 				onComplete(ok, ok ? ext : "");
 			}
