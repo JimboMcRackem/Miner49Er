@@ -14,6 +14,8 @@ public partial class SettingsPanel : CanvasLayer
 	private HSlider _music = null!;
 	private HSlider _sfx = null!;
 	private CheckBox _musicOn = null!;
+	private CheckBox _fullscreen = null!;
+	private CheckBox _vsync = null!;
 
 	private BindingSet _bindings = null!;
 	private string? _capturingAction;          // null = not capturing
@@ -35,6 +37,7 @@ public partial class SettingsPanel : CanvasLayer
 		[InputBindings.Restart] = "Restart",
 		[InputBindings.Mute] = "Mute",
 		[InputBindings.Settings] = "Settings",
+		[InputBindings.Throw] = "Throw Stone",
 	};
 
 	public bool IsOpen => Visible;
@@ -75,15 +78,22 @@ public partial class SettingsPanel : CanvasLayer
 		controlsTab.Name = "Controls";
 		tabs.AddChild(controlsTab);
 
+		var displayTab = BuildDisplayTab();
+		displayTab.Name = "Display";
+		tabs.AddChild(displayTab);
+
 		var close = new Button { Text = "Close" };
 		close.Pressed += Close;
 		outer.AddChild(close);
 
 		SyncFromManager();
+		SyncDisplayFromSystem();
 
 		_music.ValueChanged += v => AudioManager.Instance.SetMusicVolume((float)v);
 		_sfx.ValueChanged += v => AudioManager.Instance.SetSfxVolume((float)v);
 		_musicOn.Toggled += on => AudioManager.Instance.SetMusicEnabled(on);
+		_fullscreen.Toggled += on => ApplyDisplayAndSave(on, _vsync.ButtonPressed);
+		_vsync.Toggled += on => ApplyDisplayAndSave(_fullscreen.ButtonPressed, on);
 
 		Visible = false;
 	}
@@ -207,6 +217,40 @@ public partial class SettingsPanel : CanvasLayer
 		_padLabels[action].Text = PadName(_bindings.Get(action, BindDevice.Gamepad));
 	}
 
+	private Control BuildDisplayTab()
+	{
+		var box = new VBoxContainer { CustomMinimumSize = new Vector2(440, 0) };
+		box.AddThemeConstantOverride("separation", 14);
+
+		_fullscreen = new CheckBox { Text = "Fullscreen" };
+		box.AddChild(_fullscreen);
+
+		_vsync = new CheckBox { Text = "VSync" };
+		box.AddChild(_vsync);
+
+		return box;
+	}
+
+	private void SyncDisplayFromSystem()
+	{
+		bool fs = DisplayServer.WindowGetMode() is
+			DisplayServer.WindowMode.Fullscreen or DisplayServer.WindowMode.ExclusiveFullscreen;
+		bool vs = DisplayServer.WindowGetVsyncMode() != DisplayServer.VSyncMode.Disabled;
+		_fullscreen.SetBlockSignals(true); _fullscreen.ButtonPressed = fs; _fullscreen.SetBlockSignals(false);
+		_vsync.SetBlockSignals(true); _vsync.ButtonPressed = vs; _vsync.SetBlockSignals(false);
+	}
+
+	private static void ApplyDisplayAndSave(bool fullscreen, bool vsync)
+	{
+		DisplayServer.WindowSetMode(fullscreen
+			? DisplayServer.WindowMode.Fullscreen
+			: DisplayServer.WindowMode.Windowed);
+		DisplayServer.WindowSetVsyncMode(vsync
+			? DisplayServer.VSyncMode.Enabled
+			: DisplayServer.VSyncMode.Disabled);
+		SettingsStore.SaveDisplay(fullscreen, vsync);
+	}
+
 	// Push current AudioManager values into the controls without firing their
 	// change signals (avoids a redundant save when (re)opening).
 	private void SyncFromManager()
@@ -217,7 +261,7 @@ public partial class SettingsPanel : CanvasLayer
 		_musicOn.SetBlockSignals(true); _musicOn.ButtonPressed = am.MusicEnabled; _musicOn.SetBlockSignals(false);
 	}
 
-	public void Open() { SyncFromManager(); Visible = true; }
+	public void Open() { SyncFromManager(); SyncDisplayFromSystem(); Visible = true; }
 	public void Close() => Visible = false;
 	public void Toggle() { if (Visible) Close(); else Open(); }
 }

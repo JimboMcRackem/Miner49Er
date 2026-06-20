@@ -57,4 +57,25 @@ public static class SettingsStore
 			cfg.SetValue(InputSection, kv.Key, kv.Value);
 		cfg.Save(Path);
 	}
+
+	private const string DisplaySection = "display";
+
+	public static (bool fullscreen, bool vsync) LoadDisplay()
+	{
+		var cfg = new ConfigFile();
+		if (cfg.Load(Path) != Error.Ok)
+			return (false, true);
+		bool fs = (bool)cfg.GetValue(DisplaySection, "fullscreen", false);
+		bool vs = (bool)cfg.GetValue(DisplaySection, "vsync", true);
+		return (fs, vs);
+	}
+
+	public static void SaveDisplay(bool fullscreen, bool vsync)
+	{
+		var cfg = new ConfigFile();
+		cfg.Load(Path);
+		cfg.SetValue(DisplaySection, "fullscreen", fullscreen);
+		cfg.SetValue(DisplaySection, "vsync", vsync);
+		cfg.Save(Path);
+	}
 }
