@@ -41,7 +41,10 @@ public partial class MainMenu : Control
 		title.AddThemeFontSizeOverride("font_size", 48);
 		box.AddChild(title);
 
-		_name = new LineEdit { Text = "Miner", PlaceholderText = "Name", CustomMinimumSize = new Vector2(240, 0) };
+		var (savedName, savedColor, savedAddress, savedInternet) = SettingsStore.LoadPlayer();
+		var (savedScale, savedFlood, savedPits, savedCaveIn, savedLava) = SettingsStore.LoadSolo();
+
+		_name = new LineEdit { Text = savedName, PlaceholderText = "Name", CustomMinimumSize = new Vector2(240, 0) };
 		box.AddChild(_name);
 
 		_color = new OptionButton { CustomMinimumSize = new Vector2(180, 0) };
@@ -53,30 +56,31 @@ public partial class MainMenu : Control
 			else
 				_color.AddItem(PlayerColors.Names[i], i);
 		}
+		_color.Select(savedColor);
 		box.AddChild(_color);
 
-		_address = new LineEdit { Text = "127.0.0.1", PlaceholderText = "Code or Host IP" };
+		_address = new LineEdit { Text = savedAddress, PlaceholderText = "Code or Host IP" };
 		box.AddChild(_address);
 
-		_internet = new CheckBox { Text = "Host over internet (UPnP)", ButtonPressed = true };
+		_internet = new CheckBox { Text = "Host over internet (UPnP)", ButtonPressed = savedInternet };
 		box.AddChild(_internet);
 
 		box.AddChild(new HSeparator());
 
 		var sizeRow = new HBoxContainer();
 		sizeRow.AddChild(new Label { Text = "Map:" });
-		_sizeSlider = new HSlider { MinValue = 1, MaxValue = 4, Step = 1, Value = 1,
+		_sizeSlider = new HSlider { MinValue = 1, MaxValue = 4, Step = 1, Value = savedScale,
 			CustomMinimumSize = new Vector2(120, 0), TickCount = 4, TicksOnBorders = true };
-		var sizeName = new Label { Text = "Small" };
+		var sizeName = new Label { Text = savedScale switch { 1 => "Small", 2 => "Medium", 3 => "Large", _ => "Huge" } };
 		_sizeSlider.ValueChanged += v => sizeName.Text = v switch { 1 => "Small", 2 => "Medium", 3 => "Large", _ => "Huge" };
 		sizeRow.AddChild(_sizeSlider);
 		sizeRow.AddChild(sizeName);
 		box.AddChild(sizeRow);
 
-		_soloFlood  = new CheckBox { Text = "Flooding" };
-		_soloPits   = new CheckBox { Text = "Pits" };
-		_soloCaveIn = new CheckBox { Text = "Cave-ins" };
-		_soloLava   = new CheckBox { Text = "Lava" };
+		_soloFlood  = new CheckBox { Text = "Flooding",  ButtonPressed = savedFlood };
+		_soloPits   = new CheckBox { Text = "Pits",      ButtonPressed = savedPits };
+		_soloCaveIn = new CheckBox { Text = "Cave-ins",  ButtonPressed = savedCaveIn };
+		_soloLava   = new CheckBox { Text = "Lava",      ButtonPressed = savedLava };
 		box.AddChild(_soloFlood);
 		box.AddChild(_soloPits);
 		box.AddChild(_soloCaveIn);
@@ -136,6 +140,7 @@ public partial class MainMenu : Control
 
 	private void OnHost()
 	{
+		SettingsStore.SavePlayer(_name.Text, _color.Selected, _address.Text, _internet.ButtonPressed);
 		var err = NetworkManager.Instance.HostGame(_name.Text, _color.Selected, _internet.ButtonPressed);
 		if (err != Error.Ok) { _status.Text = $"Host failed: {err}"; return; }
 		GetTree().ChangeSceneToFile("res://game/ui/Lobby.tscn");
@@ -143,6 +148,7 @@ public partial class MainMenu : Control
 
 	private void OnJoin()
 	{
+		SettingsStore.SavePlayer(_name.Text, _color.Selected, _address.Text, _internet.ButtonPressed);
 		var err = NetworkManager.Instance.JoinByCode(_address.Text, _name.Text, _color.Selected);
 		if (err != Error.Ok) { _status.Text = $"Join failed: {err}"; return; }
 		GetTree().ChangeSceneToFile("res://game/ui/Lobby.tscn");
@@ -150,6 +156,9 @@ public partial class MainMenu : Control
 
 	private void OnSoloExpedition()
 	{
+		SettingsStore.SavePlayer(_name.Text, _color.Selected, _address.Text, _internet.ButtonPressed);
+		SettingsStore.SaveSolo((int)_sizeSlider.Value, _soloFlood.ButtonPressed, _soloPits.ButtonPressed,
+			_soloCaveIn.ButtonPressed, _soloLava.ButtonPressed);
 		var err = NetworkManager.Instance.HostGame(_name.Text, _color.Selected, overInternet: false);
 		if (err != Error.Ok) { _status.Text = $"Host failed: {err}"; return; }
 		NetworkManager.Instance.MatchMapScale = (int)_sizeSlider.Value;

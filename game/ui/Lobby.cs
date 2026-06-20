@@ -47,12 +47,14 @@ public partial class Lobby : Control
 		_readyBtn.Pressed += () => NetworkManager.Instance.ToggleReady();
 		box.AddChild(_readyBtn);
 
+		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed) = SettingsStore.LoadLobby();
+
 		_modePicker = new OptionButton();
 		_modePicker.AddItem("Last Man Standing", (int)GameMode.LastManStanding);
 		_modePicker.AddItem("Gold Rush", (int)GameMode.GoldRush);
 		_modePicker.AddItem("Reach Center", (int)GameMode.ReachCenter);
-		_modePicker.Select(0);
-		_modePicker.Visible = NetworkManager.Instance.IsHost; // only the host chooses
+		_modePicker.Select(savedMode);
+		_modePicker.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_modePicker);
 
 		_timePicker = new OptionButton();
@@ -61,45 +63,53 @@ public partial class Lobby : Control
 		_timePicker.AddItem("2 min", 120);
 		_timePicker.AddItem("3 min", 180);
 		_timePicker.AddItem("5 min", 300);
-		_timePicker.Select(1); // default 1 min
-		_timePicker.Visible = NetworkManager.Instance.IsHost; // only the host chooses
+		// Select the item whose ID matches the saved time; fall back to index 1 (1 min).
+		int timeIdx = Enumerable.Range(0, _timePicker.ItemCount)
+			.FirstOrDefault(i => _timePicker.GetItemId(i) == savedTime, 1);
+		_timePicker.Select(timeIdx);
+		_timePicker.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_timePicker);
 
-		_floodCheck = new CheckBox { Text = "Flooding" };
+		_floodCheck = new CheckBox { Text = "Flooding", ButtonPressed = savedFlood };
 		_floodCheck.Visible = NetworkManager.Instance.IsHost;
-		// Flooding needs a clock: bump "No Time Limit" -> 1 min when enabled.
 		_floodCheck.Toggled += (bool on) => { if (on && _timePicker.Selected == 0) _timePicker.Select(1); };
 		box.AddChild(_floodCheck);
 
-		_pitsCheck = new CheckBox { Text = "Pits" };
-		_pitsCheck.Visible = NetworkManager.Instance.IsHost; // only the host chooses
+		_pitsCheck = new CheckBox { Text = "Pits", ButtonPressed = savedPits };
+		_pitsCheck.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_pitsCheck);
 
-		_caveInCheck = new CheckBox { Text = "Cave-ins" };
-		_caveInCheck.Visible = NetworkManager.Instance.IsHost; // only the host chooses
+		_caveInCheck = new CheckBox { Text = "Cave-ins", ButtonPressed = savedCaveIn };
+		_caveInCheck.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_caveInCheck);
 
-		_lavaCheck = new CheckBox { Text = "Lava" };
-		_lavaCheck.Visible = NetworkManager.Instance.IsHost; // only the host chooses
+		_lavaCheck = new CheckBox { Text = "Lava", ButtonPressed = savedLava };
+		_lavaCheck.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_lavaCheck);
 
 		_speedPicker = new OptionButton();
 		_speedPicker.AddItem("Slow", 0);
 		_speedPicker.AddItem("Standard", 1);
 		_speedPicker.AddItem("Fast", 2);
-		_speedPicker.Select(1); // default Standard
-		_speedPicker.Visible = NetworkManager.Instance.IsHost; // only the host chooses
+		_speedPicker.Select(savedSpeed);
+		_speedPicker.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_speedPicker);
 
 		_startBtn = new Button { Text = "Start Match", Disabled = true };
-		_startBtn.Pressed += () => NetworkManager.Instance.StartMatch(
-			(GameMode)_modePicker.GetSelectedId(),
-			_timePicker.GetSelectedId(),
-			_floodCheck.ButtonPressed,
-			_pitsCheck.ButtonPressed,
-			_caveInCheck.ButtonPressed,
-			_lavaCheck.ButtonPressed,
-			new[] { 0.20f, 0.12f, 0.07f }[_speedPicker.Selected]);
+		_startBtn.Pressed += () =>
+		{
+			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), _timePicker.GetSelectedId(),
+				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
+				_lavaCheck.ButtonPressed, _speedPicker.Selected);
+			NetworkManager.Instance.StartMatch(
+				(GameMode)_modePicker.GetSelectedId(),
+				_timePicker.GetSelectedId(),
+				_floodCheck.ButtonPressed,
+				_pitsCheck.ButtonPressed,
+				_caveInCheck.ButtonPressed,
+				_lavaCheck.ButtonPressed,
+				new[] { 0.20f, 0.12f, 0.07f }[_speedPicker.Selected]);
+		};
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_startBtn);
 
