@@ -8,7 +8,7 @@ Let 2–4 players play Expedition mode together through the existing Lobby, shar
 
 | Question | Answer |
 |---|---|
-| Lives | 4 shared (any expedition, any player count) |
+| Lives | 2 per player (2p=4, 4p=8, 8p=16) |
 | Floor advance | All living miners must reach the exit simultaneously |
 | Individual death | Miner becomes spectator; partner(s) carry on; no shared life lost |
 | Team wipe (all dead) | Spend 1 shared life → retry same floor with all players respawned |
@@ -57,6 +57,8 @@ public static MapConfig FloorConfig(int floor, int seed, int playerCount = 1)
 
 Add `mapScale` to `StartMatch` and `BeginMatch` so clients build the correct floor sizes. `BeginMatch` sets `MatchMapScale = mapScale`.
 
+Change `CreateServer(port, 8)` → `CreateServer(port, 7)` to cap at 8 total players (7 clients + 1 host). Applies to both expedition co-op and all deathmatch modes.
+
 ```csharp
 public void StartMatch(..., int mapScale)
 // Rpc: BeginMatch(..., int mapScale) → MatchMapScale = mapScale
@@ -66,7 +68,7 @@ public void StartMatch(..., int mapScale)
 
 **Lives** — 4 for any expedition, 1 for competitive modes:
 ```csharp
-_livesMax = nm.MatchMode == GameMode.Expedition ? 4 : 1;
+_livesMax = nm.MatchMode == GameMode.Expedition ? 2 * nm.MatchPlayerCount : 1;
 ```
 
 **`AdvanceFloor`** — spawn all peers, not just the winner. Miner IDs are 1-based (`minerId = peerOrder index + 1`), so spawn index = `minerId - 1`:
