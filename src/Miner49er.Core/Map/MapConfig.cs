@@ -4,12 +4,12 @@ public sealed class MapConfig
 {
     public int Seed { get; set; }
     public int PlayerCount { get; set; } = 1;
-    public int BaseWidth { get; set; } = 24;
-    public int BaseHeight { get; set; } = 24;
-    public int SizePerPlayer { get; set; } = 6;
+    public int BaseWidth { get; set; } = 32;
+    public int BaseHeight { get; set; } = 32;
+    public int SizePerPlayer { get; set; } = 8;
     public float InitialFloorChance { get; set; } = 0.45f;
     public int SmoothingSteps { get; set; } = 4;
-    public int GoldVeinCount { get; set; } = 8;
+    public int GoldVeinCount { get; set; } = 14;
     public int BaseItemCount { get; set; } = 9;   // items on the base map
     public int ItemsPerPlayer { get; set; } = 1;  // light scaling with player count / map growth
     public int VisibleItemCount { get; set; } = 2;  // of the total, this many are visible toolboxes; rest are buried
@@ -58,15 +58,15 @@ public sealed class MapConfig
         var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount, Pits = pits, CaveIns = caveIns, Lava = lava };
         if (mode == GameMode.ReachCenter)
         {
-            cfg.BaseWidth = 40;
-            cfg.BaseHeight = 40;
+            cfg.BaseWidth = 64;
+            cfg.BaseHeight = 64;
             cfg.InitialFloorChance = 0.42f;
         }
         if (mapScale > 1)
         {
-            cfg.BaseWidth  = 24 + (mapScale - 1) * 8;
-            cfg.BaseHeight = 24 + (mapScale - 1) * 8;
-            float areaFactor = (float)(cfg.BaseWidth * cfg.BaseHeight) / (24f * 24f);
+            cfg.BaseWidth  = 32 + (mapScale - 1) * 16;
+            cfg.BaseHeight = 32 + (mapScale - 1) * 16;
+            float areaFactor = (float)(cfg.BaseWidth * cfg.BaseHeight) / (32f * 32f);
             cfg.GoldVeinCount = (int)System.Math.Round(cfg.GoldVeinCount * areaFactor);
         }
         return cfg;
