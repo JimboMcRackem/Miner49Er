@@ -143,7 +143,7 @@ public partial class MatchClient : Node2D
 		}
 		else
 		{
-			var mapCfg = MapConfig.FloorConfig(floor, floorSeed);
+			var mapCfg = MapConfig.FloorConfig(floor, floorSeed, nm.MatchPlayerCount);
 			FloorModifiers.Apply(FloorModifiers.Pick(nm.MatchSeed, floor), mapCfg, new SimConfig());
 			newMap = MapGenerator.Generate(mapCfg);
 		}

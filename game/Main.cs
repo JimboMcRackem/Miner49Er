@@ -275,7 +275,7 @@ public partial class Main : Node2D
 		string scoreText = "";
 		if (expedition)
 		{
-			bool won = winnerPeerId == nm.LocalId;
+			bool won = winnerPeerId != -1;
 			label = won
 				? (nm.MatchFloor == 21 ? "You conquered the dungeon!" : "You escaped with the gold!")
 				: "You died in the mine.";
