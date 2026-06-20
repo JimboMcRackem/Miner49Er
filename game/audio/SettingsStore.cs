@@ -148,11 +148,11 @@ public static class SettingsStore
 
 	private const string LobbySection = "lobby";
 
-	public static (int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed) LoadLobby()
+	public static (int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale) LoadLobby()
 	{
 		var cfg = new ConfigFile();
 		if (cfg.Load(Path) != Error.Ok)
-			return (0, 60, false, false, false, false, 1);
+			return (0, 60, false, false, false, false, 1, 1);
 		int  mode    = (int)(long)cfg.GetValue(LobbySection, "game_mode",   0L);
 		int  time    = (int)(long)cfg.GetValue(LobbySection, "time_limit",  60L);
 		bool flood   = (bool)cfg.GetValue(LobbySection, "flood",   false);
@@ -160,10 +160,12 @@ public static class SettingsStore
 		bool caveIns = (bool)cfg.GetValue(LobbySection, "caveins", false);
 		bool lava    = (bool)cfg.GetValue(LobbySection, "lava",    false);
 		int  speed   = (int)(long)cfg.GetValue(LobbySection, "speed",      1L);
-		return (Mathf.Clamp(mode, 0, 2), time, flood, pits, caveIns, lava, Mathf.Clamp(speed, 0, 2));
+		int  scale   = (int)(long)cfg.GetValue(LobbySection, "map_scale",  1L);
+		return (Mathf.Clamp(mode, 0, 3), time, flood, pits, caveIns, lava,
+		        Mathf.Clamp(speed, 0, 2), Mathf.Clamp(scale, 1, 4));
 	}
 
-	public static void SaveLobby(int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed)
+	public static void SaveLobby(int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale)
 	{
 		var cfg = new ConfigFile();
 		cfg.Load(Path);
@@ -174,6 +176,7 @@ public static class SettingsStore
 		cfg.SetValue(LobbySection, "caveins",    caveIns);
 		cfg.SetValue(LobbySection, "lava",       lava);
 		cfg.SetValue(LobbySection, "speed",      (long)speed);
+		cfg.SetValue(LobbySection, "map_scale",  (long)mapScale);
 		cfg.Save(Path);
 	}
 }

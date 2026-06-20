@@ -17,6 +17,7 @@ public partial class Lobby : Control
 	private CheckBox _caveInCheck = null!;
 	private CheckBox _lavaCheck = null!;
 	private OptionButton _speedPicker = null!;
+	private OptionButton _mapSizePicker = null!;
 	private Label _codeLabel = null!;
 	private Button _copyBtn = null!;
 
@@ -47,12 +48,13 @@ public partial class Lobby : Control
 		_readyBtn.Pressed += () => NetworkManager.Instance.ToggleReady();
 		box.AddChild(_readyBtn);
 
-		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed) = SettingsStore.LoadLobby();
+		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale) = SettingsStore.LoadLobby();
 
 		_modePicker = new OptionButton();
 		_modePicker.AddItem("Last Man Standing", (int)GameMode.LastManStanding);
 		_modePicker.AddItem("Gold Rush", (int)GameMode.GoldRush);
 		_modePicker.AddItem("Reach Center", (int)GameMode.ReachCenter);
+		_modePicker.AddItem("Expedition", (int)GameMode.Expedition);
 		_modePicker.Select(savedMode);
 		_modePicker.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_modePicker);
@@ -69,6 +71,18 @@ public partial class Lobby : Control
 		_timePicker.Select(timeIdx);
 		_timePicker.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_timePicker);
+
+		_mapSizePicker = new OptionButton();
+		_mapSizePicker.AddItem("Small",  1);
+		_mapSizePicker.AddItem("Medium", 2);
+		_mapSizePicker.AddItem("Large",  3);
+		_mapSizePicker.AddItem("Huge",   4);
+		int sizeIdx = Enumerable.Range(0, _mapSizePicker.ItemCount)
+			.FirstOrDefault(i => _mapSizePicker.GetItemId(i) == savedMapScale, 0);
+		_mapSizePicker.Select(sizeIdx);
+		box.AddChild(_mapSizePicker);
+
+		_modePicker.ItemSelected += _ => RefreshModeControls();
 
 		_floodCheck = new CheckBox { Text = "Flooding", ButtonPressed = savedFlood };
 		_floodCheck.Visible = NetworkManager.Instance.IsHost;
@@ -98,17 +112,20 @@ public partial class Lobby : Control
 		_startBtn = new Button { Text = "Start Match", Disabled = true };
 		_startBtn.Pressed += () =>
 		{
+			bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
+			int mapScale = expedition ? _mapSizePicker.GetSelectedId() : 1;
 			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), _timePicker.GetSelectedId(),
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
-				_lavaCheck.ButtonPressed, _speedPicker.Selected);
+				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale);
 			NetworkManager.Instance.StartMatch(
 				(GameMode)_modePicker.GetSelectedId(),
-				_timePicker.GetSelectedId(),
+				expedition ? 0 : _timePicker.GetSelectedId(),
 				_floodCheck.ButtonPressed,
 				_pitsCheck.ButtonPressed,
 				_caveInCheck.ButtonPressed,
 				_lavaCheck.ButtonPressed,
-				new[] { 0.20f, 0.12f, 0.07f }[_speedPicker.Selected]);
+				new[] { 0.20f, 0.12f, 0.07f }[_speedPicker.Selected],
+				mapScale);
 		};
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_startBtn);
@@ -122,6 +139,15 @@ public partial class Lobby : Control
 		NetworkManager.Instance.InternetStatusChanged += RefreshInternet;
 		Refresh();
 		RefreshInternet();   // reflect status that may have resolved during the scene change
+		RefreshModeControls();
+	}
+
+	private void RefreshModeControls()
+	{
+		bool isHost = NetworkManager.Instance.IsHost;
+		bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
+		_timePicker.Visible    = isHost && !expedition;
+		_mapSizePicker.Visible = isHost && expedition;
 	}
 
 	public override void _ExitTree()
