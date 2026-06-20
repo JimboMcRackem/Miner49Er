@@ -95,6 +95,15 @@ public static class SettingsStore
 		return (name, Mathf.Clamp(color, 0, 7), address, inet);
 	}
 
+	public static void SavePlayerIdentity(string name, int colorIndex)
+	{
+		var cfg = new ConfigFile();
+		cfg.Load(Path);
+		cfg.SetValue(PlayerSection, "name",  name);
+		cfg.SetValue(PlayerSection, "color", (long)colorIndex);
+		cfg.Save(Path);
+	}
+
 	public static void SavePlayer(string name, int colorIndex, string address, bool overInternet)
 	{
 		var cfg = new ConfigFile();
