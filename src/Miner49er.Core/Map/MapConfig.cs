@@ -74,13 +74,13 @@ public sealed class MapConfig
 
     /// <summary>Deterministic difficulty curve for Expedition dungeon floors 1–20.
     /// Size and hazards escalate in four bands; only the seed varies the layout.</summary>
-    public static MapConfig FloorConfig(int floor, int seed)
+    public static MapConfig FloorConfig(int floor, int seed, int playerCount = 1)
     {
         int mapScale = floor switch { <= 5 => 1, <= 10 => 2, <= 15 => 3, _ => 4 };
         bool pits    = floor >= 6;
         bool caveIns = floor >= 11;
         bool lava    = floor >= 16;
-        var cfg = For(GameMode.Expedition, seed, 1, pits, caveIns, lava, mapScale);
+        var cfg = For(GameMode.Expedition, seed, playerCount, pits, caveIns, lava, mapScale);
         cfg.ChestCount = floor <= 10 ? 1 : 2;
         cfg.HasShop = floor % 4 == 0;
         return cfg;

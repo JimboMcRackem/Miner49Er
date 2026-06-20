@@ -59,4 +59,48 @@ public class RoundResolverExpeditionTests
         Assert.True(result.IsOver);
         Assert.Equal(-1, result.WinnerId);   // loss
     }
+
+    // Co-op helpers and tests
+
+    private static Simulation SetupCoopNoGold(GridPos m1Start, GridPos m2Start, GridPos exit)
+    {
+        var grid = new TileGrid(6, 3, TileType.Floor);
+        var sim = new Simulation(grid, new SimConfig(), escapeTile: exit);
+        sim.AddMiner(1, m1Start);
+        sim.AddMiner(2, m2Start);
+        return sim;
+    }
+
+    [Fact]
+    public void Coop_only_one_on_exit_does_not_clear_floor()
+    {
+        var sim = SetupCoopNoGold(new GridPos(0, 1), new GridPos(3, 1), exit: new GridPos(0, 1));
+
+        var result = RoundResolver.Resolve(sim, GameMode.Expedition);
+
+        Assert.False(result.FloorCleared);
+        Assert.False(result.IsOver);
+    }
+
+    [Fact]
+    public void Coop_both_on_exit_clears_floor()
+    {
+        var sim = SetupCoopNoGold(new GridPos(0, 1), new GridPos(0, 1), exit: new GridPos(0, 1));
+
+        var result = RoundResolver.Resolve(sim, GameMode.Expedition);
+
+        Assert.True(result.FloorCleared);
+        Assert.False(result.IsOver);
+    }
+
+    [Fact]
+    public void Coop_dead_partner_does_not_block_floor_clear()
+    {
+        var sim = SetupCoopNoGold(new GridPos(0, 1), new GridPos(3, 1), exit: new GridPos(0, 1));
+        sim.KillMiner(2);
+
+        var result = RoundResolver.Resolve(sim, GameMode.Expedition);
+
+        Assert.True(result.FloorCleared);
+    }
 }

@@ -56,4 +56,12 @@ public class MapConfigFloorTests
         Assert.Equal(32, cfg.BaseWidth);
         Assert.Equal(seed, cfg.Seed);
     }
+
+    [Theory]
+    [InlineData(1, 2)] [InlineData(1, 4)] [InlineData(6, 3)]
+    public void FloorConfig_with_multiple_players_sets_player_count(int floor, int playerCount)
+    {
+        var cfg = MapConfig.FloorConfig(floor, 42, playerCount);
+        Assert.Equal(playerCount, cfg.PlayerCount);
+    }
 }
