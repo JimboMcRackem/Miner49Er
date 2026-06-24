@@ -48,6 +48,11 @@ public partial class WorldRenderer : Node2D
 	private Texture2D? _lavaVentTex;
 	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
 
+	// Zombie miner: miner sprites fully tinted sickly green — no skin/hat preservation.
+	private static readonly Color ZombieColor = new(0.42f, 0.78f, 0.38f);
+	private Texture2D?[]  _zombieIdleTex = new Texture2D?[4];          // [dir]
+	private Texture2D?[,] _zombieWalkTex = new Texture2D?[4, 4];       // [dir, frame]
+
 	public void Init(MatchClient client)
 	{
 		_client = client;
@@ -62,12 +67,53 @@ public partial class WorldRenderer : Node2D
 		LoadItemTex(ItemKind.BiggerBlast,  "res://assets/objects/item_blast.png");
 		LoadItemTex(ItemKind.WaterPlank,   "res://assets/objects/item_plank.png");
 		LoadItemTex(ItemKind.SlowMold,     "res://assets/objects/item_mold.png");
+		BuildZombieTextures();
 	}
 
 	private void LoadItemTex(ItemKind kind, string path)
 	{
 		var t = GD.Load<Texture2D>(path);
 		if (t != null) _itemTex[kind] = t;
+	}
+
+	private void BuildZombieTextures()
+	{
+		var dirLetter = new[] { "n", "e", "s", "w" };
+		for (int d = 0; d < 4; d++)
+		{
+			var img = new Image();
+			if (img.Load($"res://assets/miners/miner_{dirLetter[d]}.png") == Error.Ok)
+			{
+				img.Convert(Image.Format.Rgba8);
+				_zombieIdleTex[d] = ImageTexture.CreateFromImage(TintFull(img, ZombieColor));
+			}
+			for (int f = 0; f < 4; f++)
+			{
+				var wImg = new Image();
+				if (wImg.Load($"res://assets/miners/walk/{dirLetter[d]}{f}.png") == Error.Ok)
+				{
+					wImg.Convert(Image.Format.Rgba8);
+					_zombieWalkTex[d, f] = ImageTexture.CreateFromImage(TintFull(wImg, ZombieColor));
+				}
+			}
+		}
+	}
+
+	// Full-replacement tint: every non-transparent pixel becomes luminance × tint.
+	// Used for monsters (zombie) where we want the whole sprite recoloured.
+	private static Image TintFull(Image src, Color tint)
+	{
+		var img = (Image)src.Duplicate();
+		for (int y = 0; y < img.GetHeight(); y++)
+			for (int x = 0; x < img.GetWidth(); x++)
+			{
+				var px = img.GetPixel(x, y);
+				if (px.A < 0.05f) continue;
+				float lum = 0.299f * px.R + 0.587f * px.G + 0.114f * px.B;
+				float l = lum * 0.6f + 0.4f;
+				img.SetPixel(x, y, new Color(tint.R * l, tint.G * l, tint.B * l, px.A));
+			}
+		return img;
 	}
 
 	public void AddExplosionFlash(GridPos pos) => _flashes.Add((pos, 0.4f));
@@ -89,6 +135,26 @@ public partial class WorldRenderer : Node2D
 		if (_client == null) return;
 		var grid = _client.Grid;
 		int ts = MatchClient.TileSize;
+
+		// Procedural rough-stone floor — covers the PixelLab floor texture with per-tile brightness
+		// variation and small grain marks, making the floor look like unworked natural stone.
+		foreach (var p in grid.Positions())
+		{
+			var t = grid.Get(p);
+			if (t != TileType.Floor && t != TileType.Cracked && t != TileType.Crumbling) continue;
+			float x0 = p.X * ts, y0 = p.Y * ts;
+			uint h = (uint)(p.X * 73856093 ^ p.Y * 19349663);
+			float v = 0.88f + (h & 0x3Fu) * (0.28f / 63f); // brightness 0.88..1.16
+			DrawRect(new Rect2(x0, y0, ts, ts), new Color(0.27f * v, 0.25f * v, 0.23f * v));
+			for (int g = 0; g < 3; g++)
+			{
+				uint h2 = h ^ (uint)(g * 2654435761u);
+				DrawRect(
+					new Rect2(x0 + (h2 & 0x1Fu) * (ts - 3) / 31f, y0 + ((h2 >> 8) & 0x1Fu) * (ts - 2) / 31f,
+					          2 + (int)((h2 >> 16) & 3u), 1 + (int)((h2 >> 20) & 2u)),
+					new Color(0.15f, 0.13f, 0.12f, 0.55f));
+			}
+		}
 
 		// Single-pass tile overlays on top of TerrainMap (FogRenderer at ZIndex -5 covers these naturally).
 		var deepOverlay = new Color(0.0f, 0.05f, 0.35f, 0.55f);
@@ -311,6 +377,17 @@ public partial class WorldRenderer : Node2D
 					DrawLine(headPos - hSide, headPos - hSide * 1.8f + hFwd, GoatHornColor, 2.5f);
 					DrawCircle(headPos + PerpendicularOffset(mo.Facing, ts * 0.05f), ts * 0.04f, Colors.Black);
 					DrawCircle(headPos - PerpendicularOffset(mo.Facing, ts * 0.05f), ts * 0.04f, Colors.Black);
+					break;
+				}
+				case MonsterKind.ZombieMiner:
+				{
+					int dir   = mo.Facing;
+					int frame = (int)(Time.GetTicksMsec() / 175u) % 4;
+					var tex   = _zombieWalkTex[dir, frame] ?? _zombieIdleTex[dir];
+					if (tex != null)
+						DrawTextureRect(tex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+					else
+						DrawCircle(c, ts * 0.28f, ZombieColor);
 					break;
 				}
 			}

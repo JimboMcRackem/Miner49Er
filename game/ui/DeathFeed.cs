@@ -78,6 +78,7 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Slimed => "YOU WERE SLIMED TO DEATH!",
 			DeathCause.Terrified => "YOU WERE TERRIFIED TO DEATH!",
 			DeathCause.Headbutted => "YOU WERE HEADBUTTED TO DEATH!",
+			DeathCause.Mauled => "YOU WERE MAULED BY A ZOMBIE!",
 			_ => "YOU DIED",
 		};
 		_bannerLife = BannerSeconds;
@@ -104,6 +105,7 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Slimed => $"{name} was slimed",
 			DeathCause.Terrified => $"{name} was terrified to death",
 			DeathCause.Headbutted => $"{name} was headbutted to death",
+			DeathCause.Mauled => $"{name} was mauled by a zombie",
 			_ => $"{name} died",
 		};
 		var label = new Label { Text = text };

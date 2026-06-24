@@ -25,6 +25,7 @@ public partial class MatchAudio : Node2D
 	private readonly HashSet<(int x, int y)> _prevMolds = new();
 	private readonly Dictionary<int, AudioStreamPlayer2D> _pickaxeLoops = new();
 	private readonly List<AudioStreamPlayer2D> _dripEmitters = new();
+	private AudioStreamPlayer2D? _lavaLoop;
 
 	public void Begin(MatchClient client)
 	{
@@ -38,6 +39,7 @@ public partial class MatchAudio : Node2D
 	{
 		if (_client != null) _client.Exploded -= OnExploded;
 		AudioManager.Instance.StopMusic();
+		if (_lavaLoop != null && IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree();
 	}
 
 	public void SetListening(bool listening)
@@ -54,7 +56,15 @@ public partial class MatchAudio : Node2D
 		foreach (var m in _client.Miners)
 		{
 			if (m.Alive && _prevPos.TryGetValue(m.Id, out var pp) && (pp.x != m.X || pp.y != m.Y))
+			{
 				OneShot(SfxLibrary.Footstep, WorldOf(m.X, m.Y));
+				if (m.Id == _client.LocalMinerId)
+				{
+					var newTile = _client.Grid.Get(new GridPos(m.X, m.Y));
+					if (newTile == TileType.Cracked || newTile == TileType.Crumbling)
+						OneShot(SfxLibrary.CrackRumble, WorldOf(m.X, m.Y));
+				}
+			}
 			_prevPos[m.Id] = (m.X, m.Y);
 
 			bool mining = m.Alive && m.Activity == (int)ActivityKind.Mining;
@@ -81,6 +91,7 @@ public partial class MatchAudio : Node2D
 					DeathCause.Fell    => SfxLibrary.Fall,
 					DeathCause.Crushed => SfxLibrary.CaveIn,
 					DeathCause.Burned  => SfxLibrary.Sizzle,
+					DeathCause.Mauled  => SfxLibrary.ZombieMoan,
 					_                  => SfxLibrary.Death,
 				}, WorldOf(m.X, m.Y));
 			_prevAlive[m.Id] = m.Alive;
@@ -143,6 +154,40 @@ public partial class MatchAudio : Node2D
 			_prevItems.Add((it.X, it.Y));
 			_prevPlacement[(it.X, it.Y)] = it.Placement;
 		}
+
+		// Lava crackle loop: start/track when local miner is within 5 tiles of any lava.
+		var llt = LocalTile();
+		if (llt is { } lt4)
+		{
+			const int LavaRadius = 5;
+			GridPos? nearestLava = null;
+			int bestDist = int.MaxValue;
+			for (int dy = -LavaRadius; dy <= LavaRadius; dy++)
+			for (int dx = -LavaRadius; dx <= LavaRadius; dx++)
+			{
+				int d = System.Math.Abs(dx) + System.Math.Abs(dy);
+				if (d > LavaRadius) continue;
+				var p = new GridPos(lt4.x + dx, lt4.y + dy);
+				if (!_client.Grid.InBounds(p)) continue;
+				var tt = _client.Grid.Get(p);
+				if (tt == TileType.Lava || tt == TileType.LavaVent)
+					if (d < bestDist) { bestDist = d; nearestLava = p; }
+			}
+			if (nearestLava is { } lp)
+			{
+				var lavaWorld = WorldOf(lp.X, lp.Y);
+				if (_lavaLoop == null)
+				{
+					_lavaLoop = MakeLoop(SfxLibrary.LavaCrackle, lavaWorld);
+					_lavaLoop.VolumeDb = -10f;
+				}
+				else _lavaLoop.Position = lavaWorld;
+			}
+			else if (_lavaLoop != null)
+			{ if (IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree(); _lavaLoop = null; }
+		}
+		else if (_lavaLoop != null)
+		{ if (IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree(); _lavaLoop = null; }
 	}
 
 	private void OnExploded(Vector2 worldPos) => OneShot(SfxLibrary.Explosion, worldPos);

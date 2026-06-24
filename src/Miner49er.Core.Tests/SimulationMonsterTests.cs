@@ -277,4 +277,47 @@ public class SimulationMonsterTests
 
         Assert.Equal(new GridPos(3, 1), goat.Pos);
     }
+
+    [Fact]
+    public void ZombieMiner_steps_toward_miner_regardless_of_distance()
+    {
+        // Zombie has no sense radius — it always knows where the miner is.
+        var cfg = new SimConfig { MonsterZombieMoveSeconds = 0.1, MonsterSenseRadius = 0 };
+        var sim = Sim(new TileGrid(20, 3, TileType.Floor), cfg);
+        sim.AddMiner(1, new GridPos(19, 1));
+        var zombie = sim.AddMonster(1, new GridPos(0, 1), MonsterKind.ZombieMiner);
+
+        sim.Tick(0.1);   // distance = 19, well beyond any sense radius
+
+        Assert.Equal(new GridPos(1, 1), zombie.Pos);   // still moved toward the miner
+    }
+
+    [Fact]
+    public void ZombieMiner_is_blocked_by_rock()
+    {
+        var cfg = new SimConfig { MonsterZombieMoveSeconds = 0.1 };
+        var grid = new TileGrid(5, 3, TileType.Floor);
+        grid.Set(new GridPos(3, 1), TileType.Rock);
+        var sim = Sim(grid, cfg);
+        sim.AddMiner(1, new GridPos(4, 1));
+        var zombie = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.ZombieMiner);
+
+        sim.Tick(0.1);
+
+        Assert.Equal(new GridPos(2, 1), zombie.Pos);   // rock blocked the step
+    }
+
+    [Fact]
+    public void ZombieMiner_mauls_miner_on_contact()
+    {
+        var cfg = new SimConfig { MonsterZombieMoveSeconds = 0.1 };
+        var sim = Sim(new TileGrid(5, 3, TileType.Floor), cfg);
+        var miner = sim.AddMiner(1, new GridPos(3, 1));
+        var zombie = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.ZombieMiner);
+
+        sim.Tick(0.1);   // zombie steps onto miner's tile
+
+        Assert.False(miner.Alive);
+        Assert.Equal(DeathCause.Mauled, miner.DeathCause);
+    }
 }

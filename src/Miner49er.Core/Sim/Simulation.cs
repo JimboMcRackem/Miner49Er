@@ -93,9 +93,10 @@ public sealed class Simulation
 
     private double MonsterCadence(MonsterKind kind) => kind switch
     {
-        MonsterKind.Slime => Config.MonsterSlimeMoveSeconds,
-        MonsterKind.Ghost => Config.MonsterGhostMoveSeconds,
-        MonsterKind.Goat  => Config.MonsterGoatMoveSeconds,
+        MonsterKind.Slime       => Config.MonsterSlimeMoveSeconds,
+        MonsterKind.Ghost       => Config.MonsterGhostMoveSeconds,
+        MonsterKind.Goat        => Config.MonsterGoatMoveSeconds,
+        MonsterKind.ZombieMiner => Config.MonsterZombieMoveSeconds,
         _ => Config.MonsterSlimeMoveSeconds,
     };
 
@@ -109,6 +110,18 @@ public sealed class Simulation
         m.Activity = ActivityKind.None;
         m.DeathCause = DeathCause.Left;
         _events.Add(new MinerKilled(id));
+    }
+
+    public void ReviveMiner(int id, GridPos pos, double invulRemaining = 3.0)
+    {
+        if (!_miners.TryGetValue(id, out var m)) return;
+        m.Alive = true;
+        m.Pos = pos;
+        m.Activity = ActivityKind.None;
+        m.ActivitySecondsRemaining = 0;
+        m.InvulnerableRemaining = invulRemaining;
+        m.MoveCooldownRemaining = 0;
+        m.CrackDwell = 0;
     }
 
     public IReadOnlyList<SimEvent> DrainEvents()
@@ -394,9 +407,10 @@ public sealed class Simulation
     {
         Direction? dir = mo.Kind switch
         {
-            MonsterKind.Slime => SlimeDir(mo, target),
-            MonsterKind.Ghost => GhostDir(mo, target),
-            MonsterKind.Goat  => GoatDir(mo, target),
+            MonsterKind.Slime       => SlimeDir(mo, target),
+            MonsterKind.Ghost       => GhostDir(mo, target),
+            MonsterKind.Goat        => GoatDir(mo, target),
+            MonsterKind.ZombieMiner => ZombieDir(mo, target),
             _ => null,
         };
         if (dir is not { } d) return;
@@ -426,6 +440,13 @@ public sealed class Simulation
         if (!Grid.InBounds(p)) return false;
         if (mo.Kind == MonsterKind.Ghost) return Grid.Get(p) != TileType.DeepWater;
         return Grid.Get(p).IsEnterable();
+    }
+
+    // Zombie always tracks the nearest living miner — no sense radius, but terrain-bound.
+    private Direction? ZombieDir(Monster mo, Miner? target)
+    {
+        if (target is { Alive: true }) return TowardDir(mo.Pos, target.Pos);
+        return Card[_rng.Next(Card.Length)];
     }
 
     private bool InLanternLight(GridPos pos)
@@ -828,9 +849,10 @@ public sealed class Simulation
         m.Activity = ActivityKind.None;
         m.DeathCause = kind switch
         {
-            MonsterKind.Slime => DeathCause.Slimed,
-            MonsterKind.Ghost => DeathCause.Terrified,
-            MonsterKind.Goat  => DeathCause.Headbutted,
+            MonsterKind.Slime       => DeathCause.Slimed,
+            MonsterKind.Ghost       => DeathCause.Terrified,
+            MonsterKind.Goat        => DeathCause.Headbutted,
+            MonsterKind.ZombieMiner => DeathCause.Mauled,
             _ => DeathCause.Slimed,
         };
         _events.Add(new MinerMauled(m.Id));

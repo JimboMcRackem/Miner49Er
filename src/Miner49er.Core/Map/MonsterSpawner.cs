@@ -9,7 +9,7 @@ namespace Miner49er.Core;
 /// deterministic from the grid + start, so host and any future client agree.</summary>
 public static class MonsterSpawner
 {
-    private static readonly MonsterKind[] Kinds = { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat };
+    private static readonly MonsterKind[] Kinds = { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner };
 
     public static List<(GridPos Pos, MonsterKind Kind)> Place(TileGrid grid, GridPos start, int count)
     {

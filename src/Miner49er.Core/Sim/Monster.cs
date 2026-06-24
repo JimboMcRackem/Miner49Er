@@ -1,6 +1,6 @@
 namespace Miner49er.Core;
 
-public enum MonsterKind { Slime, Ghost, Goat }
+public enum MonsterKind { Slime, Ghost, Goat, ZombieMiner }
 
 public sealed class Monster
 {

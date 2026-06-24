@@ -39,6 +39,7 @@ public sealed class SimConfig
     public double MonsterSlimeMoveSeconds { get; set; } = 0.5;
     public double MonsterGhostMoveSeconds { get; set; } = 1.0;
     public double MonsterGoatMoveSeconds { get; set; } = 0.15;
+    public double MonsterZombieMoveSeconds { get; set; } = 0.6;  // slower than slime; relentless
     public int MonsterSenseRadius { get; set; } = 6;   // Manhattan range at which a monster locks on
 
     public int LanternRadius { get; set; } = 3;   // Chebyshev radius — ghosts inside are killed; ghosts won't enter
