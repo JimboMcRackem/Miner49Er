@@ -28,3 +28,6 @@ public sealed record MonsterKilled(int MonsterId) : SimEvent;
 public sealed record EscapeOpened : SimEvent;
 public sealed record LifeRestored(int MinerId) : SimEvent;
 public sealed record StoneThrown(int MinerId, GridPos LandingPos) : SimEvent;
+public sealed record DetonatorPlanted(int MinerId, GridPos WallPos) : SimEvent;
+public sealed record ReelDetonated(int MinerId, GridPos WallPos) : SimEvent;
+public sealed record ReelSnapped(int MinerId) : SimEvent;

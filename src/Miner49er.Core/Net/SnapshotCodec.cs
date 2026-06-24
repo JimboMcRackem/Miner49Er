@@ -53,6 +53,10 @@ public static class SnapshotCodec
         w.Write(snap.EscapeOpen);
         w.Write(snap.Lives);
 
+        w.Write(snap.ReelCharges?.Count ?? 0);
+        foreach (var rc in snap.ReelCharges ?? System.Array.Empty<ReelChargeSnapshot>())
+        { w.Write(rc.OwnerId); w.Write(rc.WallX); w.Write(rc.WallY); }
+
         w.Write(snap.Octopus is not null);
         if (snap.Octopus is { } oct)
         {
@@ -115,6 +119,11 @@ public static class SnapshotCodec
         bool escapeOpen = r.ReadBoolean();
         int lives = r.ReadInt32();
 
+        int reelCount = r.ReadInt32();
+        var reelCharges = new List<ReelChargeSnapshot>(reelCount);
+        for (int i = 0; i < reelCount; i++)
+            reelCharges.Add(new ReelChargeSnapshot(r.ReadInt32(), r.ReadInt32(), r.ReadInt32()));
+
         OctopusSnapshot? octopus = null;
         if (r.ReadBoolean())
         {
@@ -132,6 +141,6 @@ public static class SnapshotCodec
             changes.Add(new TileChange(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean(), (TileType)r.ReadInt32()));
 
         return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds,
-            monsters, secondsRemaining, escapeOpen, octopus, lives), changes);
+            monsters, secondsRemaining, escapeOpen, octopus, lives, reelCharges), changes);
     }
 }

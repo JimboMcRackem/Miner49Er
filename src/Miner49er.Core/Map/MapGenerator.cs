@@ -29,7 +29,7 @@ public static class MapGenerator
         int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
         var items = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
         items.AddRange(PlaceChests(grid, rng, config.ChestCount, region, spawns, items));
-        items.AddRange(PlaceCarriedItems(grid, rng, config.WaterPlankCount, config.SlowMoldCount, config.LanternCount, region, spawns, items));
+        items.AddRange(PlaceCarriedItems(grid, rng, config.WaterPlankCount, config.SlowMoldCount, config.LanternCount, config.DetonatorCount, region, spawns, items));
         var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
         if (config.CaveIns)
             PlaceCracks(grid, rng, config.CrackSiteCount + (config.PlayerCount - 1),
@@ -487,7 +487,7 @@ public static class MapGenerator
     // region, never on a spawn or a tile already holding an item. Deterministic: ordered grid scan
     // then seed-shuffle, planks first then molds then lanterns, so host and every client agree.
     private static List<Item> PlaceCarriedItems(TileGrid g, Random rng, int plankCount, int moldCount,
-        int lanternCount, HashSet<GridPos> region, List<GridPos> spawns, IEnumerable<Item> existing)
+        int lanternCount, int detonatorCount, HashSet<GridPos> region, List<GridPos> spawns, IEnumerable<Item> existing)
     {
         var taken = new HashSet<GridPos>(existing.Select(it => it.Pos));
         var spawnSet = new HashSet<GridPos>(spawns);
@@ -505,6 +505,8 @@ public static class MapGenerator
             result.Add(new Item(cands[idx], ItemKind.SlowMold, ItemPlacement.Toolbox));
         for (int i = 0; i < lanternCount && idx < cands.Count; i++, idx++)
             result.Add(new Item(cands[idx], ItemKind.Lantern, ItemPlacement.Toolbox));
+        for (int i = 0; i < detonatorCount && idx < cands.Count; i++, idx++)
+            result.Add(new Item(cands[idx], ItemKind.Detonator, ItemPlacement.Toolbox));
         return result;
     }
 

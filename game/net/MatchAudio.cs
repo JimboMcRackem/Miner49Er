@@ -26,6 +26,7 @@ public partial class MatchAudio : Node2D
 	private readonly Dictionary<int, AudioStreamPlayer2D> _pickaxeLoops = new();
 	private readonly List<AudioStreamPlayer2D> _dripEmitters = new();
 	private AudioStreamPlayer2D? _lavaLoop;
+	private bool _hadExplosionThisFrame;
 
 	public void Begin(MatchClient client)
 	{
@@ -53,6 +54,8 @@ public partial class MatchAudio : Node2D
 
 	public override void _Process(double delta)
 	{
+		_hadExplosionThisFrame = false;
+
 		foreach (var m in _client.Miners)
 		{
 			if (m.Alive && _prevPos.TryGetValue(m.Id, out var pp) && (pp.x != m.X || pp.y != m.Y))
@@ -96,16 +99,21 @@ public partial class MatchAudio : Node2D
 				}, WorldOf(m.X, m.Y));
 			_prevAlive[m.Id] = m.Alive;
 
-			if (m.Id == _client.LocalMinerId)
 			{
 				int prevHeld = _prevHeld.TryGetValue(m.Id, out var ph) ? ph : -1;
 				if (m.Held != prevHeld)
 				{
-					if (m.Held != -1)
-						OneShot(SfxLibrary.Grab, WorldOf(m.X, m.Y));        // picked up / swapped
-					else if (prevHeld == (int)ItemKind.WaterPlank)
-						OneShot(SfxLibrary.Plank, WorldOf(m.X, m.Y));       // laid a plank (hand emptied)
-					// SlowMold -> empty (mold dropped) is covered by the new-patch Squelch below
+					if (m.Id == _client.LocalMinerId)
+					{
+						if (m.Held != -1)
+							OneShot(SfxLibrary.Grab, WorldOf(m.X, m.Y));        // picked up / swapped
+						else if (prevHeld == (int)ItemKind.WaterPlank)
+							OneShot(SfxLibrary.Plank, WorldOf(m.X, m.Y));       // laid a plank (hand emptied)
+						// SlowMold -> empty (mold dropped) is covered by the new-patch Squelch below
+					}
+					// Wire snap: Reel → empty with no explosion this frame means the wire pulled too far.
+					if (prevHeld == (int)ItemKind.Reel && m.Held == -1 && !_hadExplosionThisFrame)
+						OneShot(SfxLibrary.ReelSnap, WorldOf(m.X, m.Y));
 				}
 				_prevHeld[m.Id] = m.Held;
 			}
@@ -190,7 +198,11 @@ public partial class MatchAudio : Node2D
 		{ if (IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree(); _lavaLoop = null; }
 	}
 
-	private void OnExploded(Vector2 worldPos) => OneShot(SfxLibrary.Explosion, worldPos);
+	private void OnExploded(Vector2 worldPos)
+	{
+		OneShot(SfxLibrary.Explosion, worldPos);
+		_hadExplosionThisFrame = true;
+	}
 
 	private void SpawnDrips()
 	{

@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 using Miner49er.Core;
 using Miner49er.Core.Net;
 
@@ -37,6 +38,9 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color ChestColor         = new Color(0.9f, 0.8f, 0.1f, 0.95f);
 	private static readonly Color LanternItemColor   = new("ffe090");
 	private static readonly Color LanternGlowColor  = new Color(1f, 0.9f, 0.3f, 0.18f);
+	private static readonly Color ReelChargeColor   = new("ff3355");
+	private static readonly Color WireColor         = new Color(0.9f, 0.55f, 0.1f, 0.75f);
+	private static readonly Color DetonatorItemColor = new("ff3355");
 	private const int LanternRadius = 3;
 	private const int ListenItemRevealRadius = 6;
 
@@ -208,6 +212,20 @@ public partial class WorldRenderer : Node2D
 				DrawTextureRect(_chargeTex, r, false);
 			else
 				DrawCircle(new Vector2(c.X * ts + ts / 2f, c.Y * ts + ts / 2f), ts * 0.25f, ChargeColor);
+		}
+
+		// Reel charges: red marker on wall tile + orange wire to owner.
+		foreach (var rc in _client.ReelCharges)
+		{
+			var wallCenter = new Vector2(rc.WallX * ts + ts / 2f, rc.WallY * ts + ts / 2f);
+			DrawCircle(wallCenter, ts * 0.22f, ReelChargeColor);
+			DrawCircle(wallCenter, ts * 0.14f, new Color(1f, 0.85f, 0.1f, 0.9f));
+
+			bool foundOwner = false;
+			MinerSnapshot ownerSnap = default;
+			foreach (var m in _client.Miners) if (m.Id == rc.OwnerId) { ownerSnap = m; foundOwner = true; break; }
+			if (foundOwner && ownerSnap.Alive)
+				DrawLine(wallCenter, _client.MinerVisualPos(ownerSnap.Id, ownerSnap.X, ownerSnap.Y), WireColor, 1.5f);
 		}
 
 		foreach (var it in _client.Items)
@@ -459,6 +477,7 @@ public partial class WorldRenderer : Node2D
 		ItemKind.BiggerBlast  => BlastItemColor,
 		ItemKind.WaterPlank   => PlankItemColor,
 		ItemKind.SlowMold     => MoldItemColor,
+		ItemKind.Detonator    => DetonatorItemColor,
 		_                     => SpeedItemColor,
 	};
 

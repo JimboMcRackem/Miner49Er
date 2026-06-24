@@ -43,7 +43,11 @@ public static class SnapshotFactory
             octopus = new OctopusSnapshot(oct.Pos.X, oct.Pos.Y, armSnaps);
         }
 
+        var reelCharges = sim.ReelCharges
+            .Select(r => new ReelChargeSnapshot(r.OwnerId, r.WallPos.X, r.WallPos.Y))
+            .ToList();
+
         return new WorldSnapshot(tick, miners, charges, items, molds, monsters,
-            (float)sim.SecondsRemaining, sim.EscapeOpen, octopus, lives);
+            (float)sim.SecondsRemaining, sim.EscapeOpen, octopus, lives, reelCharges);
     }
 }

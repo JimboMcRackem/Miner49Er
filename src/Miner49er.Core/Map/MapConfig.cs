@@ -17,6 +17,7 @@ public sealed class MapConfig
     public int WaterPlankCount { get; set; } = 3;   // visible carried water-planks scattered on Floor
     public int SlowMoldCount { get; set; } = 3;     // visible carried slow-molds scattered on Floor
     public int LanternCount { get; set; } = 1;      // visible carried lanterns scattered on Floor
+    public int DetonatorCount { get; set; } = 0;    // visible carried detonators scattered on Floor
     public int ChestCount { get; set; } = 0;        // visible Chest toolboxes per floor
     public bool HasShop { get; set; } = false;     // place a shopkeeper tile on this floor
 
@@ -83,6 +84,7 @@ public sealed class MapConfig
         var cfg = For(GameMode.Expedition, seed, playerCount, pits, caveIns, lava, mapScale);
         cfg.ChestCount = floor <= 10 ? 1 : 2;
         cfg.HasShop = floor % 4 == 0;
+        cfg.DetonatorCount = floor >= 3 ? 1 : 0;
         return cfg;
     }
 }

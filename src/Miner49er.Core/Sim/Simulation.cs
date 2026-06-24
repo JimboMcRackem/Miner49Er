@@ -12,6 +12,7 @@ public sealed class Simulation
     private readonly List<LavaVent> _lavaVents = new();
     private readonly List<SimEvent> _events = new();
     private readonly List<Monster> _monsters = new();
+    private readonly List<ReelCharge> _reelCharges = new();
     private readonly List<NoiseSource> _noiseSources = new();
     private readonly Random _rng;
     private Octopus? _octopus;
@@ -28,6 +29,7 @@ public sealed class Simulation
     public IReadOnlyList<Item> Items => _items;
     public IReadOnlyList<MoldPatch> Molds => _molds;
     public IReadOnlyList<Monster> Monsters => _monsters;
+    public IReadOnlyList<ReelCharge> ReelCharges => _reelCharges;
 
     public void AddItem(Item item) => _items.Add(item);   // host seeds these from GeneratedMap.Items
 
@@ -615,6 +617,7 @@ public sealed class Simulation
         AdvanceLava(dt);
         AdvanceMonsters(dt);
         AdvanceOctopus(dt);
+        AdvanceReels();
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
@@ -682,6 +685,8 @@ public sealed class Simulation
             ItemKind.WaterPlank => TryPlacePlank(m),
             ItemKind.SlowMold   => DropMold(m),
             ItemKind.Lantern    => DropLantern(m),
+            ItemKind.Detonator  => TryPlantDetonator(m),
+            ItemKind.Reel       => TryDetonateReel(m),
             _ => false,
         };
     }
@@ -942,14 +947,18 @@ public sealed class Simulation
     private void Detonate(Charge charge)
     {
         _charges.Remove(charge);
+        DetonateAt(charge.WallPos, charge.BlastBonus, charge.OwnerId);
+    }
 
+    private void DetonateAt(GridPos wallPos, int blastBonus, int ownerId)
+    {
         var destroyed = new List<GridPos>();
         var collapsedCracks = new List<GridPos>();
-        int r = Config.BlastRockRadius + charge.BlastBonus;
+        int r = Config.BlastRockRadius + blastBonus;
         for (int dy = -r; dy <= r; dy++)
             for (int dx = -r; dx <= r; dx++)
             {
-                var p = new GridPos(charge.WallPos.X + dx, charge.WallPos.Y + dy);
+                var p = new GridPos(wallPos.X + dx, wallPos.Y + dy);
                 if (Math.Abs(dx) + Math.Abs(dy) > r) continue;        // Manhattan disc
                 if (!Grid.InBounds(p)) continue;
                 if (Grid.Get(p) is TileType.Cracked or TileType.Crumbling)
@@ -964,8 +973,7 @@ public sealed class Simulation
                 Grid.Set(p, TileType.Floor);
                 if (wasGold)
                 {
-                    var owner = _miners[charge.OwnerId];
-                    if (owner.Alive) owner.GoldCollected++;
+                    if (_miners.TryGetValue(ownerId, out var owner) && owner.Alive) owner.GoldCollected++;
                     OnGoldCleared();
                 }
                 UnburyItemsAt(p);
@@ -975,7 +983,7 @@ public sealed class Simulation
 
         foreach (var m in _miners.Values)
         {
-            if (m.Alive && m.Pos.ChebyshevTo(charge.WallPos) <= Config.BlastKillRadius + charge.BlastBonus)
+            if (m.Alive && m.Pos.ChebyshevTo(wallPos) <= Config.BlastKillRadius + blastBonus)
             {
                 m.Alive = false;
                 m.Activity = ActivityKind.None;
@@ -986,7 +994,7 @@ public sealed class Simulation
 
         foreach (var mo in _monsters)
         {
-            if (mo.Alive && mo.Pos.ChebyshevTo(charge.WallPos) <= Config.BlastKillRadius + charge.BlastBonus)
+            if (mo.Alive && mo.Pos.ChebyshevTo(wallPos) <= Config.BlastKillRadius + blastBonus)
             {
                 mo.Alive = false;
                 _events.Add(new MonsterKilled(mo.Id));
@@ -998,7 +1006,7 @@ public sealed class Simulation
             if (m.Alive && collapsedCracks.Contains(m.Pos))
                 CollapseKill(m);
 
-        _events.Add(new Explosion(charge.WallPos, destroyed));
+        _events.Add(new Explosion(wallPos, destroyed));
     }
 
     private void CompleteActivity(Miner m)
@@ -1025,6 +1033,58 @@ public sealed class Simulation
             if (_charges.Any(c => c.WallPos == target)) return;
             _charges.Add(new Charge(m.Id, target, Config.FuseSeconds, EffectiveBlastBonus(m.Id)));
             _events.Add(new ChargePlanted(m.Id, target));
+        }
+        else if (kind == ActivityKind.PlantingDetonator)
+        {
+            if (!Grid.InBounds(target) || !Grid.Get(target).IsBlastable()) return;
+            if (_reelCharges.Any(r => r.OwnerId == m.Id)) return;
+            _reelCharges.Add(new ReelCharge(m.Id, target, EffectiveBlastBonus(m.Id)));
+            m.Held = ItemKind.Reel;
+            _events.Add(new DetonatorPlanted(m.Id, target));
+        }
+    }
+
+    private bool TryPlantDetonator(Miner m)
+    {
+        if (m.Activity != ActivityKind.None) return false;
+        var target = m.Pos + m.Facing.ToOffset();
+        if (!Grid.InBounds(target) || !Grid.Get(target).IsBlastable()) return false;
+        if (_reelCharges.Any(r => r.OwnerId == m.Id)) return false;
+        m.Activity = ActivityKind.PlantingDetonator;
+        m.ActivityTarget = target;
+        m.ActivitySecondsRemaining = Config.PlantSeconds;
+        _events.Add(new ActivityStarted(m.Id, ActivityKind.PlantingDetonator, target));
+        return true;
+    }
+
+    private bool TryDetonateReel(Miner m)
+    {
+        var rc = _reelCharges.Find(r => r.OwnerId == m.Id);
+        if (rc == null) return false;
+        if (m.Pos.ManhattanTo(rc.WallPos) < Config.ReelSafeDistance) return false;
+        _reelCharges.Remove(rc);
+        m.Held = null;
+        _events.Add(new ReelDetonated(m.Id, rc.WallPos));
+        DetonateAt(rc.WallPos, rc.BlastBonus, rc.OwnerId);
+        return true;
+    }
+
+    private void AdvanceReels()
+    {
+        for (int i = _reelCharges.Count - 1; i >= 0; i--)
+        {
+            var rc = _reelCharges[i];
+            if (!_miners.TryGetValue(rc.OwnerId, out var m) || !m.Alive)
+            {
+                _reelCharges.RemoveAt(i);
+                continue;
+            }
+            if (m.Pos.ManhattanTo(rc.WallPos) > Config.ReelMaxLength)
+            {
+                _reelCharges.RemoveAt(i);
+                if (m.Held == ItemKind.Reel) m.Held = null;
+                _events.Add(new ReelSnapped(rc.OwnerId));
+            }
         }
     }
 }

@@ -31,6 +31,7 @@ public static class SfxLibrary
 	public static AudioStream CrackRumble  => Get("crack_rumble",  () => Noise(0.18f, 130f, decay: true)); // stone creak underfoot
 	public static AudioStream LavaCrackle => Get("lava_crackle",  () => Noise(1.00f, 480f));               // fire crackle loop near lava
 	public static AudioStream ZombieMoan  => Get("zombie_moan",   () => Tone(0.40f, 180f, 120f));          // low descending moan
+	public static AudioStream ReelSnap   => Get("reel_snap",     () => Noise(0.18f, 2400f, decay: true)); // sharp wire snap
 	public static AudioStream? Music => GetOptional("music_loop");
 
 	private static AudioStream Get(string name, Func<AudioStream> placeholder)

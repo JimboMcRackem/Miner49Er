@@ -16,6 +16,8 @@ public readonly record struct MoldSnapshot(int X, int Y, double RemainingSeconds
 public readonly record struct MonsterSnapshot(
     int Id, int X, int Y, int Facing, MonsterKind Kind, bool Alive);
 
+public readonly record struct ReelChargeSnapshot(int OwnerId, int WallX, int WallY);
+
 /// <summary>One floor cell that changed; FromBlast drives the flash, NewType is
 /// the tile it became (Floor for mining/blasts, water for the flood).</summary>
 public readonly record struct TileChange(int X, int Y, bool FromBlast, TileType NewType = TileType.Floor);
@@ -29,6 +31,7 @@ public sealed record WorldSnapshot(
     IReadOnlyList<ItemSnapshot> Items, IReadOnlyList<MoldSnapshot> Molds,
     IReadOnlyList<MonsterSnapshot> Monsters,
     float SecondsRemaining = -1f, bool EscapeOpen = false,
-    OctopusSnapshot? Octopus = null, int Lives = 3);
+    OctopusSnapshot? Octopus = null, int Lives = 3,
+    IReadOnlyList<ReelChargeSnapshot>? ReelCharges = null);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);

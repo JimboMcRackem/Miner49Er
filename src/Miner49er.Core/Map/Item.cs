@@ -8,13 +8,15 @@ public enum ItemKind
     Chest,      // loot container: rolls ChestLootTable on pickup
     LifePotion, // from Chest loot only; fires LifeRestored event
     BossChest,  // boss floor only; opens the escape tile
+    Detonator,  // two-part: plant on wall then trigger at safe distance
+    Reel,       // held after planting a Detonator; Use to detonate; never placed on ground
 }
 
 public static class ItemKindExtensions
 {
     /// <summary>Carried kinds go into the 1-slot inventory; triggered with Use verb.</summary>
     public static bool IsCarried(this ItemKind k) =>
-        k is ItemKind.WaterPlank or ItemKind.SlowMold or ItemKind.Lantern;
+        k is ItemKind.WaterPlank or ItemKind.SlowMold or ItemKind.Lantern or ItemKind.Detonator;
 
     /// <summary>Placeable kinds cycle in PlaceItems (random floor placement).</summary>
     public static bool IsPlaceable(this ItemKind k) =>

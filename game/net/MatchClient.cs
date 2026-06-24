@@ -19,12 +19,16 @@ public partial class MatchClient : Node2D
 	public IReadOnlyList<ItemSnapshot> Items => _items;
 	public IReadOnlyList<MoldSnapshot> Molds => _molds;
 	public IReadOnlyList<MonsterSnapshot> Monsters => _monsters;
+	public IReadOnlyList<ReelChargeSnapshot> ReelCharges => _reelChargeSnaps;
 	public bool EscapeOpen { get; private set; }
 	public GridPos? EscapeTile { get; private set; }
 	public GridPos? ShopPos { get; private set; }
 	public int GoldRemaining { get; private set; }
 	public Vector2 MonsterVisualPos(int id, int x, int y) =>
 		_monsterVisualPos.TryGetValue(id, out var v)
+			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f);
+	public Vector2 MinerVisualPos(int id, int x, int y) =>
+		_visualPos.TryGetValue(id, out var v)
 			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f);
 	public int LocalMinerId { get; private set; }
 	public bool Listening; // set by Main each frame; gates the buried-item shimmer
@@ -38,6 +42,7 @@ public partial class MatchClient : Node2D
 	private List<ItemSnapshot> _items = new();
 	private List<MoldSnapshot> _molds = new();
 	private List<MonsterSnapshot> _monsters = new();
+	private List<ReelChargeSnapshot> _reelChargeSnaps = new();
 	private readonly Dictionary<int, Vector2> _monsterVisualPos = new(); // monsterId -> smoothed pixels
 	private readonly Dictionary<int, Vector2> _visualPos = new(); // minerId -> smoothed pixels
 
@@ -124,6 +129,7 @@ public partial class MatchClient : Node2D
 		SecondsRemaining = update.Snapshot.SecondsRemaining;
 		Octopus = update.Snapshot.Octopus;
 		Lives = update.Snapshot.Lives;
+		_reelChargeSnaps = new List<ReelChargeSnapshot>(update.Snapshot.ReelCharges ?? System.Array.Empty<ReelChargeSnapshot>());
 		UpdateFog();
 	}
 
@@ -240,9 +246,9 @@ public partial class MatchClient : Node2D
 				int frame = (int)(drawNow * 6 % 6) + 1;
 				tex = _minerMineTex[colorIdx, facing, frame];
 			}
-			else if (m.Activity == 2 && m.ActivityRemaining > 0 && _minerPlantTex != null)
+			else if ((m.Activity == 2 || m.Activity == 3) && m.ActivityRemaining > 0 && _minerPlantTex != null)
 			{
-				// Planting: loop 4 animated frames (1-4) at 4 fps
+				// Planting / PlantingDetonator: loop 4 animated frames (1-4) at 4 fps
 				int frame = (int)(drawNow * 4 % 4) + 1;
 				tex = _minerPlantTex[colorIdx, facing, frame];
 			}
