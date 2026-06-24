@@ -353,8 +353,13 @@ public partial class MatchClient : Node2D
 			for (int x = 0; x < img.GetWidth(); x++)
 			{
 				var px = img.GetPixel(x, y);
+				if (px.A < 0.05f) continue;
 				float lum = 0.299f * px.R + 0.587f * px.G + 0.114f * px.B;
-				img.SetPixel(x, y, new Color(tint.R * lum, tint.G * lum, tint.B * lum, px.A));
+				// Preserve skin (warm peach) and yellow hard hat; tint dark clothing only.
+				if (px.S > 0.3f && px.H < 0.25f && lum > 0.25f) continue;
+				// Lift luminance floor so dark overalls show a vivid team colour, not near-black.
+				float l = lum * 0.6f + 0.4f;
+				img.SetPixel(x, y, new Color(tint.R * l, tint.G * l, tint.B * l, px.A));
 			}
 		return img;
 	}
