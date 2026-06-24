@@ -21,6 +21,10 @@ public partial class Main : Node2D
 	private ShopPanel _shopPanel = null!;
 	private bool _wasListening;
 	private bool _wasAtShop;
+	private ColorRect _fadeOverlay = null!;
+	private float _fadeAlpha;
+	private const float FadeOutSpeed = 3f;  // 0→1 in ~0.33s
+	private const float FadeInSpeed  = 1.5f; // 1→0 in ~0.67s
 
 	private Label? _floorBanner;
 	private float  _floorBannerTimer;
@@ -113,6 +117,12 @@ public partial class Main : Node2D
 
 		_shopPanel = new ShopPanel { Name = "ShopPanel" };
 		AddChild(_shopPanel);
+
+		_fadeOverlay = new ColorRect { Name = "FadeOverlay", ZIndex = 50 };
+		_fadeOverlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_fadeOverlay.Color = new Color(0f, 0f, 0f, 0f);
+		_fadeOverlay.MouseFilter = Control.MouseFilterEnum.Ignore;
+		AddChild(_fadeOverlay);
 
 		nm.RegisterMatch(_host, _client);
 		nm.MatchEnded += OnMatchEnded;
@@ -215,12 +225,26 @@ public partial class Main : Node2D
 						bool atShop = _client.ShopPos is GridPos sPos && localPos == sPos;
 						_shopPanel.UpdateSnapshot(m, _client.Lives, 3);
 						if (atShop && !_wasAtShop && !_shopPanel.IsOpen)
+						{
 							_shopPanel.Open(m, _client.Lives, 3);
+							NetworkManager.Instance.SendDir(-1); // clear pending direction so miner doesn't walk off shop tile
+						}
 						else if (!atShop && _shopPanel.IsOpen)
 							_shopPanel.Close();
 						_wasAtShop = atShop;
 					}
 			}
+		// Death-fade overlay (expedition only): black out on death, fade in on revive.
+		if (sawLocal && NetworkManager.Instance.MatchMode == GameMode.Expedition)
+		{
+			float target = localAlive ? 0f : 1f;
+			if (_fadeAlpha < target)
+				_fadeAlpha = Math.Min(target, _fadeAlpha + FadeOutSpeed * (float)delta);
+			else if (_fadeAlpha > target)
+				_fadeAlpha = Math.Max(target, _fadeAlpha - FadeInSpeed * (float)delta);
+			_fadeOverlay.Color = new Color(0f, 0f, 0f, _fadeAlpha);
+		}
+
 		if (Input.IsActionJustPressed(InputBindings.Settings))
 			_audioPanel.Toggle();
 		bool panelOpen = _audioPanel.IsOpen;

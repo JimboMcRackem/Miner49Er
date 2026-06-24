@@ -31,6 +31,11 @@ public partial class MatchHost : Node
 	private int _cumulativeGold;
 	private readonly Dictionary<int, (int Speed, int Vision, int Blast)> _permLevels = new();
 
+	private readonly Dictionary<int, GridPos> _spawnByMiner = new();
+	private bool _respawnPending;
+	private double _respawnTimer;
+	private const double RespawnDelay = 2.0;
+
 	public void Begin(Simulation sim, Dictionary<long, int> peerToMiner)
 	{
 		_sim = sim;
@@ -43,6 +48,9 @@ public partial class MatchHost : Node
 		_livesMax       = nm.MatchMode == GameMode.Expedition ? 2 * nm.MatchPlayerCount : 1;
 		_livesRemaining = _livesMax;
 		_running = true;
+		_spawnByMiner.Clear();
+		foreach (var (_, mid) in peerToMiner)
+			_spawnByMiner[mid] = sim.GetMiner(mid).Pos;
 	}
 
 	public void SetDir(long peerId, int dir)
@@ -107,23 +115,8 @@ public partial class MatchHost : Node
 		while (_accum >= TickSeconds) { _accum -= TickSeconds; StepOnce(); }
 	}
 
-	private void StepOnce()
+	private void TickAndBroadcast()
 	{
-		foreach (var (minerId, dir) in _pendingDir)
-		{
-			if (dir < 0) continue;
-			_sim.TryMove(minerId, (Direction)dir);
-		}
-
-		foreach (var minerId in _pendingMine)  _sim.TryStartMining(minerId);
-		_pendingMine.Clear();
-		foreach (var minerId in _pendingPlant) _sim.TryStartPlanting(minerId);
-		_pendingPlant.Clear();
-		foreach (var minerId in _pendingUse)   _sim.TryUseItem(minerId);
-		_pendingUse.Clear();
-		foreach (var minerId in _pendingThrow) _sim.TryThrowStone(minerId);
-		_pendingThrow.Clear();
-
 		_sim.Tick(TickSeconds);
 		_tick++;
 
@@ -165,6 +158,41 @@ public partial class MatchHost : Node
 
 		var update = new TickUpdate(SnapshotFactory.Capture(_sim, _tick, _livesRemaining), changes);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
+	}
+
+	private void StepOnce()
+	{
+		if (_respawnPending)
+		{
+			_respawnTimer -= TickSeconds;
+			TickAndBroadcast();
+			if (_respawnTimer <= 0)
+			{
+				_respawnPending = false;
+				foreach (var (mid, sp) in _spawnByMiner)
+					if (!_sim.GetMiner(mid).Alive)
+						_sim.ReviveMiner(mid, sp, 3.0);
+				foreach (var key in _pendingDir.Keys.ToList()) _pendingDir[key] = -1;
+			}
+			return;
+		}
+
+		foreach (var (minerId, dir) in _pendingDir)
+		{
+			if (dir < 0) continue;
+			_sim.TryMove(minerId, (Direction)dir);
+		}
+
+		foreach (var minerId in _pendingMine)  _sim.TryStartMining(minerId);
+		_pendingMine.Clear();
+		foreach (var minerId in _pendingPlant) _sim.TryStartPlanting(minerId);
+		_pendingPlant.Clear();
+		foreach (var minerId in _pendingUse)   _sim.TryUseItem(minerId);
+		_pendingUse.Clear();
+		foreach (var minerId in _pendingThrow) _sim.TryThrowStone(minerId);
+		_pendingThrow.Clear();
+
+		TickAndBroadcast();
 
 		var nm     = NetworkManager.Instance;
 		var result = RoundResolver.Resolve(_sim, nm.MatchMode);
@@ -185,7 +213,8 @@ public partial class MatchHost : Node
 				_livesRemaining--;
 				if (_livesRemaining > 0)
 				{
-					AdvanceFloor(_peerToMiner.Values.First(), sameFloor: true);
+					_respawnPending = true;
+					_respawnTimer = RespawnDelay;
 					return;
 				}
 			}
@@ -207,10 +236,10 @@ public partial class MatchHost : Node
 			_permLevels[m.Id] = (m.PermSpeedLevel, m.PermVisionLevel, m.PermBlastLevel);
 	}
 
-	private void AdvanceFloor(int minerId, bool sameFloor = false)
+	private void AdvanceFloor(int minerId)
 	{
 		var nm = NetworkManager.Instance;
-		int newFloor  = sameFloor ? nm.MatchFloor : nm.MatchFloor + 1;
+		int newFloor  = nm.MatchFloor + 1;
 		int floorSeed = nm.MatchSeed + newFloor * 1000;
 
 		if (newFloor > 21)
@@ -258,6 +287,7 @@ public partial class MatchHost : Node
 
 		// Spawn every peer; miner IDs are 1-based so spawn index = minerId - 1.
 		GridPos monsterRef = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : newMap.Center;
+		_spawnByMiner.Clear();
 		foreach (var mid in _peerToMiner.Values)
 		{
 			int idx = mid - 1;
@@ -271,6 +301,7 @@ public partial class MatchHost : Node
 			newSim.AddMiner(mid, sp, invulRemaining: 3.0);
 			if (_permLevels.TryGetValue(mid, out var lvl))
 				newSim.SetPermLevels(mid, lvl.Speed, lvl.Vision, lvl.Blast);
+			_spawnByMiner[mid] = sp;
 		}
 
 		if (newFloor == 21)
