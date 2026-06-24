@@ -50,6 +50,8 @@ public partial class WorldRenderer : Node2D
 	private Texture2D? _goldRockTex;
 	private Texture2D? _plankTex;
 	private Texture2D? _lavaVentTex;
+	private Texture2D? _crumbledTex;
+	private Texture2D? _crackedTex;
 	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
 
 	// PixelLab monster sprites — [dir] order: 0=N 1=E 2=S 3=W
@@ -71,6 +73,8 @@ public partial class WorldRenderer : Node2D
 		_goldRockTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_6.png");
 		_plankTex     = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_1.png");
 		_lavaVentTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_5.png");
+		_crumbledTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_11.png");
+		_crackedTex   = GD.Load<Texture2D>("res://assets/tiles/cracked_floor.png");
 		LoadItemTex(ItemKind.SpeedPotion,  "res://assets/objects/item_speed.png");
 		LoadItemTex(ItemKind.LongerVision, "res://assets/objects/item_vision.png");
 		LoadItemTex(ItemKind.BiggerBlast,  "res://assets/objects/item_blast.png");
@@ -198,24 +202,32 @@ public partial class WorldRenderer : Node2D
 					break;
 				case TileType.Cracked:
 				{
-					// Single hairline crack: two segments with a jog at the midpoint
-					float x0 = p.X * ts, y0 = p.Y * ts;
-					var ca = new Vector2(x0 + ts * 0.45f, y0 + ts * 0.10f);
-					var cb = new Vector2(x0 + ts * 0.52f, y0 + ts * 0.52f);
-					var cc = new Vector2(x0 + ts * 0.60f, y0 + ts * 0.90f);
-					DrawLine(ca, cb, CrackColor, 1.5f);
-					DrawLine(cb, cc, CrackColor, 1.5f);
+					if (_crackedTex != null)
+						DrawTextureRect(_crackedTex, r, false);
+					else
+					{
+						float x0 = p.X * ts, y0 = p.Y * ts;
+						var ca = new Vector2(x0 + ts * 0.45f, y0 + ts * 0.10f);
+						var cb = new Vector2(x0 + ts * 0.52f, y0 + ts * 0.52f);
+						var cc = new Vector2(x0 + ts * 0.60f, y0 + ts * 0.90f);
+						DrawLine(ca, cb, CrackColor, 1.5f);
+						DrawLine(cb, cc, CrackColor, 1.5f);
+					}
 					break;
 				}
 				case TileType.Crumbling:
 				{
-					// X crack: two diagonals meeting at a shifted centre for a jagged feel
-					float x0 = p.X * ts, y0 = p.Y * ts;
-					var cen = new Vector2(x0 + ts * 0.52f, y0 + ts * 0.48f);
-					DrawLine(new Vector2(x0 + ts * 0.10f, y0 + ts * 0.10f), cen, CrackColor, 1.5f);
-					DrawLine(cen, new Vector2(x0 + ts * 0.90f, y0 + ts * 0.90f), CrackColor, 1.5f);
-					DrawLine(new Vector2(x0 + ts * 0.90f, y0 + ts * 0.10f), cen, CrackColor, 1.5f);
-					DrawLine(cen, new Vector2(x0 + ts * 0.10f, y0 + ts * 0.90f), CrackColor, 1.5f);
+					if (_crumbledTex != null)
+						DrawTextureRect(_crumbledTex, r, false);
+					else
+					{
+						float x0 = p.X * ts, y0 = p.Y * ts;
+						var cen = new Vector2(x0 + ts * 0.52f, y0 + ts * 0.48f);
+						DrawLine(new Vector2(x0 + ts * 0.10f, y0 + ts * 0.10f), cen, CrackColor, 1.5f);
+						DrawLine(cen, new Vector2(x0 + ts * 0.90f, y0 + ts * 0.90f), CrackColor, 1.5f);
+						DrawLine(new Vector2(x0 + ts * 0.90f, y0 + ts * 0.10f), cen, CrackColor, 1.5f);
+						DrawLine(cen, new Vector2(x0 + ts * 0.10f, y0 + ts * 0.90f), CrackColor, 1.5f);
+					}
 					break;
 				}
 			}
