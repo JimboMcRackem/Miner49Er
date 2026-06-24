@@ -52,6 +52,11 @@ public partial class WorldRenderer : Node2D
 	private Texture2D? _lavaVentTex;
 	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
 
+	// PixelLab monster sprites — [dir] order: 0=N 1=E 2=S 3=W
+	private Texture2D?[] _ghostTex = new Texture2D?[4];
+	private Texture2D?[] _slimeTex = new Texture2D?[4];
+	private Texture2D?[] _goatTex  = new Texture2D?[4];
+
 	// Zombie miner: miner sprites fully tinted sickly green — no skin/hat preservation.
 	private static readonly Color ZombieColor = new(0.42f, 0.78f, 0.38f);
 	private Texture2D?[]  _zombieIdleTex = new Texture2D?[4];          // [dir]
@@ -71,6 +76,9 @@ public partial class WorldRenderer : Node2D
 		LoadItemTex(ItemKind.BiggerBlast,  "res://assets/objects/item_blast.png");
 		LoadItemTex(ItemKind.WaterPlank,   "res://assets/objects/item_plank.png");
 		LoadItemTex(ItemKind.SlowMold,     "res://assets/objects/item_mold.png");
+		LoadMonsterTex(_ghostTex, "ghost");
+		LoadMonsterTex(_slimeTex, "slime");
+		LoadMonsterTex(_goatTex,  "goat");
 		BuildZombieTextures();
 	}
 
@@ -78,6 +86,14 @@ public partial class WorldRenderer : Node2D
 	{
 		var t = GD.Load<Texture2D>(path);
 		if (t != null) _itemTex[kind] = t;
+	}
+
+	// Loads n/e/s/w.png from assets/monsters/<folder>/ into a [4] array (0=N 1=E 2=S 3=W).
+	private static void LoadMonsterTex(Texture2D?[] arr, string folder)
+	{
+		var dirs = new[] { "n", "e", "s", "w" };
+		for (int i = 0; i < 4; i++)
+			arr[i] = GD.Load<Texture2D>($"res://assets/monsters/{folder}/{dirs[i]}.png");
 	}
 
 	private void BuildZombieTextures()
@@ -351,50 +367,45 @@ public partial class WorldRenderer : Node2D
 			{
 				case MonsterKind.Slime:
 				{
-					DrawCircle(c, ts * 0.34f, SlimeColor);
-					DrawCircle(c, ts * 0.34f, SlimeOutlineColor, false, 1.5f);
-					var eye1 = c + fwd + side;
-					var eye2 = c + fwd - side;
-					DrawCircle(eye1, ts * 0.07f, Colors.White);
-					DrawCircle(eye1, ts * 0.04f, Colors.Black);
-					DrawCircle(eye2, ts * 0.07f, Colors.White);
-					DrawCircle(eye2, ts * 0.04f, Colors.Black);
+					var tex = _slimeTex[mo.Facing];
+					if (tex != null)
+						DrawTextureRect(tex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+					else
+					{
+						DrawCircle(c, ts * 0.34f, SlimeColor);
+						DrawCircle(c, ts * 0.34f, SlimeOutlineColor, false, 1.5f);
+					}
 					break;
 				}
 				case MonsterKind.Ghost:
 				{
-					var ghostCol = GhostColor with { A = 0.6f };
-					var headOff  = new Vector2(0, -ts * 0.10f);
-					DrawCircle(c + headOff, ts * 0.28f, ghostCol);
-					DrawRect(new Rect2(c.X - ts * 0.28f, c.Y - ts * 0.10f, ts * 0.56f, ts * 0.28f), ghostCol);
-					for (int i = 0; i < 3; i++)
+					var tex = _ghostTex[mo.Facing];
+					if (tex != null)
+						DrawTextureRect(tex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+					else
 					{
-						float xOff = (i - 1) * ts * 0.19f;
-						DrawColoredPolygon(new Vector2[] {
-							c + new Vector2(xOff - ts * 0.09f, ts * 0.18f),
-							c + new Vector2(xOff + ts * 0.09f, ts * 0.18f),
-							c + new Vector2(xOff,              ts * 0.36f),
-						}, ghostCol);
+						var ghostCol = GhostColor with { A = 0.6f };
+						var headOff  = new Vector2(0, -ts * 0.10f);
+						DrawCircle(c + headOff, ts * 0.28f, ghostCol);
+						DrawRect(new Rect2(c.X - ts * 0.28f, c.Y - ts * 0.10f, ts * 0.56f, ts * 0.28f), ghostCol);
 					}
-					var eFwd  = FacingOffset(mo.Facing, ts * 0.08f);
-					var eSide = PerpendicularOffset(mo.Facing, ts * 0.09f);
-					var eyeBase = c + headOff + eFwd;
-					var eyeCol  = new Color(0.1f, 0.1f, 0.2f, 0.85f);
-					DrawCircle(eyeBase + eSide, ts * 0.065f, eyeCol);
-					DrawCircle(eyeBase - eSide, ts * 0.065f, eyeCol);
 					break;
 				}
 				case MonsterKind.Goat:
 				{
-					DrawCircle(c, ts * 0.28f, GoatColor);
-					var headPos = c + FacingOffset(mo.Facing, ts * 0.22f);
-					DrawCircle(headPos, ts * 0.16f, GoatColor);
-					var hSide = PerpendicularOffset(mo.Facing, ts * 0.10f);
-					var hFwd  = FacingOffset(mo.Facing, ts * 0.14f);
-					DrawLine(headPos + hSide, headPos + hSide * 1.8f + hFwd, GoatHornColor, 2.5f);
-					DrawLine(headPos - hSide, headPos - hSide * 1.8f + hFwd, GoatHornColor, 2.5f);
-					DrawCircle(headPos + PerpendicularOffset(mo.Facing, ts * 0.05f), ts * 0.04f, Colors.Black);
-					DrawCircle(headPos - PerpendicularOffset(mo.Facing, ts * 0.05f), ts * 0.04f, Colors.Black);
+					var tex = _goatTex[mo.Facing];
+					if (tex != null)
+						DrawTextureRect(tex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+					else
+					{
+						DrawCircle(c, ts * 0.28f, GoatColor);
+						var headPos = c + FacingOffset(mo.Facing, ts * 0.22f);
+						DrawCircle(headPos, ts * 0.16f, GoatColor);
+						var hSide = PerpendicularOffset(mo.Facing, ts * 0.10f);
+						var hFwd  = FacingOffset(mo.Facing, ts * 0.14f);
+						DrawLine(headPos + hSide, headPos + hSide * 1.8f + hFwd, GoatHornColor, 2.5f);
+						DrawLine(headPos - hSide, headPos - hSide * 1.8f + hFwd, GoatHornColor, 2.5f);
+					}
 					break;
 				}
 				case MonsterKind.ZombieMiner:
