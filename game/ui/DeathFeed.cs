@@ -76,7 +76,7 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Crushed => "CRUSHED!",
 			DeathCause.Burned => "BURNED ALIVE!",
 			DeathCause.Slimed => "YOU WERE SLIMED TO DEATH!",
-			DeathCause.Terrified => "YOU WERE TERRIFIED TO DEATH!",
+			DeathCause.Terrified => "YOU WERE SCARED TO DEATH!",
 			DeathCause.Headbutted => "YOU WERE HEADBUTTED TO DEATH!",
 			DeathCause.Mauled => "YOU WERE MAULED BY A ZOMBIE!",
 			_ => "YOU DIED",

@@ -302,9 +302,12 @@ public partial class MainMenu : Control
 		for (int y = 0; y < img.GetHeight(); y++)
 			for (int x = 0; x < img.GetWidth(); x++)
 			{
-				var   px  = img.GetPixel(x, y);
+				var px = img.GetPixel(x, y);
+				if (px.A < 0.05f) continue;
 				float lum = 0.299f * px.R + 0.587f * px.G + 0.114f * px.B;
-				img.SetPixel(x, y, new Color(tint.R * lum, tint.G * lum, tint.B * lum, px.A));
+				if (px.S > 0.3f && px.H < 0.25f && lum > 0.25f) continue; // preserve skin/hat
+				float l = lum * 0.6f + 0.4f;
+				img.SetPixel(x, y, new Color(tint.R * l, tint.G * l, tint.B * l, px.A));
 			}
 		return img;
 	}
