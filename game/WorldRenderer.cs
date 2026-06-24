@@ -58,6 +58,8 @@ public partial class WorldRenderer : Node2D
 	private Texture2D?[] _ghostTex = new Texture2D?[4];
 	private Texture2D?[] _slimeTex = new Texture2D?[4];
 	private Texture2D?[] _goatTex  = new Texture2D?[4];
+	private Texture2D?[,] _ghostWalkTex = new Texture2D?[4, 9]; // [dir, frame 0-8]
+	private Texture2D?[,] _goatWalkTex  = new Texture2D?[4, 9]; // [dir, frame 0-8]
 
 	// Zombie miner: miner sprites fully tinted sickly green — no skin/hat preservation.
 	private static readonly Color ZombieColor = new(0.42f, 0.78f, 0.38f);
@@ -80,10 +82,16 @@ public partial class WorldRenderer : Node2D
 		LoadItemTex(ItemKind.BiggerBlast,  "res://assets/objects/item_blast.png");
 		LoadItemTex(ItemKind.WaterPlank,   "res://assets/objects/item_plank.png");
 		LoadItemTex(ItemKind.SlowMold,     "res://assets/objects/item_mold.png");
+		LoadItemTex(ItemKind.Chest,        "res://assets/objects/chest.png");
+		LoadItemTex(ItemKind.BossChest,    "res://assets/objects/chest_boss.png");
+		LoadItemTex(ItemKind.LifePotion,   "res://assets/objects/item_lifepot.png");
+		LoadItemTex(ItemKind.Detonator,    "res://assets/objects/item_detonator.png");
 		LoadMonsterTex(_ghostTex, "ghost");
 		LoadMonsterTex(_slimeTex, "slime");
 		LoadMonsterTex(_goatTex,  "goat");
 		BuildZombieTextures();
+		BuildGhostWalkTextures();
+		BuildGoatWalkTextures();
 	}
 
 	private void LoadItemTex(ItemKind kind, string path)
@@ -98,6 +106,30 @@ public partial class WorldRenderer : Node2D
 		var dirs = new[] { "n", "e", "s", "w" };
 		for (int i = 0; i < 4; i++)
 			arr[i] = GD.Load<Texture2D>($"res://assets/monsters/{folder}/{dirs[i]}.png");
+	}
+
+	private void BuildGhostWalkTextures()
+	{
+		string[] dirName = { "north", "east", "south", "west" };
+		for (int d = 0; d < 4; d++)
+			for (int f = 0; f <= 8; f++)
+			{
+				string path = $"res://assets/monsters/ghost/walk/{dirName[d]}_{f}.png";
+				if (ResourceLoader.Exists(path))
+					_ghostWalkTex[d, f] = GD.Load<Texture2D>(path);
+			}
+	}
+
+	private void BuildGoatWalkTextures()
+	{
+		string[] dirName = { "north", "east", "south", "west" };
+		for (int d = 0; d < 4; d++)
+			for (int f = 0; f <= 8; f++)
+			{
+				string path = $"res://assets/monsters/goat/walk/{dirName[d]}_{f}.png";
+				if (ResourceLoader.Exists(path))
+					_goatWalkTex[d, f] = GD.Load<Texture2D>(path);
+			}
 	}
 
 	private void BuildZombieTextures()
@@ -175,7 +207,7 @@ public partial class WorldRenderer : Node2D
 				uint h2 = h ^ (uint)(g * 2654435761u);
 				DrawRect(
 					new Rect2(x0 + (h2 & 0x1Fu) * (ts - 3) / 31f, y0 + ((h2 >> 8) & 0x1Fu) * (ts - 2) / 31f,
-					          2 + (int)((h2 >> 16) & 3u), 1 + (int)((h2 >> 20) & 2u)),
+							  2 + (int)((h2 >> 16) & 3u), 1 + (int)((h2 >> 20) & 2u)),
 					new Color(0.15f, 0.13f, 0.12f, 0.55f));
 			}
 		}
@@ -267,28 +299,43 @@ public partial class WorldRenderer : Node2D
 
 			if (it.Kind == ItemKind.LifePotion)
 			{
-				var font = ThemeDB.FallbackFont;
-				int fontSize = ts * 2 / 3;
-				DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
-					"♥", HorizontalAlignment.Center, -1, fontSize, new Color(1f, 0.15f, 0.15f, 0.95f));
+				if (_itemTex.TryGetValue(it.Kind, out var litex))
+					DrawTextureRect(litex, r, false);
+				else
+				{
+					var font = ThemeDB.FallbackFont;
+					int fontSize = ts * 2 / 3;
+					DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
+						"♥", HorizontalAlignment.Center, -1, fontSize, new Color(1f, 0.15f, 0.15f, 0.95f));
+				}
 				continue;
 			}
 			if (it.Kind == ItemKind.BossChest)
 			{
-				var font = ThemeDB.FallbackFont;
-				int fontSize = ts * 2 / 3;
-				DrawRect(r, new Color(0.9f, 0.75f, 0.1f, 0.9f));
-				DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
-					"★", HorizontalAlignment.Center, -1, fontSize, Colors.Black);
+				if (_itemTex.TryGetValue(it.Kind, out var bctex))
+					DrawTextureRect(bctex, r, false);
+				else
+				{
+					var font = ThemeDB.FallbackFont;
+					int fontSize = ts * 2 / 3;
+					DrawRect(r, new Color(0.9f, 0.75f, 0.1f, 0.9f));
+					DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
+						"★", HorizontalAlignment.Center, -1, fontSize, Colors.Black);
+				}
 				continue;
 			}
 			if (it.Kind == ItemKind.Chest)
 			{
-				var font = ThemeDB.FallbackFont;
-				int fontSize = ts * 2 / 3;
-				DrawRect(r, ChestColor);
-				DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
-					"♦", HorizontalAlignment.Center, -1, fontSize, Colors.Black);
+				if (_itemTex.TryGetValue(it.Kind, out var ctex))
+					DrawTextureRect(ctex, r, false);
+				else
+				{
+					var font = ThemeDB.FallbackFont;
+					int fontSize = ts * 2 / 3;
+					DrawRect(r, ChestColor);
+					DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
+						"♦", HorizontalAlignment.Center, -1, fontSize, Colors.Black);
+				}
 				continue;
 			}
 
@@ -391,9 +438,13 @@ public partial class WorldRenderer : Node2D
 				}
 				case MonsterKind.Ghost:
 				{
-					var tex = _ghostTex[mo.Facing];
+					int ghostFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
+					var tex = _ghostWalkTex[mo.Facing, ghostFrame] ?? _ghostTex[mo.Facing];
 					if (tex != null)
-						DrawTextureRect(tex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+					{
+						float gs = ts * 1.3f;
+						DrawTextureRect(tex, new Rect2(c.X - gs / 2f, c.Y - gs / 2f, gs, gs), false);
+					}
 					else
 					{
 						var ghostCol = GhostColor with { A = 0.6f };
@@ -405,9 +456,13 @@ public partial class WorldRenderer : Node2D
 				}
 				case MonsterKind.Goat:
 				{
-					var tex = _goatTex[mo.Facing];
+					int goatFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
+					var tex = _goatWalkTex[mo.Facing, goatFrame] ?? _goatTex[mo.Facing];
 					if (tex != null)
-						DrawTextureRect(tex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+					{
+						float gs = ts * 1.5f;
+						DrawTextureRect(tex, new Rect2(c.X - gs / 2f, c.Y - gs / 2f, gs, gs), false);
+					}
 					else
 					{
 						DrawCircle(c, ts * 0.28f, GoatColor);
