@@ -300,8 +300,8 @@ public partial class MatchClient : Node2D
 		var srcs = new Image?[4];
 		for (int d = 0; d < 4; d++)
 		{
-			var img = new Image();
-			if (img.Load(paths[d]) == Error.Ok) { img.Convert(Image.Format.Rgba8); srcs[d] = img; }
+			var img = GD.Load<CompressedTexture2D>(paths[d])?.GetImage();
+			if (img != null) { img.Convert(Image.Format.Rgba8); srcs[d] = img; }
 		}
 		var tex = new Texture2D[PlayerColors.Palette.Length, 4];
 		for (int c = 0; c < PlayerColors.Palette.Length; c++)
@@ -319,9 +319,9 @@ public partial class MatchClient : Node2D
 		for (int d = 0; d < 4; d++)
 			for (int f = 0; f < 4; f++)
 			{
-				var img = new Image();
 				string path = $"res://assets/miners/walk/{dirLetter[d]}{f}.png";
-				if (img.Load(path) == Error.Ok) { img.Convert(Image.Format.Rgba8); srcs[d, f] = img; }
+				var img = GD.Load<CompressedTexture2D>(path)?.GetImage();
+				if (img != null) { img.Convert(Image.Format.Rgba8); srcs[d, f] = img; }
 			}
 		var tex = new Texture2D[PlayerColors.Palette.Length, 4, 4];
 		for (int c = 0; c < PlayerColors.Palette.Length; c++)
@@ -339,9 +339,9 @@ public partial class MatchClient : Node2D
 		for (int d = 0; d < 4; d++)
 			for (int f = 0; f < frameCount; f++)
 			{
-				var img = new Image();
 				string path = $"res://assets/miners/{folder}/{dirLetter[d]}{f}.png";
-				if (img.Load(path) == Error.Ok) { img.Convert(Image.Format.Rgba8); srcs[d, f] = img; }
+				var img = GD.Load<CompressedTexture2D>(path)?.GetImage();
+				if (img != null) { img.Convert(Image.Format.Rgba8); srcs[d, f] = img; }
 			}
 		var tex = new Texture2D[PlayerColors.Palette.Length, 4, frameCount];
 		for (int c = 0; c < PlayerColors.Palette.Length; c++)

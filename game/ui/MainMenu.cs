@@ -288,8 +288,10 @@ public partial class MainMenu : Control
 	private static Texture2D?[] BuildMinerIcons()
 	{
 		var icons = new Texture2D?[PlayerColors.Palette.Length];
-		var src   = new Image();
-		if (src.Load("res://assets/miners/miner_s.png") != Error.Ok) return icons;
+		// Image.Load("res://...") redirects to .ctex in exports; use resource loader instead.
+		var ctex = GD.Load<CompressedTexture2D>("res://assets/miners/miner_s.png");
+		var src  = ctex?.GetImage();
+		if (src == null) return icons;
 		src.Convert(Image.Format.Rgba8);
 		for (int i = 0; i < PlayerColors.Palette.Length; i++)
 			icons[i] = ImageTexture.CreateFromImage(TintGrayscale(src, PlayerColors.At(i)));

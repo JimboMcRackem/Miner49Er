@@ -151,16 +151,16 @@ public partial class WorldRenderer : Node2D
 		var dirLetter = new[] { "n", "e", "s", "w" };
 		for (int d = 0; d < 4; d++)
 		{
-			var img = new Image();
-			if (img.Load($"res://assets/miners/miner_{dirLetter[d]}.png") == Error.Ok)
+			var img = GD.Load<CompressedTexture2D>($"res://assets/miners/miner_{dirLetter[d]}.png")?.GetImage();
+			if (img != null)
 			{
 				img.Convert(Image.Format.Rgba8);
 				_zombieIdleTex[d] = ImageTexture.CreateFromImage(TintFull(img, ZombieColor));
 			}
 			for (int f = 0; f < 4; f++)
 			{
-				var wImg = new Image();
-				if (wImg.Load($"res://assets/miners/walk/{dirLetter[d]}{f}.png") == Error.Ok)
+				var wImg = GD.Load<CompressedTexture2D>($"res://assets/miners/walk/{dirLetter[d]}{f}.png")?.GetImage();
+				if (wImg != null)
 				{
 					wImg.Convert(Image.Format.Rgba8);
 					_zombieWalkTex[d, f] = ImageTexture.CreateFromImage(TintFull(wImg, ZombieColor));
