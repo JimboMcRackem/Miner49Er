@@ -221,6 +221,9 @@ func create_tileset():
 		if tiles[i] == null:
 			continue
 		var img = tiles[i].image
+		if img.get_width() != tile_size or img.get_height() != tile_size:
+			img = img.duplicate()
+			img.resize(tile_size, tile_size, Image.INTERPOLATE_NEAREST)
 		var x = (i % cols) * tile_size
 		var y = (i / cols) * tile_size
 		atlas.blit_rect(img, Rect2i(0, 0, tile_size, tile_size), Vector2i(x, y))
