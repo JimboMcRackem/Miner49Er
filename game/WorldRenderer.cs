@@ -36,12 +36,9 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color OctopusColor       = new Color(0.8f, 0.1f, 0.7f, 0.85f);
 	private static readonly Color OctopusArmColor    = new Color(0.9f, 0.2f, 0.6f, 0.45f);
 	private static readonly Color ChestColor         = new Color(0.9f, 0.8f, 0.1f, 0.95f);
-	private static readonly Color LanternItemColor   = new("ffe090");
-	private static readonly Color LanternGlowColor  = new Color(1f, 0.9f, 0.3f, 0.18f);
 	private static readonly Color ReelChargeColor   = new("ff3355");
 	private static readonly Color WireColor         = new Color(0.9f, 0.55f, 0.1f, 0.75f);
 	private static readonly Color DetonatorItemColor = new("ff3355");
-	private const int LanternRadius = 3;
 	private const int ListenItemRevealRadius = 6;
 
 	private Texture2D? _chargeTex;
@@ -53,6 +50,7 @@ public partial class WorldRenderer : Node2D
 	private Texture2D? _crumbledTex;
 	private Texture2D? _crackedTex;
 	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
+	private ImageTexture _lanternGlowTex = null!;
 
 	// PixelLab monster sprites — [dir] order: 0=N 1=E 2=S 3=W
 	private Texture2D?[] _ghostTex = new Texture2D?[4];
@@ -93,6 +91,21 @@ public partial class WorldRenderer : Node2D
 		BuildZombieTextures();
 		BuildGhostWalkTextures();
 		BuildGoatWalkTextures();
+		_lanternGlowTex = BuildRadialGlowTex();
+	}
+
+	private static ImageTexture BuildRadialGlowTex(int size = 128)
+	{
+		var img = Image.CreateEmpty(size, size, false, Image.Format.Rgba8);
+		float half = size / 2f;
+		for (int y = 0; y < size; y++)
+		for (int x = 0; x < size; x++)
+		{
+			float t = Mathf.Clamp(new Vector2(x - half, y - half).Length() / half, 0f, 1f);
+			float a = Mathf.Pow(1f - t, 2.5f);
+			img.SetPixel(x, y, new Color(1f, 0.85f, 0.4f, a * 0.55f));
+		}
+		return ImageTexture.CreateFromImage(img);
 	}
 
 	private void LoadItemTex(ItemKind kind, string path)
@@ -393,12 +406,23 @@ public partial class WorldRenderer : Node2D
 			DrawRect(new Rect2(pos.X * ts, pos.Y * ts, ts, ts), col);
 		}
 
-		// Lantern light: dim glow over fog-visible tiles within AOE of held or placed lanterns
-		foreach (var p in grid.Positions())
+		// Lantern light: radial amber glow centered on each active lantern source
+		int glowPx = 5 * ts * 2;
+		foreach (var m in _client.Miners)
 		{
-			if (!_client.Fog.IsVisible(p)) continue;
-			if (IsInLanternLight(p))
-				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), LanternGlowColor);
+			if (!m.Alive || m.Held != (int)ItemKind.Lantern) continue;
+			var center = new Vector2(m.X * ts + ts / 2f, m.Y * ts + ts / 2f);
+			DrawTextureRect(_lanternGlowTex,
+				new Rect2(center.X - glowPx / 2f, center.Y - glowPx / 2f, glowPx, glowPx),
+				false);
+		}
+		foreach (var it in _client.Items)
+		{
+			if (it.Kind != ItemKind.Lantern || it.Placement != ItemPlacement.Loose) continue;
+			var center = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
+			DrawTextureRect(_lanternGlowTex,
+				new Rect2(center.X - glowPx / 2f, center.Y - glowPx / 2f, glowPx, glowPx),
+				false);
 		}
 
 		foreach (var mo in _client.Monsters)
@@ -557,16 +581,6 @@ public partial class WorldRenderer : Node2D
 	private static bool WithinReveal(GridPos local, int x, int y) =>
 		Mathf.Max(Mathf.Abs(local.X - x), Mathf.Abs(local.Y - y)) <= ListenItemRevealRadius;
 
-	private bool IsInLanternLight(GridPos pos)
-	{
-		foreach (var m in _client.Miners)
-			if (m.Alive && m.Held == (int)ItemKind.Lantern)
-				if (Mathf.Max(Mathf.Abs(pos.X - m.X), Mathf.Abs(pos.Y - m.Y)) <= LanternRadius) return true;
-		foreach (var it in _client.Items)
-			if (it.Kind == ItemKind.Lantern && it.Placement == ItemPlacement.Loose)
-				if (Mathf.Max(Mathf.Abs(pos.X - it.X), Mathf.Abs(pos.Y - it.Y)) <= LanternRadius) return true;
-		return false;
-	}
 
 	// Returns a unit-scaled offset in the facing direction (0=N, 1=E, 2=S, 3=W).
 	private static Vector2 FacingOffset(int facing, float scale) => facing switch
