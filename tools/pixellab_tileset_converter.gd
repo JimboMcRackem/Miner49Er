@@ -266,9 +266,10 @@ func create_tileset():
 		2: Color(0.823529, 0.321569, 0.101961),  # lava
 		3: Color(0.180392, 0.435294, 0.560784),  # water
 		4: Color(0.035294, 0.047059, 0.113725),  # pit
+		5: Color(0.050000, 0.120000, 0.380000),  # deep water
 	}
-	var names := {0: "cave wall", 1: "cave floor", 2: "lava", 3: "water", 4: "pit"}
-	for id in [0, 1, 2, 3, 4]:
+	var names := {0: "cave wall", 1: "cave floor", 2: "lava", 3: "water", 4: "pit", 5: "deep water"}
+	for id in [0, 1, 2, 3, 4, 5]:
 		var color = terrain_colors.get(id, default_colors[id])
 		terrain_defs.append('terrain_set_0/terrain_%d/name = "%s"' % [id, names[id]])
 		terrain_defs.append('terrain_set_0/terrain_%d/color = Color(%f, %f, %f, 1)' % [id, color.r, color.g, color.b])
