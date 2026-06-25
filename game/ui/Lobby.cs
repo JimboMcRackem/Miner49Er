@@ -16,6 +16,7 @@ public partial class Lobby : Control
 	private CheckBox _pitsCheck = null!;
 	private CheckBox _caveInCheck = null!;
 	private CheckBox _lavaCheck = null!;
+	private OptionButton _explosivePicker = null!;
 	private OptionButton _speedPicker = null!;
 	private OptionButton _mapSizePicker = null!;
 	private Label _codeLabel = null!;
@@ -48,7 +49,7 @@ public partial class Lobby : Control
 		_readyBtn.Pressed += () => NetworkManager.Instance.ToggleReady();
 		box.AddChild(_readyBtn);
 
-		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale) = SettingsStore.LoadLobby();
+		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive) = SettingsStore.LoadLobby();
 
 		_modePicker = new OptionButton();
 		_modePicker.AddItem("Last Man Standing", (int)GameMode.LastManStanding);
@@ -101,6 +102,14 @@ public partial class Lobby : Control
 		_lavaCheck.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_lavaCheck);
 
+		_explosivePicker = new OptionButton();
+		_explosivePicker.AddItem("Dynamite",           (int)ExplosiveMode.Dynamite);
+		_explosivePicker.AddItem("Detonator Specials", (int)ExplosiveMode.DetonatorSpecials);
+		_explosivePicker.AddItem("Detonators Only",    (int)ExplosiveMode.DetonatorsOnly);
+		_explosivePicker.Select(savedExplosive);
+		_explosivePicker.Visible = NetworkManager.Instance.IsHost;
+		box.AddChild(_explosivePicker);
+
 		_speedPicker = new OptionButton();
 		_speedPicker.AddItem("Slow", 0);
 		_speedPicker.AddItem("Standard", 1);
@@ -114,9 +123,10 @@ public partial class Lobby : Control
 		{
 			bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
 			int mapScale = expedition ? _mapSizePicker.GetSelectedId() : 1;
+			int explosive = expedition ? 0 : _explosivePicker.GetSelectedId();
 			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), _timePicker.GetSelectedId(),
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
-				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale);
+				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive);
 			NetworkManager.Instance.StartMatch(
 				(GameMode)_modePicker.GetSelectedId(),
 				expedition ? 0 : _timePicker.GetSelectedId(),
@@ -125,7 +135,8 @@ public partial class Lobby : Control
 				_caveInCheck.ButtonPressed,
 				_lavaCheck.ButtonPressed,
 				new[] { 0.20f, 0.12f, 0.07f }[_speedPicker.Selected],
-				mapScale);
+				mapScale,
+				(ExplosiveMode)explosive);
 		};
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_startBtn);
@@ -146,8 +157,9 @@ public partial class Lobby : Control
 	{
 		bool isHost = NetworkManager.Instance.IsHost;
 		bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
-		_timePicker.Visible    = isHost && !expedition;
-		_mapSizePicker.Visible = isHost && expedition;
+		_timePicker.Visible       = isHost && !expedition;
+		_mapSizePicker.Visible    = isHost && expedition;
+		_explosivePicker.Visible  = isHost && !expedition;
 	}
 
 	public override void _ExitTree()
