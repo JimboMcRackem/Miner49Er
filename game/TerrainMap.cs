@@ -14,20 +14,22 @@ namespace Miner49er;
 public partial class TerrainMap : Node2D
 {
 	private TileMapLayer _layer = null!;
+	private TileMapLayer _waterLayer = null!;
 	private MatchClient _client = null!;
 	private bool _ready;
 	private int _sourceId;
 
 	// Terrain ids — MUST match the converter's TERRAIN_REGISTRY.
-	private const int Wall  = 0;
-	private const int Floor = 1;
-	private const int Lava  = 2;
-	private const int Water = 3;
-	private const int Pit   = 4;
+	private const int Wall      = 0;
+	private const int Floor     = 1;
+	private const int Lava      = 2;
+	private const int Water     = 3;
+	private const int Pit       = 4;
+	private const int DeepWater = 5;
 
 	private readonly Dictionary<(int, int, int, int), Vector2I> _lookup = new();
 	private readonly Dictionary<int, Vector2I> _solid = new();
-	private static readonly int[] FallbackPriority = { Wall, Lava, Water, Pit, Floor };
+	private static readonly int[] FallbackPriority = { Wall, Lava, DeepWater, Water, Pit, Floor };
 
 	public void Init(MatchClient client)
 	{
@@ -40,6 +42,21 @@ public partial class TerrainMap : Node2D
 		float half = MatchClient.TileSize / 2f;
 		_layer = new TileMapLayer { Name = "TileLayer", TileSet = ts, Position = new Vector2(-half, -half) };
 		AddChild(_layer);
+
+		var waterMat = new ShaderMaterial
+		{
+			Shader = GD.Load<Shader>("res://assets/tiles/water.gdshader"),
+		};
+		_waterLayer = new TileMapLayer
+		{
+			Name     = "WaterAnimLayer",
+			TileSet  = ts,
+			Position = new Vector2(-half, -half),
+			ZIndex   = 1,
+			Material = waterMat,
+		};
+		AddChild(_waterLayer);
+
 		_ready = true;
 		PaintFullGrid();
 	}
@@ -90,7 +107,14 @@ public partial class TerrainMap : Node2D
 		int tr = TerrainAt(i,     j - 1);
 		int bl = TerrainAt(i - 1, j);
 		int br = TerrainAt(i,     j);
-		_layer.SetCell(new Vector2I(i, j), _sourceId, Resolve(tl, tr, bl, br));
+		var cell = new Vector2I(i, j);
+		_layer.SetCell(cell, _sourceId, Resolve(tl, tr, bl, br));
+		if (tl == tr && tr == bl && bl == br
+			&& (tl == Water || tl == DeepWater)
+			&& _solid.TryGetValue(tl, out var wc))
+			_waterLayer.SetCell(cell, _sourceId, wc);
+		else
+			_waterLayer.EraseCell(cell);
 	}
 
 	private Vector2I Resolve(int tl, int tr, int bl, int br)
@@ -132,7 +156,8 @@ public partial class TerrainMap : Node2D
 		TileType.Rock or TileType.GoldRock or TileType.ImpermeableRock => Wall,
 		TileType.Floor or TileType.Cracked or TileType.Crumbling or TileType.Plank => Floor,
 		TileType.Lava => Lava,
-		TileType.ShallowWater or TileType.DeepWater => Water,
+		TileType.ShallowWater => Water,
+		TileType.DeepWater    => DeepWater,
 		TileType.Pit => Pit,
 		_ => Wall, // LavaVent — wall underneath; WorldRenderer overlays the vent glow
 	};

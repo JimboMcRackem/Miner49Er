@@ -213,7 +213,6 @@ public partial class WorldRenderer : Node2D
 		}
 
 		// Single-pass tile overlays on top of TerrainMap (FogRenderer at ZIndex -5 covers these naturally).
-		var deepOverlay = new Color(0.0f, 0.05f, 0.35f, 0.55f);
 		foreach (var p in grid.Positions())
 		{
 			var r = new Rect2(p.X * ts, p.Y * ts, ts, ts);
@@ -228,9 +227,6 @@ public partial class WorldRenderer : Node2D
 				case TileType.LavaVent:
 					if (_lavaVentTex != null) DrawTextureRect(_lavaVentTex, r, false);
 					else DrawRect(r, LavaVentColor);
-					break;
-				case TileType.DeepWater:
-					DrawRect(r, deepOverlay);
 					break;
 				case TileType.Cracked:
 				{
