@@ -86,6 +86,7 @@ public partial class WorldRenderer : Node2D
 		LoadItemTex(ItemKind.BossChest,    "res://assets/objects/chest_boss.png");
 		LoadItemTex(ItemKind.LifePotion,   "res://assets/objects/item_lifepot.png");
 		LoadItemTex(ItemKind.Detonator,    "res://assets/objects/item_detonator.png");
+		LoadItemTex(ItemKind.Lantern,      "res://assets/objects/item_lantern.png");
 		LoadMonsterTex(_ghostTex, "ghost");
 		LoadMonsterTex(_slimeTex, "slime");
 		LoadMonsterTex(_goatTex,  "goat");
@@ -349,11 +350,6 @@ public partial class WorldRenderer : Node2D
 				var inner = new Rect2(icenter.X - hs / 2f, icenter.Y - hs / 2f, hs, hs);
 				if (_itemTex.TryGetValue(it.Kind, out var itex2))
 					DrawTextureRect(itex2, inner, false);
-				else if (it.Kind == ItemKind.Lantern)
-				{
-					DrawCircle(icenter, ts * 0.15f, LanternItemColor);
-					DrawCircle(icenter, ts * 0.15f, new Color(0.5f, 0.4f, 0.1f), false, 1.5f);
-				}
 				else
 					DrawCircle(icenter, ts * 0.15f, ItemColor(it.Kind));
 			}
@@ -361,11 +357,6 @@ public partial class WorldRenderer : Node2D
 			{
 				if (_itemTex.TryGetValue(it.Kind, out var itex))
 					DrawTextureRect(itex, r, false);
-				else if (it.Kind == ItemKind.Lantern)
-				{
-					DrawCircle(icenter, ts * 0.22f, LanternItemColor);
-					DrawCircle(icenter, ts * 0.22f, new Color(0.5f, 0.4f, 0.1f), false, 1.5f);
-				}
 				else
 					DrawCircle(icenter, ts * 0.22f, ItemColor(it.Kind));
 			}
