@@ -160,11 +160,12 @@ func load_tileset_pair(json_path: String, png_path: String):
 
 # Canonical terrain ids — MUST match the constants in game/TerrainMap.cs.
 const TERRAIN_REGISTRY := {
-	"cave wall": 0,
+	"cave wall":  0,
 	"cave floor": 1,
-	"lava": 2,
-	"water": 3,
-	"pit": 4,
+	"lava":       2,
+	"water":      3,
+	"pit":        4,
+	"deep water": 5,
 }
 
 func get_terrain_id(name: String) -> int:
@@ -187,6 +188,8 @@ func canonical_terrain_name(name: String) -> String:
 		return "lava"
 	if "floor" in n:
 		return "cave floor"
+	if "deep" in n and ("water" in n or "pool" in n):
+		return "deep water"
 	if "water" in n or "pond" in n:
 		return "water"
 	if "pit" in n or "abyss" in n or "void" in n:
