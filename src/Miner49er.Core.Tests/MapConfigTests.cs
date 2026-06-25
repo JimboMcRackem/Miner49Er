@@ -31,4 +31,28 @@ public class MapConfigTests
         Assert.Equal(64, cfg.BaseHeight);
         Assert.Equal(0.42f, cfg.InitialFloorChance);
     }
+
+    [Fact]
+    public void For_dynamite_mode_sets_zero_detonators()
+    {
+        var cfg = MapConfig.For(GameMode.LastManStanding, seed: 1, playerCount: 3,
+            explosive: ExplosiveMode.Dynamite);
+        Assert.Equal(0, cfg.DetonatorCount);
+    }
+
+    [Fact]
+    public void For_detonator_specials_sets_one_detonator_per_player()
+    {
+        var cfg = MapConfig.For(GameMode.LastManStanding, seed: 1, playerCount: 3,
+            explosive: ExplosiveMode.DetonatorSpecials);
+        Assert.Equal(3, cfg.DetonatorCount);
+    }
+
+    [Fact]
+    public void For_detonators_only_sets_one_detonator_per_player()
+    {
+        var cfg = MapConfig.For(GameMode.LastManStanding, seed: 1, playerCount: 2,
+            explosive: ExplosiveMode.DetonatorsOnly);
+        Assert.Equal(2, cfg.DetonatorCount);
+    }
 }

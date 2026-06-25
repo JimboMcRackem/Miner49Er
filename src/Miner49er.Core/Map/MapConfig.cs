@@ -54,7 +54,8 @@ public sealed class MapConfig
     /// modes keep the base settings. Deterministic from (mode, seed, playerCount),
     /// so host and clients regenerate identical maps.</summary>
     public static MapConfig For(GameMode mode, int seed, int playerCount,
-                                bool pits = false, bool caveIns = false, bool lava = false, int mapScale = 1)
+                                bool pits = false, bool caveIns = false, bool lava = false,
+                                int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite)
     {
         var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount, Pits = pits, CaveIns = caveIns, Lava = lava };
         if (mode == GameMode.ReachCenter)
@@ -70,6 +71,7 @@ public sealed class MapConfig
             float areaFactor = (float)(cfg.BaseWidth * cfg.BaseHeight) / (32f * 32f);
             cfg.GoldVeinCount = (int)System.Math.Round(cfg.GoldVeinCount * areaFactor);
         }
+        cfg.DetonatorCount = explosive == ExplosiveMode.Dynamite ? 0 : playerCount;
         return cfg;
     }
 
