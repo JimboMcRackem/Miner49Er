@@ -97,4 +97,19 @@ public class SimulationLanternTests
         Assert.Equal(ItemKind.Lantern, miner.Held);
         Assert.Empty(sim.Items.Where(it => it.Kind == ItemKind.Lantern));
     }
+
+    [Fact]
+    public void HeldLantern_increases_effective_vision_radius()
+    {
+        var cfg = new SimConfig { VisionRadius = 5, LanternVisionBonus = 2,
+                                   MonsterGhostMoveSeconds = 999 };
+        var grid = new TileGrid(15, 3, TileType.Floor);
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(7, 1));
+        Assert.Equal(5, sim.EffectiveVisionRadius(1));
+
+        sim.AddItem(new Item(new GridPos(7, 1), ItemKind.Lantern, ItemPlacement.Loose));
+        sim.TryUseItem(1);   // pick up
+        Assert.Equal(7, sim.EffectiveVisionRadius(1));
+    }
 }

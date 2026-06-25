@@ -194,6 +194,7 @@ public sealed class Simulation
         int bonus = m.PermVisionLevel * Config.PermVisionBonus;
         foreach (var e in m.EffectsInternal)
             if (e.Channel == EffectChannel.VisionRadius) bonus += (int)e.Magnitude;
+        if (m.Held == ItemKind.Lantern) bonus += Config.LanternVisionBonus;
         return Config.VisionRadius + bonus;
     }
 
