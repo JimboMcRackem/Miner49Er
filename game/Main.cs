@@ -40,7 +40,7 @@ public partial class Main : Node2D
 		int seed = nm.MatchSeed;
 		int playerCount = nm.MatchPlayerCount;
 		var f1Modifier = nm.MatchMode == GameMode.Expedition ? FloorModifiers.Pick(seed, 1) : FloorModifier.None;
-		var clientMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale);
+		var clientMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale, nm.MatchExplosive);
 		FloorModifiers.Apply(f1Modifier, clientMapCfg, new SimConfig());
 		var map = MapGenerator.Generate(clientMapCfg);
 
@@ -61,8 +61,13 @@ public partial class Main : Node2D
 
 		if (nm.IsHost)
 		{
-			var hostMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale);
-			var f1SimCfg = new SimConfig { BaseMoveSeconds = nm.MatchBaseMoveSeconds, Seed = seed };
+			var hostMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale, nm.MatchExplosive);
+			var f1SimCfg = new SimConfig
+			{
+				BaseMoveSeconds = nm.MatchBaseMoveSeconds,
+				Seed = seed,
+				DynamiteEnabled = nm.MatchExplosive != ExplosiveMode.DetonatorsOnly,
+			};
 			FloorModifiers.Apply(f1Modifier, hostMapCfg, f1SimCfg);
 			var hostMap = MapGenerator.Generate(hostMapCfg);
 			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.EscapeTile : null;
