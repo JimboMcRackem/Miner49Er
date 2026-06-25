@@ -165,4 +165,19 @@ public class SimulationExplosiveTests
         sim.Tick(3.0); // Manhattan radius 1 only
         Assert.Equal(TileType.Rock, sim.Grid.Get(new GridPos(2, 1))); // distance-2 rock survives
     }
+
+    [Fact]
+    public void TryStartPlanting_blocked_when_dynamite_disabled()
+    {
+        var sim = FacingRockEast(out _, new SimConfig { DynamiteEnabled = false });
+        Assert.False(sim.TryStartPlanting(1));
+        Assert.Empty(sim.Charges);
+    }
+
+    [Fact]
+    public void TryStartPlanting_succeeds_when_dynamite_enabled_explicitly()
+    {
+        var sim = FacingRockEast(out _, new SimConfig { DynamiteEnabled = true });
+        Assert.True(sim.TryStartPlanting(1));
+    }
 }

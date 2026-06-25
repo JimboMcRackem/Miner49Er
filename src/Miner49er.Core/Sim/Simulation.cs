@@ -590,6 +590,7 @@ public sealed class Simulation
     {
         var m = _miners[id];
         if (!m.Alive) return false;
+        if (!Config.DynamiteEnabled) return false;
 
         var target = m.Pos + m.Facing.ToOffset();
         if (!Grid.InBounds(target) || !Grid.Get(target).IsBlastable()) return false;
