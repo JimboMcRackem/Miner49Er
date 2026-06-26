@@ -60,23 +60,23 @@ public partial class FogRenderer : Node2D
 		// Smooth radial gradient centred on the local miner.
 		// Sized so t=1 in texture space lands exactly at vision_radius tiles,
 		// where gradient alpha (DimAlpha) matches the Dim background seamlessly.
-		var (origin, radius) = LocalMinerView();
+		var (centre, radius) = LocalMinerView();
 		if (radius > 0)
 		{
 			int gradPx = radius * 2 * ts;
-			var centre = new Vector2(origin.X * ts + ts / 2f, origin.Y * ts + ts / 2f);
 			DrawTextureRect(_fogGradientTex,
 				new Rect2(centre.X - gradPx / 2f, centre.Y - gradPx / 2f, gradPx, gradPx),
 				false);
 		}
 	}
 
-	// Local miner's grid position and vision radius, for the radial gradient.
-	private (GridPos origin, int radius) LocalMinerView()
+	// Local miner's interpolated pixel position and vision radius, for the radial gradient.
+	// Uses MinerVisualPos so the gradient follows smooth movement rather than snapping per tile.
+	private (Vector2 centre, int radius) LocalMinerView()
 	{
 		foreach (var m in _client.Miners)
 			if (m.Id == _client.LocalMinerId)
-				return (new GridPos(m.X, m.Y), m.VisionRadius);
-		return (new GridPos(0, 0), 0);
+				return (_client.MinerVisualPos(m.Id, m.X, m.Y), m.VisionRadius);
+		return (Vector2.Zero, 0);
 	}
 }
