@@ -50,9 +50,11 @@ public sealed class Simulation
     public double SecondsRemaining => _timeLimit is { } lim ? Math.Max(0, lim - Elapsed) : -1;
     public bool TimeExpired => _timeLimit is { } lim && Elapsed >= lim;
 
+    public GridPos? ShopPos { get; private set; }
+
     public Simulation(TileGrid grid, SimConfig config,
         GridPos? center = null, double? timeLimitSeconds = null, bool flooding = false,
-        GridPos? escapeTile = null)
+        GridPos? escapeTile = null, GridPos? shopPos = null)
     {
         Grid = grid;
         Config = config;
@@ -60,6 +62,7 @@ public sealed class Simulation
         _timeLimit = timeLimitSeconds;
         _flooding = flooding;
         EscapeTile = escapeTile;
+        ShopPos = shopPos;
 
         _rng = new Random(config.Seed);
 
@@ -849,9 +852,15 @@ public sealed class Simulation
         }
     }
 
+    public void SetGold(int minerId, int amount)
+    {
+        if (_miners.TryGetValue(minerId, out var m)) m.GoldCollected = amount;
+    }
+
     private void MaulMiner(Miner m, MonsterKind kind)
     {
         if (!m.Alive || m.InvulnerableRemaining > 0) return;
+        if (ShopPos is { } shop && m.Pos == shop) return;
         m.Alive = false;
         m.Activity = ActivityKind.None;
         m.DeathCause = kind switch

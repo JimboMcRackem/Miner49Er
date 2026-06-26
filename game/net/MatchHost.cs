@@ -213,8 +213,9 @@ public partial class MatchHost : Node
 		if (result.FloorCleared)
 		{
 			foreach (var m in _sim.Miners) _cumulativeGold += m.GoldCollected;
+			var carryGold = _sim.Miners.ToDictionary(m => m.Id, m => m.GoldCollected);
 			SavePermLevels();
-			AdvanceFloor(result.WinnerId);
+			AdvanceFloor(result.WinnerId, carryGold);
 			return;
 		}
 
@@ -291,7 +292,7 @@ public partial class MatchHost : Node
 			_permLevels[m.Id] = (m.PermSpeedLevel, m.PermVisionLevel, m.PermBlastLevel);
 	}
 
-	private void AdvanceFloor(int minerId)
+	private void AdvanceFloor(int minerId, Dictionary<int, int>? carryGold = null)
 	{
 		var nm = NetworkManager.Instance;
 		int newFloor  = nm.MatchFloor + 1;
@@ -335,7 +336,8 @@ public partial class MatchHost : Node
 			newMap.Center,
 			timeLimitSeconds: null,
 			flooding: false,
-			newMap.EscapeTile);
+			newMap.EscapeTile,
+			newMap.ShopPos);
 
 		foreach (var item in newMap.Items)
 			newSim.AddItem(item);
@@ -356,6 +358,8 @@ public partial class MatchHost : Node
 			newSim.AddMiner(mid, sp, invulRemaining: 3.0);
 			if (_permLevels.TryGetValue(mid, out var lvl))
 				newSim.SetPermLevels(mid, lvl.Speed, lvl.Vision, lvl.Blast);
+			if (carryGold != null && carryGold.TryGetValue(mid, out int gold))
+				newSim.SetGold(mid, gold);
 			_spawnByMiner[mid] = sp;
 		}
 
