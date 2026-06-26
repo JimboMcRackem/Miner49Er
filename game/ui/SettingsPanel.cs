@@ -114,7 +114,7 @@ public partial class SettingsPanel : CanvasLayer
 		_musicOn = new CheckBox { Text = "Music on" };
 		box.AddChild(_musicOn);
 
-		return box;
+		return TabPad(box);
 	}
 
 	private Control BuildControlsTab()
@@ -152,7 +152,7 @@ public partial class SettingsPanel : CanvasLayer
 		_conflictLabel = new Label { Text = "" };
 		_conflictLabel.AddThemeColorOverride("font_color", new Color(0.95f, 0.55f, 0.35f));
 		box.AddChild(_conflictLabel);
-		return box;
+		return TabPad(box);
 	}
 
 	private static string KeyName(int code) =>
@@ -228,7 +228,16 @@ public partial class SettingsPanel : CanvasLayer
 		_vsync = new CheckBox { Text = "VSync" };
 		box.AddChild(_vsync);
 
-		return box;
+		return TabPad(box);
+	}
+
+	private static MarginContainer TabPad(Control inner)
+	{
+		var m = new MarginContainer();
+		m.AddThemeConstantOverride("margin_top", 12);
+		m.AddThemeConstantOverride("margin_left", 4);
+		m.AddChild(inner);
+		return m;
 	}
 
 	private void SyncDisplayFromSystem()
