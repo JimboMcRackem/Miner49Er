@@ -21,6 +21,10 @@ public sealed class MapConfig
     public int ChestCount { get; set; } = 0;        // visible Chest toolboxes per floor
     public bool HasShop { get; set; } = false;     // place a shopkeeper tile on this floor
 
+    // Flooding — when true, map generator places the escape tile (spawns[0]) in the
+    // map interior so it floods last rather than at the corner where it floods first.
+    public bool Flooding { get; set; } = false;
+
     // Bottomless pits (Phase 4d) — host lobby toggle, off by default.
     public bool Pits { get; set; } = false;            // gates the whole PlacePits pass
     public int PitSiteCount { get; set; } = 6;          // base number of pit sites (light per-player scaling)

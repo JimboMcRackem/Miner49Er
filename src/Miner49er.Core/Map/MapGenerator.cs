@@ -23,7 +23,7 @@ public static class MapGenerator
         if (config.Lava)
             PlaceLava(grid, rng, config.LavaPoolCount, config.LavaPoolGrowChance, config.LavaPoolMax);
         var region = LargestTraversableRegion(grid);
-        var spawns = PlaceSpawns(grid, config.PlayerCount, region);
+        var spawns = PlaceSpawns(grid, config.PlayerCount, region, config.Flooding);
         var center = NearestFloorToCenter(grid, region);
         PlaceGold(grid, rng, config.GoldVeinCount, region);
         int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
@@ -73,6 +73,10 @@ public static class MapGenerator
 
     private static bool IsBorder(TileGrid g, GridPos p) =>
         p.X == 0 || p.Y == 0 || p.X == g.Width - 1 || p.Y == g.Height - 1;
+
+    // Chebyshev distance from the nearest edge — mirrors Simulation.EdgeDistance.
+    private static int EdgeDistance(TileGrid g, GridPos p) =>
+        Math.Min(Math.Min(p.X, p.Y), Math.Min(g.Width - 1 - p.X, g.Height - 1 - p.Y));
 
     private static void RandomFill(TileGrid g, Random rng, float floorChance)
     {
@@ -414,15 +418,34 @@ public static class MapGenerator
     // diagonally opposite, three/four spread to thirds/quarters. Candidates are scanned in
     // deterministic grid order (SelectFarthest is order-stable) so host and clients agree —
     // no rng needed. Prefers floor away from water, relaxing that only if too few remain.
-    private static List<GridPos> PlaceSpawns(TileGrid g, int count, HashSet<GridPos> region)
+    private static List<GridPos> PlaceSpawns(TileGrid g, int count, HashSet<GridPos> region,
+                                              bool flooding = false)
     {
         var floors = region.Where(p => g.Get(p) == TileType.Floor && !IsWaterAdjacent(g, p))
             .OrderBy(p => p.Y).ThenBy(p => p.X).ToList();
-        if (floors.Count < count) // relax water-adjacency rule if too few
+        if (floors.Count < count)
             floors = region.Where(p => g.Get(p) == TileType.Floor)
                 .OrderBy(p => p.Y).ThenBy(p => p.X).ToList();
-        if (floors.Count == 0)   // degenerate: all traversable tiles are water; use any traversable tile
+        if (floors.Count == 0)
             floors = region.OrderBy(p => p.Y).ThenBy(p => p.X).ToList();
+
+        if (flooding && floors.Count > 0)
+        {
+            // Escape tile (spawns[0]) must survive until late in the game.
+            // Pick the deepest interior tile (highest edge-distance = floods last).
+            var escape = floors
+                .OrderByDescending(p => EdgeDistance(g, p))
+                .ThenBy(p => p.Y).ThenBy(p => p.X)
+                .First();
+            var result = new List<GridPos> { escape };
+            if (count > 1)
+            {
+                var rest = floors.Where(p => p != escape).ToList();
+                result.AddRange(SpawnPlacement.SelectFarthest(rest, count - 1));
+            }
+            return result;
+        }
+
         return SpawnPlacement.SelectFarthest(floors, count);
     }
 
