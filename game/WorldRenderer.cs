@@ -51,6 +51,7 @@ public partial class WorldRenderer : Node2D
 	private Texture2D? _crackedTex;
 	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
 	private ImageTexture _lanternGlowTex = null!;
+	private Texture2D? _octopusTex;
 
 	// PixelLab monster sprites — [dir] order: 0=N 1=E 2=S 3=W
 	private Texture2D?[] _ghostTex = new Texture2D?[4];
@@ -91,6 +92,7 @@ public partial class WorldRenderer : Node2D
 		BuildZombieTextures();
 		BuildGhostWalkTextures();
 		BuildGoatWalkTextures();
+		_octopusTex = GD.Load<Texture2D>("res://assets/monsters/octopus/octopus.png");
 		_lanternGlowTex = BuildRadialGlowTex();
 	}
 
@@ -516,10 +518,17 @@ public partial class WorldRenderer : Node2D
 			foreach (var p in snapOct.DangerTiles(_client.Grid))
 				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), OctopusArmColor);
 
-			var br = new Rect2(octSnap.X * ts, octSnap.Y * ts, ts, ts);
-			DrawRect(br, OctopusColor);
-			DrawString(font, new Vector2(octSnap.X * ts + ts / 2f, octSnap.Y * ts + ts * 0.65f),
-				"✦", HorizontalAlignment.Center, -1, fontSize, Colors.White);
+			float bs = ts * 2f;
+			var br = new Rect2(octSnap.X * ts - ts / 2f, octSnap.Y * ts - ts / 2f, bs, bs);
+			if (_octopusTex != null)
+				DrawTextureRect(_octopusTex, br, false);
+			else
+			{
+				var fb = new Rect2(octSnap.X * ts, octSnap.Y * ts, ts, ts);
+				DrawRect(fb, OctopusColor);
+				DrawString(font, new Vector2(octSnap.X * ts + ts / 2f, octSnap.Y * ts + ts * 0.65f),
+					"✦", HorizontalAlignment.Center, -1, fontSize, Colors.White);
+			}
 		}
 
 		if (_client.EscapeTile is { } exit)
