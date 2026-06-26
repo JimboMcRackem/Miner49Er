@@ -36,6 +36,10 @@ public partial class MatchHost : Node
 	private double _respawnTimer;
 	private const double RespawnDelay = 2.0;
 
+	// Co-op expedition: per-miner respawn tracking.
+	private readonly HashSet<int> _deadMiners = new();
+	private readonly Dictionary<int, double> _coopRespawnTimers = new();
+
 	public void Begin(Simulation sim, Dictionary<long, int> peerToMiner)
 	{
 		_sim = sim;
@@ -45,12 +49,16 @@ public partial class MatchHost : Node
 			_pendingDir[miner] = -1;
 		}
 		var nm       = NetworkManager.Instance;
-		_livesMax       = nm.MatchMode == GameMode.Expedition ? 2 * nm.MatchPlayerCount : 1;
+		_livesMax       = nm.MatchMode == GameMode.Expedition
+			? (nm.MatchPlayerCount == 1 ? 3 : 2 * nm.MatchPlayerCount)
+			: 1;
 		_livesRemaining = _livesMax;
 		_running = true;
 		_spawnByMiner.Clear();
 		foreach (var (_, mid) in peerToMiner)
 			_spawnByMiner[mid] = sim.GetMiner(mid).Pos;
+		_deadMiners.Clear();
+		_coopRespawnTimers.Clear();
 	}
 
 	public void SetDir(long peerId, int dir)
@@ -194,7 +202,12 @@ public partial class MatchHost : Node
 
 		TickAndBroadcast();
 
-		var nm     = NetworkManager.Instance;
+		var nm = NetworkManager.Instance;
+
+		// Co-op expedition: detect per-miner deaths and schedule individual respawns.
+		if (nm.MatchMode == GameMode.Expedition && nm.MatchPlayerCount > 1)
+			HandleCoopDeaths();
+
 		var result = RoundResolver.Resolve(_sim, nm.MatchMode);
 
 		if (result.FloorCleared)
@@ -210,12 +223,24 @@ public partial class MatchHost : Node
 			bool expeditionLoss = nm.MatchMode == GameMode.Expedition && result.WinnerId == -1;
 			if (expeditionLoss)
 			{
-				_livesRemaining--;
-				if (_livesRemaining > 0)
+				if (nm.MatchPlayerCount > 1)
 				{
-					_respawnPending = true;
-					_respawnTimer = RespawnDelay;
-					return;
+					// Co-op: per-miner deaths are handled in HandleCoopDeaths.
+					// result.IsOver only fires when alive.Count == 0.
+					// If any respawn timers are still running, keep going.
+					if (_coopRespawnTimers.Count > 0) return;
+					// Otherwise all dead, no pending respawns, no lives → fall through to game over.
+				}
+				else
+				{
+					// Solo: spend a life and respawn all dead miners.
+					_livesRemaining--;
+					if (_livesRemaining > 0)
+					{
+						_respawnPending = true;
+						_respawnTimer = RespawnDelay;
+						return;
+					}
 				}
 			}
 			_running = false;
@@ -227,6 +252,36 @@ public partial class MatchHost : Node
 			}
 			long winnerPeer = _peerToMiner.FirstOrDefault(kv => kv.Value == result.WinnerId).Key;
 			nm.BroadcastResult(result.WinnerId == -1 ? -1 : winnerPeer);
+		}
+	}
+
+	private void HandleCoopDeaths()
+	{
+		// Count down respawn timers; revive miners whose timer has expired.
+		foreach (var key in _coopRespawnTimers.Keys.ToList())
+		{
+			_coopRespawnTimers[key] -= TickSeconds;
+			if (_coopRespawnTimers[key] <= 0)
+			{
+				_coopRespawnTimers.Remove(key);
+				_deadMiners.Remove(key);
+				if (_spawnByMiner.TryGetValue(key, out var sp) && !_sim.GetMiner(key).Alive)
+					_sim.ReviveMiner(key, sp, 3.0);
+			}
+		}
+
+		// Detect miners that just died this tick and haven't been processed yet.
+		foreach (var m in _sim.Miners)
+		{
+			if (!m.Alive && !_deadMiners.Contains(m.Id) && !_coopRespawnTimers.ContainsKey(m.Id))
+			{
+				_deadMiners.Add(m.Id);
+				if (_livesRemaining > 0)
+				{
+					_livesRemaining--;
+					_coopRespawnTimers[m.Id] = RespawnDelay;
+				}
+			}
 		}
 	}
 
@@ -325,6 +380,8 @@ public partial class MatchHost : Node
 		_pendingPlant.Clear();
 		_pendingUse.Clear();
 		_pendingThrow.Clear();
+		_deadMiners.Clear();
+		_coopRespawnTimers.Clear();
 
 		nm.BroadcastNewFloor(newFloor);
 	}

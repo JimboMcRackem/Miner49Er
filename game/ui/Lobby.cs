@@ -193,30 +193,44 @@ public partial class Lobby : Control
 	{
 		if (!NetworkManager.Instance.IsHost) return;   // joiners never see the host code
 		var nm = NetworkManager.Instance;
+		string lanIp   = GetLanIp() ?? "?";
+		string lanLine = $"LAN: {lanIp}:{NetworkManager.DefaultPort}";
 		switch (nm.Status)
 		{
 			case InternetStatus.Discovering:
 				_codeLabel.Visible = true;
-				_codeLabel.Text = "Opening router…";
+				_codeLabel.Text = $"{lanLine}\nOpening router…";
 				_copyBtn.Visible = false;
 				break;
 			case InternetStatus.Mapped:
 				_codeLabel.Visible = true;
-				_codeLabel.Text = $"Internet code: {nm.HostCode}";
+				_codeLabel.Text = $"{lanLine}\nInternet: {nm.HostCode}";
 				_copyBtn.Visible = true;
 				break;
 			case InternetStatus.Failed:
 				_codeLabel.Visible = true;
-				_codeLabel.Text = "Couldn't open your router automatically (UPnP unavailable).\n"
-					+ "LAN players can still join via your local address.\n"
-					+ "For internet play, forward port 27649 and share your public IP.";
+				_codeLabel.Text = $"{lanLine}\nCouldn't open router (UPnP unavailable). For internet play, forward port {NetworkManager.DefaultPort} and share your public IP.";
 				_copyBtn.Visible = false;
 				break;
-			default: // Off
-				_codeLabel.Visible = false;
+			default: // Off — LAN host
+				_codeLabel.Visible = true;
+				_codeLabel.Text = lanLine;
 				_copyBtn.Visible = false;
 				break;
 		}
+	}
+
+	private static string? GetLanIp()
+	{
+		foreach (string addr in IP.GetLocalAddresses())
+		{
+			if (addr.Contains(':')) continue; // skip IPv6
+			var parts = addr.Split('.');
+			if (parts.Length != 4) continue;
+			if (addr.StartsWith("192.168.") || addr.StartsWith("10.")) return addr;
+			if (addr.StartsWith("172.") && int.TryParse(parts[1], out int b) && b >= 16 && b <= 31) return addr;
+		}
+		return null;
 	}
 
 	public override void _UnhandledInput(InputEvent @event)
