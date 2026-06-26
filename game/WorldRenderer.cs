@@ -7,7 +7,7 @@ using Miner49er.Core.Net;
 namespace Miner49er;
 
 /// <summary>Draws non-terrain world objects: charges, items, mold patches, explosion
-/// flashes, the Listen shimmer, and LavaVent (no Wang tileset yet).</summary>
+/// flashes, the Listen shimmer, and special tile overlays (LavaVent, cracks).</summary>
 public partial class WorldRenderer : Node2D
 {
 	private MatchClient _client = null!;
