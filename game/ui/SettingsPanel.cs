@@ -16,6 +16,15 @@ public partial class SettingsPanel : CanvasLayer
 	private CheckBox _musicOn = null!;
 	private CheckBox _fullscreen = null!;
 	private CheckBox _vsync = null!;
+	private OptionButton _windowSize = null!;
+
+	private static readonly (int W, int H, string Label)[] WindowSizes =
+	{
+		(1280,  720,  "1280 × 720"),
+		(1600,  900,  "1600 × 900"),
+		(1920, 1080,  "1920 × 1080"),
+		(2560, 1440,  "2560 × 1440"),
+	};
 
 	private BindingSet _bindings = null!;
 	private string? _capturingAction;          // null = not capturing
@@ -92,8 +101,9 @@ public partial class SettingsPanel : CanvasLayer
 		_music.ValueChanged += v => AudioManager.Instance.SetMusicVolume((float)v);
 		_sfx.ValueChanged += v => AudioManager.Instance.SetSfxVolume((float)v);
 		_musicOn.Toggled += on => AudioManager.Instance.SetMusicEnabled(on);
-		_fullscreen.Toggled += on => ApplyDisplayAndSave(on, _vsync.ButtonPressed);
+		_fullscreen.Toggled += on => { _windowSize.Disabled = on; ApplyDisplayAndSave(on, _vsync.ButtonPressed); };
 		_vsync.Toggled += on => ApplyDisplayAndSave(_fullscreen.ButtonPressed, on);
+		_windowSize.ItemSelected += _ => ApplyDisplayAndSave(_fullscreen.ButtonPressed, _vsync.ButtonPressed);
 
 		Visible = false;
 	}
@@ -228,6 +238,12 @@ public partial class SettingsPanel : CanvasLayer
 		_vsync = new CheckBox { Text = "VSync" };
 		box.AddChild(_vsync);
 
+		box.AddChild(new Label { Text = "Window Size" });
+		_windowSize = new OptionButton();
+		foreach (var (_, _, label) in WindowSizes)
+			_windowSize.AddItem(label);
+		box.AddChild(_windowSize);
+
 		return TabPad(box);
 	}
 
@@ -247,9 +263,16 @@ public partial class SettingsPanel : CanvasLayer
 		bool vs = DisplayServer.WindowGetVsyncMode() != DisplayServer.VSyncMode.Disabled;
 		_fullscreen.SetBlockSignals(true); _fullscreen.ButtonPressed = fs; _fullscreen.SetBlockSignals(false);
 		_vsync.SetBlockSignals(true); _vsync.ButtonPressed = vs; _vsync.SetBlockSignals(false);
+
+		var sz = DisplayServer.WindowGetSize();
+		int idx = 0;
+		for (int i = 0; i < WindowSizes.Length; i++)
+			if (WindowSizes[i].W == sz.X && WindowSizes[i].H == sz.Y) { idx = i; break; }
+		_windowSize.SetBlockSignals(true); _windowSize.Select(idx); _windowSize.SetBlockSignals(false);
+		_windowSize.Disabled = fs;
 	}
 
-	private static void ApplyDisplayAndSave(bool fullscreen, bool vsync)
+	private void ApplyDisplayAndSave(bool fullscreen, bool vsync)
 	{
 		DisplayServer.WindowSetMode(fullscreen
 			? DisplayServer.WindowMode.Fullscreen
@@ -257,7 +280,10 @@ public partial class SettingsPanel : CanvasLayer
 		DisplayServer.WindowSetVsyncMode(vsync
 			? DisplayServer.VSyncMode.Enabled
 			: DisplayServer.VSyncMode.Disabled);
-		SettingsStore.SaveDisplay(fullscreen, vsync);
+		var (w, h, _) = WindowSizes[_windowSize.Selected];
+		if (!fullscreen)
+			DisplayServer.WindowSetSize(new Vector2I(w, h));
+		SettingsStore.SaveDisplay(fullscreen, vsync, w, h);
 	}
 
 	// Push current AudioManager values into the controls without firing their

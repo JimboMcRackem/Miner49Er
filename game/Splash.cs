@@ -10,9 +10,11 @@ public partial class Splash : Control
 
 	public override void _Ready()
 	{
-		var (fs, vs) = SettingsStore.LoadDisplay();
+		var (fs, vs, ww, wh) = SettingsStore.LoadDisplay();
 		DisplayServer.WindowSetMode(fs ? DisplayServer.WindowMode.Fullscreen : DisplayServer.WindowMode.Windowed);
 		DisplayServer.WindowSetVsyncMode(vs ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
+		if (!fs && ww > 0 && wh > 0)
+			DisplayServer.WindowSetSize(new Vector2I(ww, wh));
 
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);

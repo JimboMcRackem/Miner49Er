@@ -60,22 +60,26 @@ public static class SettingsStore
 
 	private const string DisplaySection = "display";
 
-	public static (bool fullscreen, bool vsync) LoadDisplay()
+	public static (bool fullscreen, bool vsync, int windowWidth, int windowHeight) LoadDisplay()
 	{
 		var cfg = new ConfigFile();
 		if (cfg.Load(Path) != Error.Ok)
-			return (false, true);
+			return (false, true, 0, 0);
 		bool fs = (bool)cfg.GetValue(DisplaySection, "fullscreen", false);
 		bool vs = (bool)cfg.GetValue(DisplaySection, "vsync", true);
-		return (fs, vs);
+		int  ww = (int)(long)cfg.GetValue(DisplaySection, "window_width",  0L);
+		int  wh = (int)(long)cfg.GetValue(DisplaySection, "window_height", 0L);
+		return (fs, vs, ww, wh);
 	}
 
-	public static void SaveDisplay(bool fullscreen, bool vsync)
+	public static void SaveDisplay(bool fullscreen, bool vsync, int windowWidth = 0, int windowHeight = 0)
 	{
 		var cfg = new ConfigFile();
 		cfg.Load(Path);
-		cfg.SetValue(DisplaySection, "fullscreen", fullscreen);
-		cfg.SetValue(DisplaySection, "vsync", vsync);
+		cfg.SetValue(DisplaySection, "fullscreen",     fullscreen);
+		cfg.SetValue(DisplaySection, "vsync",          vsync);
+		cfg.SetValue(DisplaySection, "window_width",   (long)windowWidth);
+		cfg.SetValue(DisplaySection, "window_height",  (long)windowHeight);
 		cfg.Save(Path);
 	}
 
