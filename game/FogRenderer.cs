@@ -3,21 +3,41 @@ using Miner49er.Core;
 
 namespace Miner49er;
 
-/// <summary>Overlays darkness as a soft round lantern light. Unexplored = opaque
-/// black, explored-but-not-visible = flat dim, currently visible = a radial falloff
-/// that stays fully clear through the play area and feathers into fog only at the
-/// rim. Wall shadows are carved for free: occluded tiles are simply absent from the
-/// visible set, so they read as full dark and the gradient never bleeds into
-/// them.</summary>
+/// <summary>Overlays darkness as a smooth radial gradient centred on the local miner.
+/// Unexplored = opaque black, explored-but-not-visible = flat dim, currently visible =
+/// a pixel-smooth circular falloff from clear at the centre to dim at the radius edge.
+/// Wall occlusion is preserved: tiles excluded from fog.IsVisible() keep their dim/unexplored
+/// background; the gradient adds darkness, never brightness.</summary>
 public partial class FogRenderer : Node2D
 {
 	private MatchClient _client = null!;
-	private static readonly Color Unexplored = new(0, 0, 0, 1f);
-	private static readonly Color Dim = new(0, 0, 0, 0.6f);
-	private const float EdgeVeil = 0.35f;   // max darkness alpha at the lit rim
-	private const float ClearUntil = 0.7f;  // fraction of radius that stays fully clear
+	private ImageTexture _fogGradientTex = null!;
 
-	public void Init(MatchClient client) => _client = client;
+	private static readonly Color Unexplored = new(0, 0, 0, 1f);
+	private const float DimAlpha = 0.6f;
+	private static readonly Color Dim = new(0, 0, 0, DimAlpha);
+
+	public void Init(MatchClient client)
+	{
+		_client = client;
+		_fogGradientTex = BuildFogGradientTex();
+	}
+
+	// Black circular gradient: alpha 0 at centre → DimAlpha at radius, 0 outside circle.
+	// Drawn once at Init; scaled each frame to match the miner's vision radius.
+	private static ImageTexture BuildFogGradientTex(int size = 256)
+	{
+		var img = Image.CreateEmpty(size, size, false, Image.Format.Rgba8);
+		float half = size / 2f;
+		for (int y = 0; y < size; y++)
+		for (int x = 0; x < size; x++)
+		{
+			float t = new Vector2(x - half, y - half).Length() / half;
+			float alpha = t < 1f ? DimAlpha * Mathf.Pow(t, 2f) : 0f;
+			img.SetPixel(x, y, new Color(0f, 0f, 0f, alpha));
+		}
+		return ImageTexture.CreateFromImage(img);
+	}
 
 	public override void _Process(double delta) => QueueRedraw();
 
@@ -27,30 +47,31 @@ public partial class FogRenderer : Node2D
 		var grid = _client.Grid;
 		var fog = _client.Fog;
 		int ts = MatchClient.TileSize;
-		var (origin, radius) = LocalMinerView();
 
+		// Background pass: dim explored tiles and black out unexplored ones.
+		// Visible tiles are skipped here — the gradient handles them below.
 		foreach (var p in grid.Positions())
 		{
-			Color color;
-			if (fog.IsVisible(p))
-			{
-				if (radius <= 0) continue; // no falloff info: leave clear
-				int ddx = p.X - origin.X, ddy = p.Y - origin.Y;
-				float t = Mathf.Sqrt(ddx * ddx + ddy * ddy) / radius; // 0 at miner, 1 at rim
-				if (t <= ClearUntil) continue;                         // clear core
-				float k = (t - ClearUntil) / (1f - ClearUntil);
-				float alpha = Mathf.SmoothStep(0f, 1f, Mathf.Clamp(k, 0f, 1f)) * EdgeVeil;
-				color = new Color(0, 0, 0, alpha);
-			}
-			else
-			{
-				color = fog.IsExplored(p) ? Dim : Unexplored;
-			}
-			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), color);
+			if (fog.IsVisible(p)) continue;
+			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts),
+					 fog.IsExplored(p) ? Dim : Unexplored);
+		}
+
+		// Smooth radial gradient centred on the local miner.
+		// Sized so t=1 in texture space lands exactly at vision_radius tiles,
+		// where gradient alpha (DimAlpha) matches the Dim background seamlessly.
+		var (origin, radius) = LocalMinerView();
+		if (radius > 0)
+		{
+			int gradPx = radius * 2 * ts;
+			var centre = new Vector2(origin.X * ts + ts / 2f, origin.Y * ts + ts / 2f);
+			DrawTextureRect(_fogGradientTex,
+				new Rect2(centre.X - gradPx / 2f, centre.Y - gradPx / 2f, gradPx, gradPx),
+				false);
 		}
 	}
 
-	// Local miner's grid position and vision radius, for the radial falloff.
+	// Local miner's grid position and vision radius, for the radial gradient.
 	private (GridPos origin, int radius) LocalMinerView()
 	{
 		foreach (var m in _client.Miners)
