@@ -15,10 +15,14 @@ public partial class MatchAudio : Node2D
 
 	private MatchClient _client = null!;
 	private bool _listening;
+	private double _listenPingTimer;
+	private const double ListenPingInterval = 2.0;
 
 	private readonly Dictionary<int, (int x, int y)> _prevPos = new();
 	private readonly Dictionary<int, int> _prevActivity = new();
 	private readonly Dictionary<int, bool> _prevAlive = new();
+	private readonly Dictionary<int, (int x, int y)> _prevMonsterPos   = new();
+	private readonly Dictionary<int, bool>            _prevMonsterAlive = new();
 	private readonly HashSet<(int x, int y)> _prevItems = new();
 	private readonly Dictionary<(int x, int y), ItemPlacement> _prevPlacement = new();
 	private readonly Dictionary<int, int> _prevHeld = new();
@@ -50,11 +54,22 @@ public partial class MatchAudio : Node2D
 		float d = listening ? ListenMaxDistance : DefaultMaxDistance;
 		foreach (var e in _dripEmitters) if (IsInstanceValid(e)) e.MaxDistance = d;
 		foreach (var e in _pickaxeLoops.Values) if (IsInstanceValid(e)) e.MaxDistance = d;
+		if (listening) _listenPingTimer = 0; // fire first ping immediately
 	}
 
 	public override void _Process(double delta)
 	{
 		_hadExplosionThisFrame = false;
+
+		if (_listening)
+		{
+			_listenPingTimer -= delta;
+			if (_listenPingTimer <= 0)
+			{
+				_listenPingTimer = ListenPingInterval;
+				PingNearestMonster();
+			}
+		}
 
 		foreach (var m in _client.Miners)
 		{
@@ -117,6 +132,18 @@ public partial class MatchAudio : Node2D
 				}
 				_prevHeld[m.Id] = m.Held;
 			}
+		}
+
+		foreach (var mo in _client.Monsters)
+		{
+			if (mo.Alive && _prevMonsterPos.TryGetValue(mo.Id, out var mp) && (mp.x != mo.X || mp.y != mo.Y))
+				OneShot(MonsterMoveSound(mo.Kind), WorldOf(mo.X, mo.Y));
+			_prevMonsterPos[mo.Id] = (mo.X, mo.Y);
+
+			bool prevMonAlive = !_prevMonsterAlive.TryGetValue(mo.Id, out var ma) || ma;
+			if (prevMonAlive && !mo.Alive)
+				OneShot(MonsterDeathSound(mo.Kind), WorldOf(mo.X, mo.Y));
+			_prevMonsterAlive[mo.Id] = mo.Alive;
 		}
 
 		var localTile = LocalTile();
@@ -272,5 +299,45 @@ public partial class MatchAudio : Node2D
 		Bus = AudioManager.BusSfx,
 		Position = pos,
 		MaxDistance = _listening ? ListenMaxDistance : DefaultMaxDistance,
+	};
+
+	private void PingNearestMonster()
+	{
+		GridPos? selfPos = null;
+		foreach (var m in _client.Miners)
+			if (m.Id == _client.LocalMinerId && m.Alive) { selfPos = new GridPos(m.X, m.Y); break; }
+		if (selfPos is null) return;
+
+		float bestSq = float.MaxValue;
+		int nx = 0, ny = 0;
+		MonsterKind? nearestKind = null;
+		foreach (var mo in _client.Monsters)
+		{
+			if (!mo.Alive) continue;
+			float dx = mo.X - selfPos.Value.X, dy = mo.Y - selfPos.Value.Y;
+			float sq = dx * dx + dy * dy;
+			if (sq < bestSq) { bestSq = sq; nx = mo.X; ny = mo.Y; nearestKind = mo.Kind; }
+		}
+
+		if (nearestKind is { } kind)
+			OneShot(MonsterMoveSound(kind), WorldOf(nx, ny));
+	}
+
+	private static AudioStream MonsterMoveSound(MonsterKind kind) => kind switch
+	{
+		MonsterKind.Goat        => SfxLibrary.GoatHooves,
+		MonsterKind.Slime       => SfxLibrary.SlimeSlurp,
+		MonsterKind.Ghost       => SfxLibrary.GhostWhisper,
+		MonsterKind.ZombieMiner => SfxLibrary.ZombieGroan,
+		_                       => SfxLibrary.Footstep,
+	};
+
+	private static AudioStream MonsterDeathSound(MonsterKind kind) => kind switch
+	{
+		MonsterKind.Goat        => SfxLibrary.GoatBleat,
+		MonsterKind.Slime       => SfxLibrary.SlimeSplat,
+		MonsterKind.Ghost       => SfxLibrary.GhostScream,
+		MonsterKind.ZombieMiner => SfxLibrary.ZombieGrunt,
+		_                       => SfxLibrary.Death,
 	};
 }

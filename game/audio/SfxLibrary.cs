@@ -30,8 +30,20 @@ public static class SfxLibrary
 	public static AudioStream Sizzle     => Get("sizzle",      () => Noise(0.35f, 1200f, decay: true)); // hot hiss — burned alive
 	public static AudioStream CrackRumble  => Get("crack_rumble",  () => Noise(0.18f, 130f, decay: true)); // stone creak underfoot
 	public static AudioStream LavaCrackle => Get("lava_crackle",  () => Noise(1.00f, 480f));               // fire crackle loop near lava
-	public static AudioStream ZombieMoan  => Get("zombie_moan",   () => Tone(0.40f, 180f, 120f));          // low descending moan
+	public static AudioStream ZombieMoan  => Get("zombie_moan",   () => Tone(0.40f, 180f, 120f));          // low descending moan — plays on the miner when mauled
 	public static AudioStream ReelSnap   => Get("reel_snap",     () => Noise(0.18f, 2400f, decay: true)); // sharp wire snap
+
+	// Monster movement sounds (positional, per step)
+	public static AudioStream GoatHooves   => Get("goat_hooves",   () => Noise(0.06f, 1800f, decay: true)); // sharp hoof click
+	public static AudioStream SlimeSlurp   => Get("slime_slurp",   () => Tone(0.12f, 260f, 180f));          // wet squelch
+	public static AudioStream GhostWhisper => Get("ghost_whisper", () => Noise(0.15f, 2200f));               // ethereal hiss
+	public static AudioStream ZombieGroan  => Get("zombie_groan",  () => Tone(0.35f, 160f, 90f));            // low moaning shuffle
+
+	// Monster death sounds
+	public static AudioStream GoatBleat   => Get("goat_bleat",   () => Tone(0.22f, 380f, 260f));            // plaintive bleat
+	public static AudioStream SlimeSplat  => Get("slime_splat",  () => Noise(0.14f, 350f, decay: true));    // wet burst
+	public static AudioStream GhostScream => Get("ghost_scream", () => Tone(0.45f, 1800f, 300f));           // piercing wail
+	public static AudioStream ZombieGrunt => Get("zombie_grunt", () => Noise(0.18f, 140f, decay: true));    // guttural grunt
 	public static AudioStream? Music => GetOptional("music_loop");
 
 	private static AudioStream Get(string name, Func<AudioStream> placeholder)
