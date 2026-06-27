@@ -14,7 +14,7 @@ public partial class FogRenderer : Node2D
 	private ImageTexture _fogGradientTex = null!;
 
 	private static readonly Color Unexplored = new(0, 0, 0, 1f);
-	private const float DimAlpha = 0.6f;
+	private const float DimAlpha = 0.78f;
 	private static readonly Color Dim = new(0, 0, 0, DimAlpha);
 
 	public void Init(MatchClient client)
