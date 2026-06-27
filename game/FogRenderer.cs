@@ -33,7 +33,7 @@ public partial class FogRenderer : Node2D
 		for (int x = 0; x < size; x++)
 		{
 			float t = new Vector2(x - half, y - half).Length() / half;
-			float alpha = t < 1f ? DimAlpha * Mathf.Pow(t, 3f) : 0f;
+			float alpha = t < 1f ? DimAlpha * Mathf.Pow(t, 1.8f) : 0f;
 			img.SetPixel(x, y, new Color(0f, 0f, 0f, alpha));
 		}
 		return ImageTexture.CreateFromImage(img);
