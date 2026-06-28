@@ -59,6 +59,7 @@ public partial class WorldRenderer : Node2D
 	private Texture2D?[] _goatTex  = new Texture2D?[4];
 	private Texture2D?[,] _ghostWalkTex = new Texture2D?[4, 9]; // [dir, frame 0-8]
 	private Texture2D?[,] _goatWalkTex  = new Texture2D?[4, 9]; // [dir, frame 0-8]
+	private Texture2D?[,] _slimeWalkTex = new Texture2D?[4, 9]; // [dir, frame 0-8]
 
 	// Zombie miner: miner sprites fully tinted sickly green — no skin/hat preservation.
 	private static readonly Color ZombieColor = new(0.42f, 0.78f, 0.38f);
@@ -92,6 +93,7 @@ public partial class WorldRenderer : Node2D
 		BuildZombieTextures();
 		BuildGhostWalkTextures();
 		BuildGoatWalkTextures();
+		BuildSlimeWalkTextures();
 		_octopusTex = GD.Load<Texture2D>("res://assets/monsters/octopus/octopus.png");
 		_lanternGlowTex = BuildRadialGlowTex();
 	}
@@ -145,6 +147,18 @@ public partial class WorldRenderer : Node2D
 				string path = $"res://assets/monsters/goat/walk/{dirName[d]}_{f}.png";
 				if (ResourceLoader.Exists(path))
 					_goatWalkTex[d, f] = GD.Load<Texture2D>(path);
+			}
+	}
+
+	private void BuildSlimeWalkTextures()
+	{
+		string[] dirName = { "north", "east", "south", "west" };
+		for (int d = 0; d < 4; d++)
+			for (int f = 0; f <= 8; f++)
+			{
+				string path = $"res://assets/monsters/slime/walk/{dirName[d]}_{f}.png";
+				if (ResourceLoader.Exists(path))
+					_slimeWalkTex[d, f] = GD.Load<Texture2D>(path);
 			}
 	}
 
@@ -449,9 +463,13 @@ public partial class WorldRenderer : Node2D
 			{
 				case MonsterKind.Slime:
 				{
-					var tex = _slimeTex[mo.Facing];
+					int slimeFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
+					var tex = _slimeWalkTex[mo.Facing, slimeFrame] ?? _slimeTex[mo.Facing];
 					if (tex != null)
-						DrawTextureRect(tex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+					{
+						float ss = ts * 1.3f;
+						DrawTextureRect(tex, new Rect2(c.X - ss / 2f, c.Y - ss / 2f, ss, ss), false);
+					}
 					else
 					{
 						DrawCircle(c, ts * 0.34f, SlimeColor);
