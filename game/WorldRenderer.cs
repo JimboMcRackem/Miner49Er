@@ -51,7 +51,7 @@ public partial class WorldRenderer : Node2D
 	private Texture2D? _crackedTex;
 	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
 	private ImageTexture _lanternGlowTex = null!;
-	private Texture2D? _octopusTex;
+	private Texture2D?[] _octopusIdleTex = new Texture2D?[9]; // idle_0..idle_8
 
 	// PixelLab monster sprites — [dir] order: 0=N 1=E 2=S 3=W
 	private Texture2D?[] _ghostTex = new Texture2D?[4];
@@ -94,7 +94,11 @@ public partial class WorldRenderer : Node2D
 		BuildGhostWalkTextures();
 		BuildGoatWalkTextures();
 		BuildSlimeWalkTextures();
-		_octopusTex = GD.Load<Texture2D>("res://assets/monsters/octopus/octopus.png");
+		for (int f = 0; f <= 8; f++)
+		{
+			string p = $"res://assets/monsters/octopus/idle_{f}.png";
+			if (ResourceLoader.Exists(p)) _octopusIdleTex[f] = GD.Load<Texture2D>(p);
+		}
 		_lanternGlowTex = BuildRadialGlowTex();
 	}
 
@@ -534,8 +538,10 @@ public partial class WorldRenderer : Node2D
 		{
 			float bs = ts * 2f;
 			var br = new Rect2(octSnap.X * ts - ts / 2f, octSnap.Y * ts - ts / 2f, bs, bs);
-			if (_octopusTex != null)
-				DrawTextureRect(_octopusTex, br, false);
+			int octFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
+			var octTex = _octopusIdleTex[octFrame] ?? _octopusIdleTex[0];
+			if (octTex != null)
+				DrawTextureRect(octTex, br, false);
 			else
 			{
 				DrawRect(new Rect2(octSnap.X * ts, octSnap.Y * ts, ts, ts), OctopusColor);
