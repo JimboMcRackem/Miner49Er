@@ -140,6 +140,7 @@ public partial class Main : Node2D
 
 	public override void _ExitTree()
 	{
+		AudioManager.Instance.SetListening(false);
 		var nm = NetworkManager.Instance;
 		nm.MatchEnded -= OnMatchEnded;
 		nm.NewFloor -= OnNewFloor;
