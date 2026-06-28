@@ -108,11 +108,12 @@ public partial class TerrainMap : Node2D
 		int bl = TerrainAt(i - 1, j);
 		int br = TerrainAt(i,     j);
 		var cell = new Vector2I(i, j);
-		_layer.SetCell(cell, _sourceId, Resolve(tl, tr, bl, br));
-		if (tl == tr && tr == bl && bl == br
-			&& (tl == Water || tl == DeepWater)
-			&& _solid.TryGetValue(tl, out var wc))
-			_waterLayer.SetCell(cell, _sourceId, wc);
+		var resolved = Resolve(tl, tr, bl, br);
+		_layer.SetCell(cell, _sourceId, resolved);
+		bool hasWater = tl == Water || tr == Water || bl == Water || br == Water
+		             || tl == DeepWater || tr == DeepWater || bl == DeepWater || br == DeepWater;
+		if (hasWater)
+			_waterLayer.SetCell(cell, _sourceId, resolved);
 		else
 			_waterLayer.EraseCell(cell);
 	}

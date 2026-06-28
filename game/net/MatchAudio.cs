@@ -43,7 +43,8 @@ public partial class MatchAudio : Node2D
 	public override void _ExitTree()
 	{
 		if (_client != null) _client.Exploded -= OnExploded;
-		AudioManager.Instance.StopMusic();
+		// Don't StopMusic here — the incoming scene (Lobby/MainMenu) always calls PlayMusic
+		// and StopMusic can fire after the new scene's PlayMusic in some Godot orderings.
 		if (_lavaLoop != null && IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree();
 	}
 
