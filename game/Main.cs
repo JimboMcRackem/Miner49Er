@@ -275,6 +275,7 @@ public partial class Main : Node2D
 	private void OnNewFloor(int floor)
 	{
 		_client.ResetFloor(floor);
+		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic());
 
 		var bannerMod = FloorModifiers.Pick(NetworkManager.Instance.MatchSeed, floor);
 		string bannerText = floor == 21 ? "BOSS FLOOR"

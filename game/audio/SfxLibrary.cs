@@ -12,6 +12,8 @@ public static class SfxLibrary
 {
 	private const int MixRate = 22050;
 	private static readonly Dictionary<string, AudioStream> _cache = new();
+	private static List<AudioStream>? _musicPool;
+	private static AudioStream? _lastMusic;
 
 	public static AudioStream Footstep => Get("footstep", () => Noise(0.05f, 220f));
 	public static AudioStream Pickaxe => Get("pickaxe", () => Noise(0.10f, 400f));
@@ -45,6 +47,47 @@ public static class SfxLibrary
 	public static AudioStream GhostScream => Get("ghost_scream", () => Tone(0.45f, 1800f, 300f));           // piercing wail
 	public static AudioStream ZombieGrunt => Get("zombie_grunt", () => Noise(0.18f, 140f, decay: true));    // guttural grunt
 	public static AudioStream? Music => GetOptional("music_loop");
+
+	// Returns a random track from any music_*.ogg/wav files in assets/audio/,
+	// avoiding repeating the last track played when more than one is available.
+	public static AudioStream? PickMusic()
+	{
+		_musicPool ??= BuildMusicPool();
+		if (_musicPool.Count == 0) return null;
+		if (_musicPool.Count == 1) return _musicPool[0];
+		var rng = new Random();
+		AudioStream pick;
+		int tries = 0;
+		do { pick = _musicPool[rng.Next(_musicPool.Count)]; tries++; }
+		while (ReferenceEquals(pick, _lastMusic) && tries < 10);
+		_lastMusic = pick;
+		return pick;
+	}
+
+	private static List<AudioStream> BuildMusicPool()
+	{
+		var pool = new List<AudioStream>();
+		var dir = DirAccess.Open("res://assets/audio/");
+		if (dir == null) return pool;
+		dir.ListDirBegin();
+		string name = dir.GetNext();
+		while (name != "")
+		{
+			if (!dir.CurrentIsDir())
+			{
+				string lower = name.ToLowerInvariant();
+				if (lower.StartsWith("music_") && (lower.EndsWith(".ogg") || lower.EndsWith(".wav")))
+				{
+					string path = $"res://assets/audio/{name}";
+					if (ResourceLoader.Exists(path))
+						pool.Add(ResourceLoader.Load<AudioStream>(path));
+				}
+			}
+			name = dir.GetNext();
+		}
+		dir.ListDirEnd();
+		return pool;
+	}
 
 	private static AudioStream Get(string name, Func<AudioStream> placeholder)
 	{
