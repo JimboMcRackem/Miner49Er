@@ -5,33 +5,46 @@ using Xunit;
 public class SimulationOctopusTests
 {
     [Fact]
-    public void Miner_on_danger_tile_is_crushed()
+    public void Miner_on_same_tile_as_octopus_is_mauled()
     {
         var grid = new TileGrid(10, 10, TileType.Floor);
         var sim  = new Simulation(grid, new SimConfig());
         sim.AddOctopus(new GridPos(5, 5));
-        var dangerPos = sim.Octopus!.DangerTiles(grid).First();
-        sim.AddMiner(1, dangerPos);
+        sim.AddMiner(1, new GridPos(5, 5));  // same tile as octopus
 
-        sim.Tick(0.01);   // tiny tick — arm hasn't moved far; miner is still on danger tile
+        sim.Tick(0.01);
 
         var m = sim.Miners.First(x => x.Id == 1);
         Assert.False(m.Alive);
-        Assert.Equal(DeathCause.Crushed, m.DeathCause);
+        Assert.Equal(DeathCause.Mauled, m.DeathCause);
     }
 
     [Fact]
     public void Miner_far_from_octopus_is_safe()
     {
-        var grid = new TileGrid(20, 20, TileType.Floor);
-        var sim  = new Simulation(grid, new SimConfig());
+        var grid  = new TileGrid(20, 20, TileType.Floor);
+        var sim   = new Simulation(grid, new SimConfig());
         sim.AddOctopus(new GridPos(10, 10));
-        // (10,19) is 9 tiles south — outside arm length 5
         var miner = sim.AddMiner(1, new GridPos(10, 19));
 
-        sim.Tick(0.033);
+        sim.Tick(0.01);   // tiny tick — octopus hasn't moved yet
 
         Assert.True(miner.Alive);
+    }
+
+    [Fact]
+    public void Octopus_eventually_catches_stationary_miner()
+    {
+        var grid  = new TileGrid(20, 20, TileType.Floor);
+        var sim   = new Simulation(grid, new SimConfig());
+        sim.AddOctopus(new GridPos(0, 0));
+        var miner = sim.AddMiner(1, new GridPos(10, 10));
+
+        // Tick in small increments so octopus accumulates multiple move steps.
+        for (int i = 0; i < 60; i++) sim.Tick(Octopus.LandCooldown + 0.01);
+
+        Assert.False(miner.Alive);
+        Assert.Equal(DeathCause.Mauled, miner.DeathCause);
     }
 
     [Fact]

@@ -119,31 +119,19 @@ public class SnapshotCodecTests
     [Fact]
     public void Round_trips_octopus_snapshot()
     {
-        var arms = new[]
-        {
-            new OctopusArmSnapshot(12.5,  0.0,   1),
-            new OctopusArmSnapshot(95.0,  0.75, -1),
-            new OctopusArmSnapshot(200.0, 0.0,   1),
-            new OctopusArmSnapshot(280.0, 0.0,  -1),
-        };
         var update = new TickUpdate(
             new WorldSnapshot(1,
                 new List<MinerSnapshot>(), new List<ChargeSnapshot>(),
                 new List<ItemSnapshot>(), new List<MoldSnapshot>(),
                 new List<MonsterSnapshot>(),
-                Octopus: new OctopusSnapshot(20, 20, arms)),
+                Octopus: new OctopusSnapshot(20, 17)),
             new List<TileChange>());
 
         var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
 
         Assert.NotNull(back.Snapshot.Octopus);
-        var oct = back.Snapshot.Octopus!;
-        Assert.Equal(20, oct.X);
-        Assert.Equal(20, oct.Y);
-        Assert.Equal(4, oct.Arms.Length);
-        Assert.Equal(12.5,  oct.Arms[0].Angle,         3);
-        Assert.Equal(0.75,  oct.Arms[1].PauseRemaining, 3);
-        Assert.Equal(-1,    oct.Arms[1].SwingDir);
+        Assert.Equal(20, back.Snapshot.Octopus!.Value.X);
+        Assert.Equal(17, back.Snapshot.Octopus!.Value.Y);
     }
 
     [Fact]

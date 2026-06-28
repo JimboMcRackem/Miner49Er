@@ -926,11 +926,18 @@ public sealed class Simulation
     private void AdvanceOctopus(double dt)
     {
         if (_octopus is null) return;
-        _octopus.Advance(dt);
-        var danger = new HashSet<GridPos>(_octopus.DangerTiles(Grid));
+        _octopus.Advance(dt, Grid, _miners.Values);
         foreach (var m in _miners.Values)
-            if (m.Alive && danger.Contains(m.Pos))
-                CollapseKill(m);
+            if (m.Alive && m.Pos == _octopus.Pos)
+                OctopusMaulKill(m);
+    }
+
+    private void OctopusMaulKill(Miner m)
+    {
+        m.Alive      = false;
+        m.Activity   = ActivityKind.None;
+        m.DeathCause = DeathCause.Mauled;
+        _events.Add(new MinerKilled(m.Id));
     }
 
     // Kills any living miner standing on a now-lethal tile. Covers water rising
@@ -1011,6 +1018,9 @@ public sealed class Simulation
                 _events.Add(new MonsterKilled(mo.Id));
             }
         }
+
+        if (_octopus is { } ocp && ocp.Pos.ChebyshevTo(wallPos) <= Config.BlastKillRadius + blastBonus)
+            _octopus = null;
 
         // Any miner still alive but standing on a crack the blast just dropped falls in.
         foreach (var m in _miners.Values)

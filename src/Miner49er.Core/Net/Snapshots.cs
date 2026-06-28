@@ -22,9 +22,7 @@ public readonly record struct ReelChargeSnapshot(int OwnerId, int WallX, int Wal
 /// the tile it became (Floor for mining/blasts, water for the flood).</summary>
 public readonly record struct TileChange(int X, int Y, bool FromBlast, TileType NewType = TileType.Floor);
 
-public readonly record struct OctopusArmSnapshot(double Angle, double PauseRemaining, int SwingDir);
-
-public sealed record OctopusSnapshot(int X, int Y, OctopusArmSnapshot[] Arms);
+public readonly record struct OctopusSnapshot(int X, int Y);
 
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,

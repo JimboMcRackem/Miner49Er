@@ -59,14 +59,7 @@ public static class SnapshotCodec
 
         w.Write(snap.Octopus is not null);
         if (snap.Octopus is { } oct)
-        {
-            w.Write(oct.X); w.Write(oct.Y);
-            w.Write(oct.Arms.Length);
-            foreach (var arm in oct.Arms)
-            {
-                w.Write(arm.Angle); w.Write(arm.PauseRemaining); w.Write(arm.SwingDir);
-            }
-        }
+        { w.Write(oct.X); w.Write(oct.Y); }
 
         w.Write(update.TileChanges.Count);
         foreach (var t in update.TileChanges)
@@ -128,11 +121,7 @@ public static class SnapshotCodec
         if (r.ReadBoolean())
         {
             int ox = r.ReadInt32(), oy = r.ReadInt32();
-            int armCount = r.ReadInt32();
-            var arms = new OctopusArmSnapshot[armCount];
-            for (int i = 0; i < armCount; i++)
-                arms[i] = new OctopusArmSnapshot(r.ReadDouble(), r.ReadDouble(), r.ReadInt32());
-            octopus = new OctopusSnapshot(ox, oy, arms);
+            octopus = new OctopusSnapshot(ox, oy);
         }
 
         int changeCount = r.ReadInt32();

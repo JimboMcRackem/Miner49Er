@@ -532,30 +532,16 @@ public partial class WorldRenderer : Node2D
 
 		if (_client.Octopus is { } octSnap)
 		{
-			var font = ThemeDB.FallbackFont;
-			int fontSize = ts * 2 / 3;
-
-			var snapOct = new Octopus(new GridPos(octSnap.X, octSnap.Y));
-			for (int i = 0; i < snapOct.Arms.Length && i < octSnap.Arms.Length; i++)
-			{
-				snapOct.Arms[i].CurrentAngle   = octSnap.Arms[i].Angle;
-				snapOct.Arms[i].PauseRemaining = octSnap.Arms[i].PauseRemaining;
-				snapOct.Arms[i].SwingDir       = octSnap.Arms[i].SwingDir;
-			}
-
-			foreach (var p in snapOct.DangerTiles(_client.Grid))
-				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), OctopusArmColor);
-
 			float bs = ts * 2f;
 			var br = new Rect2(octSnap.X * ts - ts / 2f, octSnap.Y * ts - ts / 2f, bs, bs);
 			if (_octopusTex != null)
 				DrawTextureRect(_octopusTex, br, false);
 			else
 			{
-				var fb = new Rect2(octSnap.X * ts, octSnap.Y * ts, ts, ts);
-				DrawRect(fb, OctopusColor);
+				DrawRect(new Rect2(octSnap.X * ts, octSnap.Y * ts, ts, ts), OctopusColor);
+				var font = ThemeDB.FallbackFont;
 				DrawString(font, new Vector2(octSnap.X * ts + ts / 2f, octSnap.Y * ts + ts * 0.65f),
-					"✦", HorizontalAlignment.Center, -1, fontSize, Colors.White);
+					"✦", HorizontalAlignment.Center, -1, ts * 2 / 3, Colors.White);
 			}
 		}
 
