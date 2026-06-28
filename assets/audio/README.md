@@ -1,9 +1,7 @@
 # Audio assets
 
-Drop CC0 / royalty-free files here to replace the procedural placeholders.
+Drop CC0 / royalty-free files here to replace any sound with a better one.
 Files are loaded by logical name; `.ogg` is preferred, `.wav` also works.
-Missing files fall back to a generated placeholder (music has no placeholder —
-silence until you add at least one `music_*.ogg`).
 
 ## Music
 
@@ -23,53 +21,58 @@ on each floor descent, never repeating the previous track.
 
 ## Miner SFX
 
-| Logical name  | File                   | Status      | Used for                                        |
-|---------------|------------------------|-------------|-------------------------------------------------|
-| footstep      | footstep.ogg/.wav      | ✅ real     | miner steps onto a new tile                     |
-| pickaxe       | pickaxe.ogg/.wav       | ✅ real     | mining loop (plays while digging)               |
-| plant         | plant.ogg/.wav         | ✅ real     | planting a charge                               |
-| explosion     | explosion.ogg/.wav     | ✅ real     | charge detonation                               |
-| pickup        | pickup.ogg/.wav        | placeholder | item picked up off the ground                   |
-| grab          | grab.ogg/.wav          | placeholder | item picked up or swapped from inventory        |
-| spill         | spill.ogg/.wav         | placeholder | buried item unburied (tumbles out of wall)      |
-| plank         | plank.ogg/.wav         | placeholder | water plank laid across a flood tile            |
-| reel_snap     | reel_snap.ogg/.wav     | placeholder | detonator wire snapped (pulled too far)         |
+| Logical name  | File                   | Status                         | Used for                                        |
+|---------------|------------------------|--------------------------------|-------------------------------------------------|
+| footstep      | footstep.ogg/.wav      | ✅ real                        | miner steps onto a new tile                     |
+| pickaxe       | pickaxe.ogg/.wav       | ✅ real                        | mining loop (plays while digging)               |
+| plant         | plant.ogg/.wav         | ✅ real                        | planting a charge                               |
+| explosion     | explosion.ogg/.wav     | ✅ real                        | charge detonation                               |
+| pickup        | pickup.ogg             | ✅ real (Kenney Interface)     | item picked up off the ground                   |
+| grab          | grab.ogg               | ✅ real (Kenney RPG)           | item picked up or swapped from inventory        |
+| spill         | spill.ogg              | ✅ real (Kenney RPG)           | buried item unburied (tumbles out of wall)      |
+| plank         | plank.ogg              | ✅ real (Kenney Impact)        | water plank laid across a flood tile            |
+| reel_snap     | reel_snap.ogg          | ✅ real (Kenney Interface)     | detonator wire snapped (pulled too far)         |
 
 ## Death SFX
 
-| Logical name  | File                   | Status      | Trigger                                         |
-|---------------|------------------------|-------------|-------------------------------------------------|
-| death         | death.ogg/.wav         | ✅ real     | generic miner death                             |
-| splash        | splash.ogg/.wav        | ✅ real     | drowned in deep water                           |
-| fall          | fall.ogg/.wav          | placeholder | fell into a pit                                 |
-| cavein        | cavein.ogg/.wav        | placeholder | crushed by a cave-in                            |
-| sizzle        | sizzle.ogg/.wav        | placeholder | burned by lava                                  |
-| zombie_moan   | zombie_moan.ogg/.wav   | placeholder | mauled by a monster                             |
+| Logical name  | File                   | Status                         | Trigger                                         |
+|---------------|------------------------|--------------------------------|-------------------------------------------------|
+| death         | death.ogg/.wav         | ✅ real                        | generic miner death                             |
+| splash        | splash.ogg/.wav        | ✅ real                        | drowned in deep water                           |
+| fall          | fall.ogg               | ✅ real (Kenney Interface)     | fell into a pit                                 |
+| cavein        | cavein.ogg             | ✅ real (Kenney Impact)        | crushed by a cave-in                            |
+| sizzle        | sizzle.ogg             | ✅ real (Kenney Sci-fi)        | burned by lava                                  |
+| zombie_moan   | zombie_moan.ogg        | ✅ real (Kenney Impact)        | mauled by a monster                             |
 
 ## Ambient SFX
 
-| Logical name  | File                   | Status      | Used for                                        |
-|---------------|------------------------|-------------|-------------------------------------------------|
-| drip          | drip.ogg/.wav          | ✅ real     | ambient water drips (sparse, randomised timing) |
-| crack_rumble  | crack_rumble.ogg/.wav  | ✅ real     | stone creak when stepping on cracked/crumbling floor |
-| lava_crackle  | lava_crackle.ogg/.wav  | ✅ real     | looping crackle when within 5 tiles of lava     |
-| squelch       | squelch.ogg/.wav       | placeholder | mold patch spreads nearby                       |
+| Logical name  | File                   | Status                         | Used for                                        |
+|---------------|------------------------|--------------------------------|-------------------------------------------------|
+| drip          | drip.ogg/.wav          | ✅ real                        | ambient water drips (sparse, randomised timing) |
+| crack_rumble  | crack_rumble.ogg/.wav  | ✅ real                        | stone creak when stepping on cracked/crumbling floor |
+| lava_crackle  | lava_crackle.ogg/.wav  | ✅ real                        | looping crackle when within 5 tiles of lava     |
+| squelch       | squelch.ogg            | ✅ real (Kenney Impact)        | mold patch spreads nearby                       |
 
 ## Monster SFX
 
-| Logical name  | File                   | Status      | Used for                                        |
-|---------------|------------------------|-------------|-------------------------------------------------|
-| goat_hooves   | goat_hooves.ogg/.wav   | placeholder | goat moves                                      |
-| goat_bleat    | goat_bleat.ogg/.wav    | placeholder | goat dies                                       |
-| slime_slurp   | slime_slurp.ogg/.wav   | placeholder | slime moves                                     |
-| slime_splat   | slime_splat.ogg/.wav   | placeholder | slime dies                                      |
-| ghost_whisper | ghost_whisper.ogg/.wav | placeholder | ghost moves                                     |
-| ghost_scream  | ghost_scream.ogg/.wav  | placeholder | ghost dies                                      |
-| zombie_groan  | zombie_groan.ogg/.wav  | placeholder | zombie moves                                    |
-| zombie_grunt  | zombie_grunt.ogg/.wav  | placeholder | zombie dies                                     |
+| Logical name  | File                   | Status                         | Used for                                        |
+|---------------|------------------------|--------------------------------|-------------------------------------------------|
+| goat_hooves   | goat_hooves.ogg        | ✅ real (Kenney Impact)        | goat moves                                      |
+| goat_bleat    | goat_bleat.ogg         | ✅ real (Kenney Impact)        | goat dies                                       |
+| slime_slurp   | slime_slurp.ogg        | ✅ real (Kenney Sci-fi)        | slime moves                                     |
+| slime_splat   | slime_splat.ogg        | ✅ real (Kenney Sci-fi)        | slime dies                                      |
+| ghost_whisper | ghost_whisper.ogg      | ✅ real (Kenney Sci-fi)        | ghost moves                                     |
+| ghost_scream  | ghost_scream.ogg       | ✅ real (Kenney Sci-fi)        | ghost dies                                      |
+| zombie_groan  | zombie_groan.ogg       | ✅ real (Kenney RPG)           | zombie moves                                    |
+| zombie_grunt  | zombie_grunt.ogg       | ✅ real (Kenney Impact)        | zombie dies                                     |
 
-## Suggested CC0 sources
+## Sources
 
-- freesound.org — filter by License = Creative Commons 0
-- kenney.nl/assets — impact, footstep, and UI packs
-- sonniss.com — GDC game audio bundles (free yearly release)
+All sounds are CC0. Kenney packs used:
+- **Impact Sounds** — kenney.nl/assets/impact-sounds
+- **RPG Audio** — kenney.nl/assets/rpg-audio
+- **Interface Sounds** — kenney.nl/assets/interface-sounds
+- **Sci-fi Sounds** — kenney.nl/assets/sci-fi-sounds
+
+To replace any sound with a better one, drop a file with the same logical name
+into this directory. `.ogg` takes priority over `.wav` when both exist.
