@@ -167,6 +167,41 @@ public class SimulationExplosiveTests
     }
 
     [Fact]
+    public void Blast_chains_to_charge_planted_on_wall_it_destroys()
+    {
+        // Rock at (2,2), (3,2), (4,2).  ChargeA on (2,2), ChargeB on (3,2).
+        // ChargeA (r=1) directly destroys (3,2) → chains ChargeB → (4,2) cleared.
+        // (4,2) is Manhattan-2 from (2,2) so ChargeA alone cannot reach it.
+        var grid = new TileGrid(7, 5, TileType.Floor);
+        grid.Set(new GridPos(2, 2), TileType.Rock);
+        grid.Set(new GridPos(3, 2), TileType.Rock);
+        grid.Set(new GridPos(4, 2), TileType.Rock);
+
+        var cfg = new SimConfig { PlantSeconds = 0.0, FuseSeconds = 100.0, BlastRockRadius = 1 };
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(1, 2));
+        sim.AddMiner(2, new GridPos(3, 3)); // faces north → plants on (3,2)
+
+        sim.TryMove(1, Direction.East);   // blocked, faces east toward (2,2)
+        sim.TryStartPlanting(1);
+        sim.Tick(0.0);                    // ChargeA at (2,2), fuse=100
+
+        sim.TryMove(2, Direction.North);  // blocked, faces north toward (3,2)
+        sim.TryStartPlanting(2);
+        sim.Tick(0.0);                    // ChargeB at (3,2), fuse=100
+
+        Assert.Equal(2, sim.Charges.Count);
+
+        // Force ChargeA to detonate this tick via internal setter.
+        sim.Charges.First(c => c.WallPos == new GridPos(2, 2)).FuseRemaining = 0;
+        sim.Tick(0.001);
+
+        // (4,2) is only reachable if ChargeB chained; it's outside ChargeA's radius.
+        Assert.Equal(TileType.Floor, sim.Grid.Get(new GridPos(4, 2)));
+        Assert.Empty(sim.Charges); // ChargeB consumed by chain, not by its own fuse
+    }
+
+    [Fact]
     public void TryStartPlanting_blocked_when_dynamite_disabled()
     {
         var sim = FacingRockEast(out _, new SimConfig { DynamiteEnabled = false });

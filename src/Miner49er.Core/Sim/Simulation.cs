@@ -1027,6 +1027,20 @@ public sealed class Simulation
             if (m.Alive && collapsedCracks.Contains(m.Pos))
                 CollapseKill(m);
 
+        // Chain: charges planted on walls this blast just cleared detonate immediately.
+        var chainedFuse = _charges.Where(c => destroyed.Contains(c.WallPos)).ToList();
+        foreach (var chained in chainedFuse)
+        {
+            _charges.Remove(chained);
+            DetonateAt(chained.WallPos, chained.BlastBonus, chained.OwnerId);
+        }
+        var chainedReels = _reelCharges.Where(r => destroyed.Contains(r.WallPos)).ToList();
+        foreach (var reel in chainedReels)
+        {
+            _reelCharges.Remove(reel);
+            DetonateAt(reel.WallPos, reel.BlastBonus, reel.OwnerId);
+        }
+
         _events.Add(new Explosion(wallPos, destroyed));
     }
 
