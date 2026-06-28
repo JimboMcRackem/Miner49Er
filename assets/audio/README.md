@@ -12,56 +12,61 @@ Any number of tracks are supported. Name them `music_1.ogg`, `music_dungeon.ogg`
 added to the pool automatically. A random track plays at match start and changes
 on each floor descent, never repeating the previous track.
 
-| File pattern     | Used for                                         |
-|------------------|--------------------------------------------------|
-| music_*.ogg/wav  | looping match music — add as many as you like    |
+| File                  | Status  |
+|-----------------------|---------|
+| music_loop.ogg        | ✅ real |
+| music_loop1.ogg       | ✅ real |
+| music_loop2.ogg       | ✅ real |
+| music_loop3.ogg       | ✅ real |
+| music_loop4.ogg       | ✅ real |
+| music_loop5.ogg       | ✅ real |
 
 ## Miner SFX
 
-| Logical name  | File                  | Used for                                        |
-|---------------|-----------------------|-------------------------------------------------|
-| footstep      | footstep.ogg/.wav     | miner steps onto a new tile                     |
-| pickaxe       | pickaxe.ogg/.wav      | mining loop (plays while digging)               |
-| plant         | plant.ogg/.wav        | planting a charge                               |
-| explosion     | explosion.ogg/.wav    | charge detonation                               |
-| pickup        | pickup.ogg/.wav       | item picked up off the ground                   |
-| grab          | grab.ogg/.wav         | item picked up or swapped from inventory        |
-| spill         | spill.ogg/.wav        | buried item unburied (tumbles out of wall)      |
-| plank         | plank.ogg/.wav        | water plank laid across a flood tile            |
-| reel_snap     | reel_snap.ogg/.wav    | detonator wire snapped (pulled too far)         |
+| Logical name  | File                   | Status      | Used for                                        |
+|---------------|------------------------|-------------|-------------------------------------------------|
+| footstep      | footstep.ogg/.wav      | ✅ real     | miner steps onto a new tile                     |
+| pickaxe       | pickaxe.ogg/.wav       | ✅ real     | mining loop (plays while digging)               |
+| plant         | plant.ogg/.wav         | ✅ real     | planting a charge                               |
+| explosion     | explosion.ogg/.wav     | ✅ real     | charge detonation                               |
+| pickup        | pickup.ogg/.wav        | placeholder | item picked up off the ground                   |
+| grab          | grab.ogg/.wav          | placeholder | item picked up or swapped from inventory        |
+| spill         | spill.ogg/.wav         | placeholder | buried item unburied (tumbles out of wall)      |
+| plank         | plank.ogg/.wav         | placeholder | water plank laid across a flood tile            |
+| reel_snap     | reel_snap.ogg/.wav     | placeholder | detonator wire snapped (pulled too far)         |
 
 ## Death SFX
 
-| Logical name  | File                  | Trigger                                         |
-|---------------|-----------------------|-------------------------------------------------|
-| death         | death.ogg/.wav        | generic miner death                             |
-| splash        | splash.ogg/.wav       | drowned in deep water                           |
-| fall          | fall.ogg/.wav         | fell into a pit                                 |
-| cavein        | cavein.ogg/.wav       | crushed by a cave-in                            |
-| sizzle        | sizzle.ogg/.wav       | burned by lava                                  |
-| zombie_moan   | zombie_moan.ogg/.wav  | mauled by a monster                             |
+| Logical name  | File                   | Status      | Trigger                                         |
+|---------------|------------------------|-------------|-------------------------------------------------|
+| death         | death.ogg/.wav         | ✅ real     | generic miner death                             |
+| splash        | splash.ogg/.wav        | ✅ real     | drowned in deep water                           |
+| fall          | fall.ogg/.wav          | placeholder | fell into a pit                                 |
+| cavein        | cavein.ogg/.wav        | placeholder | crushed by a cave-in                            |
+| sizzle        | sizzle.ogg/.wav        | placeholder | burned by lava                                  |
+| zombie_moan   | zombie_moan.ogg/.wav   | placeholder | mauled by a monster                             |
 
 ## Ambient SFX
 
-| Logical name  | File                  | Used for                                        |
-|---------------|-----------------------|-------------------------------------------------|
-| drip          | drip.ogg/.wav         | ambient water drips (sparse, randomised timing) |
-| crack_rumble  | crack_rumble.ogg/.wav | stone creak when stepping on cracked/crumbling floor |
-| lava_crackle  | lava_crackle.ogg/.wav | looping crackle when within 5 tiles of lava     |
-| squelch       | squelch.ogg/.wav      | mold patch spreads nearby                       |
+| Logical name  | File                   | Status      | Used for                                        |
+|---------------|------------------------|-------------|-------------------------------------------------|
+| drip          | drip.ogg/.wav          | ✅ real     | ambient water drips (sparse, randomised timing) |
+| crack_rumble  | crack_rumble.ogg/.wav  | ✅ real     | stone creak when stepping on cracked/crumbling floor |
+| lava_crackle  | lava_crackle.ogg/.wav  | ✅ real     | looping crackle when within 5 tiles of lava     |
+| squelch       | squelch.ogg/.wav       | placeholder | mold patch spreads nearby                       |
 
 ## Monster SFX
 
-| Logical name  | File                  | Used for                                        |
-|---------------|-----------------------|-------------------------------------------------|
-| goat_hooves   | goat_hooves.ogg/.wav  | goat moves                                      |
-| goat_bleat    | goat_bleat.ogg/.wav   | goat dies                                       |
-| slime_slurp   | slime_slurp.ogg/.wav  | slime moves                                     |
-| slime_splat   | slime_splat.ogg/.wav  | slime dies                                      |
-| ghost_whisper | ghost_whisper.ogg/.wav| ghost moves                                     |
-| ghost_scream  | ghost_scream.ogg/.wav | ghost dies                                      |
-| zombie_groan  | zombie_groan.ogg/.wav | zombie moves                                    |
-| zombie_grunt  | zombie_grunt.ogg/.wav | zombie dies                                     |
+| Logical name  | File                   | Status      | Used for                                        |
+|---------------|------------------------|-------------|-------------------------------------------------|
+| goat_hooves   | goat_hooves.ogg/.wav   | placeholder | goat moves                                      |
+| goat_bleat    | goat_bleat.ogg/.wav    | placeholder | goat dies                                       |
+| slime_slurp   | slime_slurp.ogg/.wav   | placeholder | slime moves                                     |
+| slime_splat   | slime_splat.ogg/.wav   | placeholder | slime dies                                      |
+| ghost_whisper | ghost_whisper.ogg/.wav | placeholder | ghost moves                                     |
+| ghost_scream  | ghost_scream.ogg/.wav  | placeholder | ghost dies                                      |
+| zombie_groan  | zombie_groan.ogg/.wav  | placeholder | zombie moves                                    |
+| zombie_grunt  | zombie_grunt.ogg/.wav  | placeholder | zombie dies                                     |
 
 ## Suggested CC0 sources
 
