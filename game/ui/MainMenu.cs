@@ -32,6 +32,8 @@ public partial class MainMenu : Control
 
 	public override void _Ready()
 	{
+		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic());
+
 		var bg = new TextureRect
 		{
 			Texture     = GD.Load<Texture2D>("res://assets/Splash.png"),

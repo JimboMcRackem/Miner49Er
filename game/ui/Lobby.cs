@@ -24,6 +24,8 @@ public partial class Lobby : Control
 
 	public override void _Ready()
 	{
+		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic());
+
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(center);
