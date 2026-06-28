@@ -23,8 +23,10 @@ public partial class FogRenderer : Node2D
 		_fogGradientTex = BuildFogGradientTex();
 	}
 
-	// Black circular gradient: alpha 0 at centre → DimAlpha at radius, 0 outside circle.
-	// Drawn once at Init; scaled each frame to match the miner's vision radius.
+	// Black circular gradient: alpha 0 at centre → DimAlpha at edge, 0 outside.
+	// Displayed at radius tiles wide so t=1 (DimAlpha) lands exactly at the
+	// visible boundary — everything inside fades proportionally, everything outside
+	// is already covered by the background Dim pass.
 	private static ImageTexture BuildFogGradientTex(int size = 256)
 	{
 		var img = Image.CreateEmpty(size, size, false, Image.Format.Rgba8);
@@ -48,22 +50,34 @@ public partial class FogRenderer : Node2D
 		var fog = _client.Fog;
 		int ts = MatchClient.TileSize;
 
-		// Background pass: dim explored tiles and black out unexplored ones.
-		// Visible tiles are skipped here — the gradient handles them below.
+		// Compute gradient circle first so the background pass can use it.
+		// The gradient centre follows the smooth interpolated visual position, but the
+		// visible set is computed from the integer tile position. During movement these
+		// can drift up to ~0.5 tiles apart, so edge-visible tiles occasionally land
+		// outside the gradient circle and appear undimmed. We fix this by treating any
+		// visible tile outside the gradient circle the same as a non-visible explored
+		// tile (Dim), so the circle is always a hard boundary.
+		var (centre, radius) = LocalMinerView();
+		float gradRadiusPx = radius * ts;
+
 		foreach (var p in grid.Positions())
 		{
-			if (fog.IsVisible(p)) continue;
-			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts),
-					 fog.IsExplored(p) ? Dim : Unexplored);
+			bool visible = fog.IsVisible(p);
+			if (visible && radius > 0)
+			{
+				var tileCentre = new Vector2(p.X * ts + ts * 0.5f, p.Y * ts + ts * 0.5f);
+				if (tileCentre.DistanceTo(centre) > gradRadiusPx)
+					DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), Dim);
+				continue;
+			}
+			if (!visible)
+				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts),
+						 fog.IsExplored(p) ? Dim : Unexplored);
 		}
 
-		// Smooth radial gradient centred on the local miner.
-		// Sized so t=1 in texture space lands exactly at vision_radius tiles,
-		// where gradient alpha (DimAlpha) matches the Dim background seamlessly.
-		var (centre, radius) = LocalMinerView();
 		if (radius > 0)
 		{
-			int gradPx = (radius + 1) * 2 * ts;
+			int gradPx = radius * 2 * ts;
 			DrawTextureRect(_fogGradientTex,
 				new Rect2(centre.X - gradPx / 2f, centre.Y - gradPx / 2f, gradPx, gradPx),
 				false);
