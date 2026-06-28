@@ -284,6 +284,16 @@ public partial class WorldRenderer : Node2D
 				DrawTextureRect(_chargeTex, r, false);
 			else
 				DrawCircle(new Vector2(c.X * ts + ts / 2f, c.Y * ts + ts / 2f), ts * 0.25f, ChargeColor);
+
+			// Animated fuse spark: jittering orange/yellow ember at fuse tip (top-centre of sprite).
+			float tMs = (float)Time.GetTicksMsec();
+			float flicker  = 0.5f + 0.5f * Mathf.Sin(tMs / 40f);
+			float flicker2 = 0.5f + 0.5f * Mathf.Sin(tMs / 27f + 1.3f);
+			float jx = Mathf.Sin(tMs / 33f) * 1.5f;
+			float jy = Mathf.Sin(tMs / 41f) * 1.0f;
+			var spark = new Vector2(c.X * ts + ts * 0.5f + jx, c.Y * ts + ts * 0.11f + jy);
+			DrawCircle(spark, 3.0f, new Color(1f, 0.35f, 0f, 0.50f + 0.38f * flicker));   // orange halo
+			DrawCircle(spark, 1.8f, new Color(1f, 0.90f, 0.3f, 0.70f + 0.28f * flicker2)); // bright core
 		}
 
 		// Reel charges: red marker on wall tile + orange wire to owner.
