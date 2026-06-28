@@ -57,13 +57,13 @@ on each floor descent, never repeating the previous track.
 
 | Logical name  | File                   | Status                         | Used for                                        |
 |---------------|------------------------|--------------------------------|-------------------------------------------------|
-| goat_hooves   | goat_hooves.ogg        | ✅ real (Kenney Impact)        | goat moves                                      |
-| goat_bleat    | goat_bleat.ogg         | ✅ real (Kenney Impact)        | goat dies                                       |
+| goat_hooves   | goat_hooves.wav        | ✅ real                        | goat moves                                      |
+| goat_bleat    | goat_bleat.wav         | ✅ real                        | goat dies                                       |
 | slime_slurp   | slime_slurp.ogg        | ✅ real (Kenney Sci-fi)        | slime moves                                     |
 | slime_splat   | slime_splat.ogg        | ✅ real (Kenney Sci-fi)        | slime dies                                      |
-| ghost_whisper | ghost_whisper.ogg      | ✅ real (Kenney Sci-fi)        | ghost moves                                     |
+| ghost_whisper | ghost_whisper.wav      | ✅ real                        | ghost moves                                     |
 | ghost_scream  | ghost_scream.ogg       | ✅ real (Kenney Sci-fi)        | ghost dies                                      |
-| zombie_groan  | zombie_groan.ogg       | ✅ real (Kenney RPG)           | zombie moves                                    |
+| zombie_groan  | zombie_groan.ogg       | ✅ real                        | zombie moves                                    |
 | zombie_grunt  | zombie_grunt.ogg       | ✅ real (Kenney Impact)        | zombie dies                                     |
 
 ## Sources
