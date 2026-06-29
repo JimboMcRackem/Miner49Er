@@ -192,11 +192,14 @@ public partial class Main : Node2D
 						: "Ready")
 					: "Dead — spectating";
 				string timeStr = _client.SecondsRemaining >= 0 ? $"    Time: {_client.SecondsRemaining:0}s" : "";
-				string heldStr = m.Held switch
+				var heldKind = m.Held >= 0 ? (ItemKind?)((ItemKind)m.Held) : null;
+					string heldStr = heldKind switch
 					{
-						(int)ItemKind.WaterPlank => "    Held: Plank",
-						(int)ItemKind.SlowMold => "    Held: Mold",
-						_ => "",
+						ItemKind.WaterPlank    => "    Held: Plank",
+						ItemKind.SlowMold      => "    Held: Mold",
+						ItemKind.TreasureChest => "    Held: Chest",
+						{ } k when k.IsIdol()  => $"    Held: {IdolName(k)}",
+						_                      => "",
 					};
 					string stonesStr = m.StoneCount > 0 ? $"    Stones: {m.StoneCount}" : "";
 					if (NetworkManager.Instance.MatchMode == GameMode.Expedition)
@@ -221,6 +224,18 @@ public partial class Main : Node2D
 							objective = $"Floor {nm2.MatchFloor}/20  Gold: {pct}%{modTag}";
 						}
 						_hud.SetHud(Math.Max(0, _client.Lives), $"  {objective}    {status}{timeStr}{heldStr}{stonesStr}");
+					}
+					else if (NetworkManager.Instance.MatchMode == GameMode.TreasureHunt)
+					{
+						var nm2 = NetworkManager.Instance;
+						var (idolA, idolB) = TreasureAssignment.For(nm2.MatchSeed, _client.LocalMinerId);
+						int foundCount = 0;
+						if (_client.TreasureProgress != null)
+							foreach (var tp in _client.TreasureProgress)
+								if (tp.MinerId == _client.LocalMinerId) { foundCount = tp.Found; break; }
+						string aState = foundCount >= 1 ? "✓" : "○";
+						string bState = foundCount >= 2 ? "✓" : "○";
+						_hud.SetText($"{IdolName(idolA)} {aState}  {IdolName(idolB)} {bState}    {status}{heldStr}");
 					}
 					else
 					{
@@ -328,6 +343,28 @@ public partial class Main : Node2D
 
 	private static string NameOf(long peerId) =>
 		NetworkManager.Instance.Players.TryGetValue(peerId, out var info) ? info.Name : $"Peer {peerId}";
+
+	private static string IdolName(ItemKind k) => k switch
+	{
+		ItemKind.IdolVishnu       => "Vishnu",
+		ItemKind.IdolZeus         => "Zeus",
+		ItemKind.IdolAnubis       => "Anubis",
+		ItemKind.IdolOdin         => "Odin",
+		ItemKind.IdolShiva        => "Shiva",
+		ItemKind.IdolBuddha       => "Buddha",
+		ItemKind.IdolRa           => "Ra",
+		ItemKind.IdolQuetzalcoatl => "Quetzal",
+		ItemKind.IdolUrn          => "Urn",
+		ItemKind.IdolLamp         => "Lamp",
+		ItemKind.IdolMace         => "Mace",
+		ItemKind.IdolSceptre      => "Sceptre",
+		ItemKind.IdolGlobe        => "Globe",
+		ItemKind.IdolTrophyCup    => "Trophy",
+		ItemKind.IdolChalice      => "Chalice",
+		ItemKind.IdolCrown        => "Crown",
+		ItemKind.IdolSkull        => "Skull",
+		_                         => "Idol",
+	};
 
 	private void OnReturnToLobby()
 	{

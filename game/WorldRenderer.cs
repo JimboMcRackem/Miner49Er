@@ -36,6 +36,8 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color OctopusColor       = new Color(0.8f, 0.1f, 0.7f, 0.85f);
 	private static readonly Color OctopusArmColor    = new Color(0.9f, 0.2f, 0.6f, 0.45f);
 	private static readonly Color ChestColor         = new Color(0.9f, 0.8f, 0.1f, 0.95f);
+	private static readonly Color TreasureChestColor = new Color(0.2f, 0.8f, 0.95f, 0.90f);
+	private static readonly Color IdolColor          = new Color(0.9f, 0.72f, 0.2f, 0.95f);
 	private static readonly Color ReelChargeColor   = new("ff3355");
 	private static readonly Color WireColor         = new Color(0.9f, 0.55f, 0.1f, 0.75f);
 	private static readonly Color DetonatorItemColor = new("ff3355");
@@ -578,6 +580,33 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
+		// Placed TreasureChests (treasure hunt mode)
+		if (_client.PlacedChests != null)
+			foreach (var pc in _client.PlacedChests)
+			{
+				var pcRect   = new Rect2(pc.X * ts, pc.Y * ts, ts, ts);
+				var pcCenter = new Vector2(pc.X * ts + ts / 2f, pc.Y * ts + ts / 2f);
+				DrawRect(pcRect, TreasureChestColor);
+				var font = ThemeDB.FallbackFont;
+				DrawString(font, new Vector2(pcCenter.X, pc.Y * ts + ts * 0.68f),
+					"⬆", HorizontalAlignment.Center, -1, ts * 2 / 3, Colors.Black);
+			}
+
+		// Idol floor items: draw name label so players know what they found
+		foreach (var it in _client.Items)
+		{
+			if (!it.Kind.IsIdol() || it.Placement == ItemPlacement.Buried) continue;
+			var ip = new GridPos(it.X, it.Y);
+			if (!_client.Fog.IsVisible(ip)) continue;
+			var ir = new Rect2(it.X * ts, it.Y * ts, ts, ts);
+			var icenter = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
+			DrawCircle(icenter, ts * 0.30f, IdolColor);
+			var font = ThemeDB.FallbackFont;
+			string label = IdolShortName(it.Kind);
+			DrawString(font, new Vector2(icenter.X, it.Y * ts + ts * 0.68f),
+				label, HorizontalAlignment.Center, -1, 9, Colors.Black);
+		}
+
 		// Shopkeeper tile
 		if (_client.ShopPos is GridPos sp && _client.Fog.IsVisible(sp))
 		{
@@ -596,6 +625,7 @@ public partial class WorldRenderer : Node2D
 		ItemKind.WaterPlank   => PlankItemColor,
 		ItemKind.SlowMold     => MoldItemColor,
 		ItemKind.Detonator    => DetonatorItemColor,
+		_ when kind.IsIdol()  => IdolColor,
 		_                     => SpeedItemColor,
 	};
 
@@ -629,6 +659,28 @@ public partial class WorldRenderer : Node2D
 		2 => new Vector2(-scale, 0f),
 		3 => new Vector2(0f, -scale),
 		_ => Vector2.Zero,
+	};
+
+	private static string IdolShortName(ItemKind k) => k switch
+	{
+		ItemKind.IdolVishnu       => "Vis",
+		ItemKind.IdolZeus         => "Zeus",
+		ItemKind.IdolAnubis       => "Anu",
+		ItemKind.IdolOdin         => "Odin",
+		ItemKind.IdolShiva        => "Shv",
+		ItemKind.IdolBuddha       => "Bud",
+		ItemKind.IdolRa           => "Ra",
+		ItemKind.IdolQuetzalcoatl => "Qtz",
+		ItemKind.IdolUrn          => "Urn",
+		ItemKind.IdolLamp         => "Lmp",
+		ItemKind.IdolMace         => "Mce",
+		ItemKind.IdolSceptre      => "Scp",
+		ItemKind.IdolGlobe        => "Glb",
+		ItemKind.IdolTrophyCup    => "Trp",
+		ItemKind.IdolChalice      => "Cha",
+		ItemKind.IdolCrown        => "Crn",
+		ItemKind.IdolSkull        => "Skl",
+		_                         => "?",
 	};
 
 	private void DrawShimmer(int x, int y, Color col, int ts)

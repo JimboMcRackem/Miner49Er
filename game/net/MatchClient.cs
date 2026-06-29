@@ -49,6 +49,8 @@ public partial class MatchClient : Node2D
 	private Node2D _sceneRoot = null!;
 	public int StartingGoldCount { get; private set; }
 	public OctopusSnapshot? Octopus { get; private set; }
+	public IReadOnlyList<TreasureProgressSnapshot>? TreasureProgress { get; private set; }
+	public IReadOnlyList<PlacedChestSnapshot>?      PlacedChests     { get; private set; }
 
 	private TerrainMap _terrainMap = null!;
 	private WorldRenderer _world = null!;
@@ -127,8 +129,10 @@ public partial class MatchClient : Node2D
 		EscapeOpen = update.Snapshot.EscapeOpen;
 		GoldRemaining = CountGold(Grid);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;
-		Octopus = update.Snapshot.Octopus;
-		Lives = update.Snapshot.Lives;
+		Octopus          = update.Snapshot.Octopus;
+		Lives            = update.Snapshot.Lives;
+		TreasureProgress = update.Snapshot.TreasureProgress;
+		PlacedChests     = update.Snapshot.PlacedChests;
 		_reelChargeSnaps = new List<ReelChargeSnapshot>(update.Snapshot.ReelCharges ?? System.Array.Empty<ReelChargeSnapshot>());
 		UpdateFog();
 	}
