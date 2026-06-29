@@ -66,9 +66,10 @@ public partial class Main : Node2D
 			hostMapCfg.Flooding = nm.MatchFlooding;
 			var f1SimCfg = new SimConfig
 			{
-				BaseMoveSeconds = nm.MatchBaseMoveSeconds,
-				Seed = seed,
-				DynamiteEnabled = nm.MatchExplosive != ExplosiveMode.DetonatorsOnly,
+				BaseMoveSeconds  = nm.MatchBaseMoveSeconds,
+				Seed             = seed,
+				DynamiteEnabled  = nm.MatchExplosive != ExplosiveMode.DetonatorsOnly,
+				TreasureHuntMode = nm.MatchMode == GameMode.TreasureHunt,
 			};
 			FloorModifiers.Apply(f1Modifier, hostMapCfg, f1SimCfg);
 			var hostMap = MapGenerator.Generate(hostMapCfg);

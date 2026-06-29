@@ -55,9 +55,10 @@ public partial class Lobby : Control
 
 		_modePicker = new OptionButton();
 		_modePicker.AddItem("Last Man Standing", (int)GameMode.LastManStanding);
-		_modePicker.AddItem("Gold Rush", (int)GameMode.GoldRush);
-		_modePicker.AddItem("Reach Center", (int)GameMode.ReachCenter);
-		_modePicker.AddItem("Expedition", (int)GameMode.Expedition);
+		_modePicker.AddItem("Gold Rush",         (int)GameMode.GoldRush);
+		_modePicker.AddItem("Reach Center",      (int)GameMode.ReachCenter);
+		_modePicker.AddItem("Expedition",        (int)GameMode.Expedition);
+		_modePicker.AddItem("Treasure Hunt",     (int)GameMode.TreasureHunt);
 		_modePicker.Select(savedMode);
 		_modePicker.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_modePicker);
@@ -124,14 +125,16 @@ public partial class Lobby : Control
 		_startBtn.Pressed += () =>
 		{
 			bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
-			int mapScale = expedition ? _mapSizePicker.GetSelectedId() : 1;
-			int explosive = expedition ? 0 : _explosivePicker.GetSelectedId();
-			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), _timePicker.GetSelectedId(),
+			bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
+			int mapScale  = expedition ? _mapSizePicker.GetSelectedId() : 1;
+			int explosive = (expedition || treasure) ? 0 : _explosivePicker.GetSelectedId();
+			int timeLimit = (expedition || treasure) ? 0 : _timePicker.GetSelectedId();
+			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), timeLimit,
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
 				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive);
 			NetworkManager.Instance.StartMatch(
 				(GameMode)_modePicker.GetSelectedId(),
-				expedition ? 0 : _timePicker.GetSelectedId(),
+				timeLimit,
 				_floodCheck.ButtonPressed,
 				_pitsCheck.ButtonPressed,
 				_caveInCheck.ButtonPressed,
@@ -157,11 +160,13 @@ public partial class Lobby : Control
 
 	private void RefreshModeControls()
 	{
-		bool isHost = NetworkManager.Instance.IsHost;
+		bool isHost     = NetworkManager.Instance.IsHost;
 		bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
-		_timePicker.Visible       = isHost && !expedition;
-		_mapSizePicker.Visible    = isHost && expedition;
-		_explosivePicker.Visible  = isHost && !expedition;
+		bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
+		bool normalMode = !expedition && !treasure;
+		_timePicker.Visible      = isHost && normalMode;
+		_mapSizePicker.Visible   = isHost && expedition;
+		_explosivePicker.Visible = isHost && normalMode;
 	}
 
 	public override void _ExitTree()
