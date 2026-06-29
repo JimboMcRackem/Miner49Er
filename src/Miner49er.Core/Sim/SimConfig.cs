@@ -57,6 +57,7 @@ public sealed class SimConfig
 
     public bool RequireChestForEscape { get; set; } = false;
     public bool DynamiteEnabled { get; set; } = true;
+    public bool TreasureHuntMode { get; set; } = false;
 
     public float MonsterCountMultiplier { get; set; } = 1.0f;
 }

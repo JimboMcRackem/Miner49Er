@@ -14,6 +14,13 @@ public sealed class Simulation
     private readonly List<Monster> _monsters = new();
     private readonly List<ReelCharge> _reelCharges = new();
     private readonly List<NoiseSource> _noiseSources = new();
+
+    private readonly Dictionary<int, GridPos?>          _chestPos        = new();
+    private readonly Dictionary<int, int>               _idolsFound      = new();
+    private readonly Dictionary<int, (ItemKind A, ItemKind B)> _idolAssignments = new();
+
+    public readonly record struct TreasureProgressData(int MinerId, int Found);
+    public readonly record struct PlacedChestData(int MinerId, int X, int Y);
     private readonly Random _rng;
     private Octopus? _octopus;
 
@@ -81,6 +88,14 @@ public sealed class Simulation
     {
         var m = new Miner(id, pos) { InvulnerableRemaining = invulRemaining };
         _miners[id] = m;
+        if (Config.TreasureHuntMode)
+        {
+            var (a, b)            = TreasureAssignment.For(Config.Seed, id);
+            _idolAssignments[id]  = (a, b);
+            _idolsFound[id]       = 0;
+            _chestPos[id]         = null;
+            m.Held                = ItemKind.TreasureChest;
+        }
         return m;
     }
 
@@ -248,6 +263,36 @@ public sealed class Simulation
         m.StoneCount--;
         _noiseSources.Add(new NoiseSource { Pos = land, LifetimeRemaining = 4.0 });
         _events.Add(new StoneThrown(minerId, land));
+    }
+
+    public int TreasureWinner()
+    {
+        foreach (var kv in _idolsFound)
+            if (kv.Value >= 2 && _miners.TryGetValue(kv.Key, out var m) && m.Alive)
+                return kv.Key;
+        return -1;
+    }
+
+    public IReadOnlyList<TreasureProgressData> GetTreasureProgress()
+    {
+        var list = new List<TreasureProgressData>(_idolsFound.Count);
+        foreach (var kv in _idolsFound)
+            list.Add(new TreasureProgressData(kv.Key, kv.Value));
+        return list;
+    }
+
+    public IReadOnlyList<PlacedChestData> GetPlacedChests()
+    {
+        var list = new List<PlacedChestData>();
+        foreach (var kv in _chestPos)
+            if (kv.Value is { } pos)
+                list.Add(new PlacedChestData(kv.Key, pos.X, pos.Y));
+        return list;
+    }
+
+    internal void GiveItemForTest(int minerId, ItemKind kind)
+    {
+        if (_miners.TryGetValue(minerId, out var m)) m.Held = kind;
     }
 
     private void AdvanceMolds(double dt)
@@ -560,6 +605,18 @@ public sealed class Simulation
             _events.Add(new MinerReachedCenter(id));
         }
 
+        // Treasure Hunt: auto-deposit when stepping onto own chest tile holding an assigned idol.
+        if (m.Alive && Config.TreasureHuntMode
+            && _chestPos.TryGetValue(id, out var chestAt) && chestAt == target
+            && m.Held is ItemKind heldIdol && heldIdol.IsIdol()
+            && _idolAssignments.TryGetValue(id, out var assign)
+            && (heldIdol == assign.A || heldIdol == assign.B))
+        {
+            m.Held = null;
+            _idolsFound[id]++;
+            _events.Add(new IdolDeposited(id, heldIdol));
+        }
+
         if (m.Alive && _molds.Any(mo => mo.Pos == target))
             ApplyEffect(id, EffectKind.SlowMold, EffectChannel.MoveSpeed,
                         Config.MoldSlowFactor, Config.MoldSlowSeconds);
@@ -675,9 +732,13 @@ public sealed class Simulation
         {
             var it = _items[i];
             if (it.Pos != m.Pos || it.Placement == ItemPlacement.Buried || !it.Kind.IsCarried()) continue;
+            // Only the owner can pick up a placed TreasureChest
+            if (it.Kind == ItemKind.TreasureChest &&
+                (!_chestPos.TryGetValue(m.Id, out var ownedAt) || ownedAt != it.Pos)) continue;
             var taken = it.Kind;
             if (m.Held is { } heldKind) _items[i] = new Item(m.Pos, heldKind, ItemPlacement.Loose);
             else                        _items.RemoveAt(i);
+            if (taken == ItemKind.TreasureChest) _chestPos[m.Id] = null;
             m.Held = taken;
             _events.Add(new ItemPickedUp(m.Id, m.Pos, taken));
             return true;
@@ -687,11 +748,12 @@ public sealed class Simulation
         if (m.Held is not { } held) return false;
         return held switch
         {
-            ItemKind.WaterPlank => TryPlacePlank(m),
-            ItemKind.SlowMold   => DropMold(m),
-            ItemKind.Lantern    => DropLantern(m),
-            ItemKind.Detonator  => TryPlantDetonator(m),
-            ItemKind.Reel       => TryDetonateReel(m),
+            ItemKind.WaterPlank    => TryPlacePlank(m),
+            ItemKind.SlowMold      => DropMold(m),
+            ItemKind.Lantern       => DropLantern(m),
+            ItemKind.Detonator     => TryPlantDetonator(m),
+            ItemKind.Reel          => TryDetonateReel(m),
+            ItemKind.TreasureChest => TryPlaceTreasureChest(m),
             _ => false,
         };
     }
@@ -720,6 +782,16 @@ public sealed class Simulation
     {
         _items.Add(new Item(m.Pos, ItemKind.Lantern, ItemPlacement.Loose));
         m.Held = null;
+        return true;
+    }
+
+    private bool TryPlaceTreasureChest(Miner m)
+    {
+        if (!Grid.Get(m.Pos).IsEnterable()) return false;
+        _items.Add(new Item(m.Pos, ItemKind.TreasureChest, ItemPlacement.Toolbox));
+        _chestPos[m.Id] = m.Pos;
+        m.Held = null;
+        _events.Add(new TreasureChestPlaced(m.Id, m.Pos));
         return true;
     }
 

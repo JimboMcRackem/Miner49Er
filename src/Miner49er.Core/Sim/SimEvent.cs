@@ -31,3 +31,5 @@ public sealed record StoneThrown(int MinerId, GridPos LandingPos) : SimEvent;
 public sealed record DetonatorPlanted(int MinerId, GridPos WallPos) : SimEvent;
 public sealed record ReelDetonated(int MinerId, GridPos WallPos) : SimEvent;
 public sealed record ReelSnapped(int MinerId) : SimEvent;
+public sealed record TreasureChestPlaced(int MinerId, GridPos Pos) : SimEvent;
+public sealed record IdolDeposited(int MinerId, ItemKind Kind) : SimEvent;
