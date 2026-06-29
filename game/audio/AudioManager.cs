@@ -29,6 +29,7 @@ public partial class AudioManager : Node
 	private bool _listening;
 
 	private AudioStreamPlayer _music = null!;
+	private Tween? _listenTween;
 	private bool _muted;
 
 	public float MusicVolume => _musicVolume;
@@ -115,6 +116,9 @@ public partial class AudioManager : Node
 	public void PlayMusic(AudioStream? stream)
 	{
 		if (stream == null) return;
+		_listenTween?.Kill();
+		_listenTween = null;
+		ApplyBuses();
 		_music.Stream = stream;
 		_music.Play();
 	}
@@ -124,10 +128,11 @@ public partial class AudioManager : Node
 	public void SetListening(bool listening)
 	{
 		_listening = listening;
-		var tween = CreateTween();
-		tween.TweenMethod(Callable.From<float>(db => SetBusDb(BusMusic, db)),
+		_listenTween?.Kill();
+		_listenTween = CreateTween();
+		_listenTween.TweenMethod(Callable.From<float>(db => SetBusDb(BusMusic, db)),
 			CurrentDb(BusMusic), MusicTargetDb, 0.2);
-		tween.Parallel().TweenMethod(Callable.From<float>(db => SetBusDb(BusSfx, db)),
+		_listenTween.Parallel().TweenMethod(Callable.From<float>(db => SetBusDb(BusSfx, db)),
 			CurrentDb(BusSfx), SfxTargetDb, 0.2);
 	}
 
