@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Miner49er.Core.Net;
@@ -41,7 +42,20 @@ public static class SnapshotFactory
             .Select(r => new ReelChargeSnapshot(r.OwnerId, r.WallPos.X, r.WallPos.Y))
             .ToList();
 
+        IReadOnlyList<TreasureProgressSnapshot>? treasureProgress = null;
+        IReadOnlyList<PlacedChestSnapshot>?      placedChests     = null;
+        if (sim.Config.TreasureHuntMode)
+        {
+            treasureProgress = sim.GetTreasureProgress()
+                .Select(p => new TreasureProgressSnapshot(p.MinerId, p.Found))
+                .ToList();
+            placedChests = sim.GetPlacedChests()
+                .Select(c => new PlacedChestSnapshot(c.MinerId, c.X, c.Y))
+                .ToList();
+        }
+
         return new WorldSnapshot(tick, miners, charges, items, molds, monsters,
-            (float)sim.SecondsRemaining, sim.EscapeOpen, octopus, lives, reelCharges);
+            (float)sim.SecondsRemaining, sim.EscapeOpen, octopus, lives, reelCharges,
+            treasureProgress, placedChests);
     }
 }

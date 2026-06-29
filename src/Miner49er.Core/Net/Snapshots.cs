@@ -24,12 +24,17 @@ public readonly record struct TileChange(int X, int Y, bool FromBlast, TileType 
 
 public readonly record struct OctopusSnapshot(int X, int Y);
 
+public readonly record struct TreasureProgressSnapshot(int MinerId, int Found);
+public readonly record struct PlacedChestSnapshot(int MinerId, int X, int Y);
+
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,
     IReadOnlyList<ItemSnapshot> Items, IReadOnlyList<MoldSnapshot> Molds,
     IReadOnlyList<MonsterSnapshot> Monsters,
     float SecondsRemaining = -1f, bool EscapeOpen = false,
     OctopusSnapshot? Octopus = null, int Lives = 3,
-    IReadOnlyList<ReelChargeSnapshot>? ReelCharges = null);
+    IReadOnlyList<ReelChargeSnapshot>? ReelCharges = null,
+    IReadOnlyList<TreasureProgressSnapshot>? TreasureProgress = null,
+    IReadOnlyList<PlacedChestSnapshot>?      PlacedChests     = null);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);

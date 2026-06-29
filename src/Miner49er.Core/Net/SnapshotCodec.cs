@@ -61,6 +61,14 @@ public static class SnapshotCodec
         if (snap.Octopus is { } oct)
         { w.Write(oct.X); w.Write(oct.Y); }
 
+        w.Write(snap.TreasureProgress?.Count ?? 0);
+        foreach (var tp in snap.TreasureProgress ?? System.Array.Empty<TreasureProgressSnapshot>())
+        { w.Write(tp.MinerId); w.Write(tp.Found); }
+
+        w.Write(snap.PlacedChests?.Count ?? 0);
+        foreach (var pc in snap.PlacedChests ?? System.Array.Empty<PlacedChestSnapshot>())
+        { w.Write(pc.MinerId); w.Write(pc.X); w.Write(pc.Y); }
+
         w.Write(update.TileChanges.Count);
         foreach (var t in update.TileChanges)
         {
@@ -124,12 +132,25 @@ public static class SnapshotCodec
             octopus = new OctopusSnapshot(ox, oy);
         }
 
+        int tpCount = r.ReadInt32();
+        List<TreasureProgressSnapshot>? treasureProgress = tpCount > 0
+            ? new List<TreasureProgressSnapshot>(tpCount) : null;
+        for (int i = 0; i < tpCount; i++)
+            treasureProgress!.Add(new TreasureProgressSnapshot(r.ReadInt32(), r.ReadInt32()));
+
+        int pcCount = r.ReadInt32();
+        List<PlacedChestSnapshot>? placedChests = pcCount > 0
+            ? new List<PlacedChestSnapshot>(pcCount) : null;
+        for (int i = 0; i < pcCount; i++)
+            placedChests!.Add(new PlacedChestSnapshot(r.ReadInt32(), r.ReadInt32(), r.ReadInt32()));
+
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
             changes.Add(new TileChange(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean(), (TileType)r.ReadInt32()));
 
         return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds,
-            monsters, secondsRemaining, escapeOpen, octopus, lives, reelCharges), changes);
+            monsters, secondsRemaining, escapeOpen, octopus, lives, reelCharges,
+            treasureProgress, placedChests), changes);
     }
 }
