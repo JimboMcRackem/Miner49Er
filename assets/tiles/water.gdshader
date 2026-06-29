@@ -1,15 +1,13 @@
 shader_type canvas_item;
 
-uniform float wave_speed     : hint_range(0.1, 3.0) = 1.2;
-uniform float wave_amplitude : hint_range(0.0, 0.05) = 0.012;
-uniform float pulse_strength : hint_range(0.0, 0.3)  = 0.12;
+uniform float glint_speed    : hint_range(0.5, 4.0) = 2.0;
+uniform float glint_strength : hint_range(0.0, 0.3) = 0.10;
 
 void fragment() {
-	vec2 uv = UV;
-	uv.y += sin(uv.x * 20.0 + TIME * wave_speed)        * wave_amplitude;
-	uv.x += sin(uv.y * 18.0 + TIME * wave_speed * 0.7)  * wave_amplitude;
-	uv.y += sin(uv.x * 9.0  + TIME * wave_speed * 0.5)  * wave_amplitude * 0.5;
-	COLOR = texture(TEXTURE, uv);
-	float pulse = 1.0 + pulse_strength * sin(TIME * 1.5 + UV.x * 10.0 + UV.y * 10.0);
-	COLOR.rgb *= pulse;
+	COLOR = texture(TEXTURE, UV);
+	// Three multiplied sines produce irregular constructive interference (glints)
+	float g = sin(UV.x * 7.3 + UV.y * 5.1 + TIME * glint_speed)
+	        * sin(UV.x * 3.7 - UV.y * 9.2 + TIME * glint_speed * 0.6)
+	        * sin(UV.y * 6.1 + TIME * glint_speed * 1.3);
+	COLOR.rgb += max(0.0, g) * glint_strength;
 }
