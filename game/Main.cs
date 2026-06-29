@@ -232,7 +232,8 @@ public partial class Main : Node2D
 						var localPos = new GridPos(m.X, m.Y);
 						bool atShop = _client.ShopPos is GridPos sPos && localPos == sPos;
 						_shopPanel.UpdateSnapshot(m, _client.Lives, 3);
-						if (atShop && !_wasAtShop && !_shopPanel.IsOpen)
+						bool shopKeyPressed = atShop && Input.IsActionJustPressed(InputBindings.UseItem);
+						if (atShop && (!_wasAtShop || shopKeyPressed) && !_shopPanel.IsOpen)
 						{
 							_shopPanel.Open(m, _client.Lives, 3);
 							NetworkManager.Instance.SendDir(-1); // clear pending direction so miner doesn't walk off shop tile
