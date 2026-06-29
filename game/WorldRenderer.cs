@@ -89,6 +89,24 @@ public partial class WorldRenderer : Node2D
 		LoadItemTex(ItemKind.LifePotion,   "res://assets/objects/item_lifepot.png");
 		LoadItemTex(ItemKind.Detonator,    "res://assets/objects/item_detonator.png");
 		LoadItemTex(ItemKind.Lantern,      "res://assets/objects/item_lantern.png");
+		LoadItemTex(ItemKind.TreasureChest,   "res://assets/objects/treasure_chest.png");
+		LoadItemTex(ItemKind.IdolVishnu,      "res://assets/objects/idol_vishnu.png");
+		LoadItemTex(ItemKind.IdolZeus,        "res://assets/objects/idol_zeus.png");
+		LoadItemTex(ItemKind.IdolAnubis,      "res://assets/objects/idol_anubis.png");
+		LoadItemTex(ItemKind.IdolOdin,        "res://assets/objects/idol_odin.png");
+		LoadItemTex(ItemKind.IdolShiva,       "res://assets/objects/idol_shiva.png");
+		LoadItemTex(ItemKind.IdolBuddha,      "res://assets/objects/idol_buddha.png");
+		LoadItemTex(ItemKind.IdolRa,          "res://assets/objects/idol_ra.png");
+		LoadItemTex(ItemKind.IdolQuetzalcoatl,"res://assets/objects/idol_quetzalcoatl.png");
+		LoadItemTex(ItemKind.IdolUrn,         "res://assets/objects/idol_urn.png");
+		LoadItemTex(ItemKind.IdolLamp,        "res://assets/objects/idol_lamp.png");
+		LoadItemTex(ItemKind.IdolMace,        "res://assets/objects/idol_mace.png");
+		LoadItemTex(ItemKind.IdolSceptre,     "res://assets/objects/idol_sceptre.png");
+		LoadItemTex(ItemKind.IdolGlobe,       "res://assets/objects/idol_globe.png");
+		LoadItemTex(ItemKind.IdolTrophyCup,   "res://assets/objects/idol_trophycup.png");
+		LoadItemTex(ItemKind.IdolChalice,     "res://assets/objects/idol_chalice.png");
+		LoadItemTex(ItemKind.IdolCrown,       "res://assets/objects/idol_crown.png");
+		LoadItemTex(ItemKind.IdolSkull,       "res://assets/objects/idol_skull.png");
 		LoadMonsterTex(_ghostTex, "ghost");
 		LoadMonsterTex(_slimeTex, "slime");
 		LoadMonsterTex(_goatTex,  "goat");
@@ -586,10 +604,15 @@ public partial class WorldRenderer : Node2D
 			{
 				var pcRect   = new Rect2(pc.X * ts, pc.Y * ts, ts, ts);
 				var pcCenter = new Vector2(pc.X * ts + ts / 2f, pc.Y * ts + ts / 2f);
-				DrawRect(pcRect, TreasureChestColor);
-				var font = ThemeDB.FallbackFont;
-				DrawString(font, new Vector2(pcCenter.X, pc.Y * ts + ts * 0.68f),
-					"⬆", HorizontalAlignment.Center, -1, ts * 2 / 3, Colors.Black);
+				if (_itemTex.TryGetValue(ItemKind.TreasureChest, out var pctex))
+					DrawTextureRect(pctex, pcRect, false);
+				else
+				{
+					DrawRect(pcRect, TreasureChestColor);
+					var font = ThemeDB.FallbackFont;
+					DrawString(font, new Vector2(pcCenter.X, pc.Y * ts + ts * 0.68f),
+						"⬆", HorizontalAlignment.Center, -1, ts * 2 / 3, Colors.Black);
+				}
 			}
 
 		// Idol floor items: draw name label so players know what they found
@@ -600,11 +623,16 @@ public partial class WorldRenderer : Node2D
 			if (!_client.Fog.IsVisible(ip)) continue;
 			var ir = new Rect2(it.X * ts, it.Y * ts, ts, ts);
 			var icenter = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
-			DrawCircle(icenter, ts * 0.30f, IdolColor);
-			var font = ThemeDB.FallbackFont;
-			string label = IdolShortName(it.Kind);
-			DrawString(font, new Vector2(icenter.X, it.Y * ts + ts * 0.68f),
-				label, HorizontalAlignment.Center, -1, 9, Colors.Black);
+			if (_itemTex.TryGetValue(it.Kind, out var idoltex))
+				DrawTextureRect(idoltex, ir, false);
+			else
+			{
+				DrawCircle(icenter, ts * 0.30f, IdolColor);
+				var font = ThemeDB.FallbackFont;
+				string label = IdolShortName(it.Kind);
+				DrawString(font, new Vector2(icenter.X, it.Y * ts + ts * 0.68f),
+					label, HorizontalAlignment.Center, -1, 9, Colors.Black);
+			}
 		}
 
 		// Shopkeeper tile
