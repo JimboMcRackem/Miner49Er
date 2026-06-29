@@ -20,6 +20,7 @@ public sealed class MapConfig
     public int DetonatorCount { get; set; } = 0;    // visible carried detonators scattered on Floor
     public int ChestCount { get; set; } = 0;        // visible Chest toolboxes per floor
     public bool HasShop { get; set; } = false;     // place a shopkeeper tile on this floor
+    public ItemKind[]? BuriedIdolKinds { get; set; } = null; // TreasureHunt: idol kinds to bury in rock
 
     // Flooding — when true, map generator places the escape tile (spawns[0]) in the
     // map interior so it floods last rather than at the corner where it floods first.
@@ -74,6 +75,14 @@ public sealed class MapConfig
             cfg.BaseHeight = 32 + (mapScale - 1) * 16;
             float areaFactor = (float)(cfg.BaseWidth * cfg.BaseHeight) / (32f * 32f);
             cfg.GoldVeinCount = (int)System.Math.Round(cfg.GoldVeinCount * areaFactor);
+        }
+        if (mode == GameMode.TreasureHunt)
+        {
+            cfg.GoldVeinCount    = 0;
+            cfg.ChestCount       = 0;
+            cfg.BaseItemCount    = 0;
+            cfg.VisibleItemCount = 0;
+            cfg.BuriedIdolKinds  = TreasureAssignment.AllAssigned(seed, playerCount);
         }
         cfg.DetonatorCount = explosive == ExplosiveMode.Dynamite ? 0 : playerCount;
         return cfg;

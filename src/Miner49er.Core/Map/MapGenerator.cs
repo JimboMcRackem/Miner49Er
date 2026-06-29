@@ -30,6 +30,8 @@ public static class MapGenerator
         var items = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
         items.AddRange(PlaceChests(grid, rng, config.ChestCount, region, spawns, items));
         items.AddRange(PlaceCarriedItems(grid, rng, config.WaterPlankCount, config.SlowMoldCount, config.LanternCount, config.DetonatorCount, region, spawns, items));
+        if (config.BuriedIdolKinds is { } idolKinds)
+            items.AddRange(PlaceBuriedIdols(grid, rng, idolKinds, region, items));
         var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
         if (config.CaveIns)
             PlaceCracks(grid, rng, config.CrackSiteCount + (config.PlayerCount - 1),
@@ -530,6 +532,20 @@ public static class MapGenerator
             result.Add(new Item(cands[idx], ItemKind.Lantern, ItemPlacement.Toolbox));
         for (int i = 0; i < detonatorCount && idx < cands.Count; i++, idx++)
             result.Add(new Item(cands[idx], ItemKind.Detonator, ItemPlacement.Toolbox));
+        return result;
+    }
+
+    private static List<Item> PlaceBuriedIdols(TileGrid g, Random rng, ItemKind[] idolKinds,
+        HashSet<GridPos> region, IEnumerable<Item> existing)
+    {
+        var taken = new HashSet<GridPos>(existing.Select(it => it.Pos));
+        var rockCands = g.Positions()
+            .Where(p => g.Get(p) == TileType.Rock && HasRegionNeighbor(g, p, region) && !taken.Contains(p))
+            .ToList();
+        Shuffle(rockCands, rng);
+        var result = new List<Item>();
+        for (int i = 0; i < idolKinds.Length && i < rockCands.Count; i++)
+            result.Add(new Item(rockCands[i], idolKinds[i], ItemPlacement.Buried));
         return result;
     }
 
