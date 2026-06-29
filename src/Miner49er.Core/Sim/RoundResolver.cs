@@ -44,6 +44,8 @@ public static class RoundResolver
                 => RoundResult.Win(sim.FirstToReachCenter),
             GameMode.GoldRush when sim.TimeExpired
                 => RoundResult.Win(MostGoldWinner(alive)),
+            GameMode.TreasureHunt when sim.TreasureWinner() >= 0
+                => RoundResult.Win(sim.TreasureWinner()),
             _ when sim.TimeExpired
                 => RoundResult.Loss(),
             _ => RoundResult.Ongoing(),
