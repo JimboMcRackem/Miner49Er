@@ -10,6 +10,7 @@ public partial class Lobby : Control
 	private Button _readyBtn = null!;
 	private Button _startBtn = null!;
 	private Label _hint = null!;
+	private Label _modeDesc = null!;
 	private OptionButton _modePicker = null!;
 	private OptionButton _timePicker = null!;
 	private CheckBox _floodCheck = null!;
@@ -62,6 +63,14 @@ public partial class Lobby : Control
 		_modePicker.Select(savedMode);
 		_modePicker.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_modePicker);
+
+		_modeDesc = new Label
+		{
+			Text = ModeDescription(_modePicker.GetSelectedId()),
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			CustomMinimumSize = new Vector2(320, 0),
+		};
+		box.AddChild(_modeDesc);
 
 		_timePicker = new OptionButton();
 		_timePicker.AddItem("No Time Limit", 0);
@@ -167,7 +176,18 @@ public partial class Lobby : Control
 		_timePicker.Visible      = isHost && normalMode;
 		_mapSizePicker.Visible   = isHost && expedition;
 		_explosivePicker.Visible = isHost && normalMode;
+		_modeDesc.Text = ModeDescription(_modePicker.GetSelectedId());
 	}
+
+	private static string ModeDescription(int modeId) => (GameMode)modeId switch
+	{
+		GameMode.LastManStanding => "Rivals. Rivals everywhere. You've all heard the same tip-off and scrambled into the same shaft. There's gold down here — maybe — but your greatest threat isn't the dark. It's each other. Only one miner walks back out.",
+		GameMode.GoldRush        => "The seam is real. You've seen the samples. So have the others. Every second you spend reading this is a second they're filling their pockets. Get in, dig fast, and haul out more gold than anyone else before the bell rings.",
+		GameMode.ReachCenter     => "They say there's something at the heart of this mountain. Nobody who's gone looking has come back to say what. You've decided you'll be the first. So have a few other idiots. May the fastest miner win.",
+		GameMode.Expedition      => "Hearing rumours of ancient treasure you gain entry to the abandoned mine, only to find you are not alone. Survive with your life...and riches.",
+		GameMode.TreasureHunt    => "Someone moved the idols. Centuries-old relics, scattered through the dark by hands unknown — and your buyer wants two specific ones. You've got the descriptions, you've got a chest, and you've got competition. First to seal their haul wins.",
+		_                        => "",
+	};
 
 	public override void _ExitTree()
 	{
