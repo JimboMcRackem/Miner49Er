@@ -10,17 +10,28 @@ public enum ItemKind
     BossChest,  // boss floor only; opens the escape tile
     Detonator,  // two-part: plant on wall then trigger at safe distance
     Reel,       // held after planting a Detonator; Use to detonate; never placed on ground
+    // Treasure Hunt
+    TreasureChest,
+    IdolVishnu, IdolZeus, IdolAnubis, IdolOdin,
+    IdolShiva, IdolBuddha, IdolRa, IdolQuetzalcoatl,
+    IdolUrn, IdolLamp, IdolMace, IdolSceptre, IdolGlobe,
+    IdolTrophyCup, IdolChalice, IdolCrown, IdolSkull,
 }
 
 public static class ItemKindExtensions
 {
     /// <summary>Carried kinds go into the 1-slot inventory; triggered with Use verb.</summary>
     public static bool IsCarried(this ItemKind k) =>
-        k is ItemKind.WaterPlank or ItemKind.SlowMold or ItemKind.Lantern or ItemKind.Detonator;
+        k is ItemKind.WaterPlank or ItemKind.SlowMold or ItemKind.Lantern
+          or ItemKind.Detonator or ItemKind.TreasureChest
+          or (>= ItemKind.IdolVishnu and <= ItemKind.IdolSkull);
 
     /// <summary>Placeable kinds cycle in PlaceItems (random floor placement).</summary>
     public static bool IsPlaceable(this ItemKind k) =>
         k is ItemKind.SpeedPotion or ItemKind.LongerVision or ItemKind.BiggerBlast;
+
+    public static bool IsIdol(this ItemKind k) =>
+        k >= ItemKind.IdolVishnu && k <= ItemKind.IdolSkull;
 }
 
 /// <summary>Where an item sits and how it can be collected.</summary>
