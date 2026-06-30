@@ -200,4 +200,35 @@ public class SimulationTreasureHuntTests
         Assert.Equal(ItemKind.TreasureChest, miners[0].Held);
         Assert.Empty(sim.GetPlacedChests());
     }
+
+    [Fact]
+    public void Held_idol_can_be_dropped_with_Space()
+    {
+        var sim = TreasureSim(1, out var miners);
+        var (idolA, _) = TreasureAssignment.For(42, 1);
+        sim.GiveItemForTest(1, idolA);
+        Assert.Equal(idolA, miners[0].Held);
+
+        var dropPos = miners[0].Pos;
+        bool result = sim.TryUseItem(1);
+
+        Assert.True(result);
+        Assert.Null(miners[0].Held);
+        Assert.Contains(sim.Items, it => it.Kind == idolA && it.Pos == dropPos && it.Placement == ItemPlacement.Loose);
+    }
+
+    [Fact]
+    public void Dropped_idol_can_be_picked_up_again()
+    {
+        var sim = TreasureSim(1, out var miners);
+        var (idolA, _) = TreasureAssignment.For(42, 1);
+        sim.GiveItemForTest(1, idolA);
+
+        sim.TryUseItem(1); // drop idol at (1,1)
+        Assert.Null(miners[0].Held);
+
+        sim.TryUseItem(1); // pick it back up
+        Assert.Equal(idolA, miners[0].Held);
+        Assert.DoesNotContain(sim.Items, it => it.Kind == idolA && it.Placement == ItemPlacement.Loose);
+    }
 }

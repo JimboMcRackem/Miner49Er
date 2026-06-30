@@ -759,6 +759,7 @@ public sealed class Simulation
             ItemKind.Detonator     => TryPlantDetonator(m),
             ItemKind.Reel          => TryDetonateReel(m),
             ItemKind.TreasureChest => TryPlaceTreasureChest(m),
+            var k when k.IsIdol()  => DropIdol(m, k),
             _ => false,
         };
     }
@@ -786,6 +787,13 @@ public sealed class Simulation
     private bool DropLantern(Miner m)
     {
         _items.Add(new Item(m.Pos, ItemKind.Lantern, ItemPlacement.Loose));
+        m.Held = null;
+        return true;
+    }
+
+    private bool DropIdol(Miner m, ItemKind k)
+    {
+        _items.Add(new Item(m.Pos, k, ItemPlacement.Loose));
         m.Held = null;
         return true;
     }
