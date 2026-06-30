@@ -7,6 +7,7 @@ public partial class ResultsOverlay : CanvasLayer
 	private Label _label      = null!;
 	private Label _scoreLabel = null!;
 	private Button _return    = null!;
+	private bool _hostControls;
 
 	public override void _Ready()
 	{
@@ -39,6 +40,17 @@ public partial class ResultsOverlay : CanvasLayer
 		_scoreLabel.Text = scoreText;
 		_scoreLabel.Visible = scoreText.Length > 0;
 		_return.Text    = buttonText;
+		_hostControls   = hostControls;
 		_return.Visible = hostControls;
+	}
+
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (!_hostControls) return;
+		if (@event.IsActionPressed("ui_accept"))
+		{
+			GetViewport().SetInputAsHandled();
+			NetworkManager.Instance.ReturnToLobby();
+		}
 	}
 }
