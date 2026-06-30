@@ -1,6 +1,7 @@
 using Godot;
 using System.Linq;
 using Miner49er.Core;
+using Miner49er.Core.AI;
 
 namespace Miner49er;
 
@@ -22,6 +23,8 @@ public partial class Lobby : Control
 	private OptionButton _mapSizePicker = null!;
 	private Label _codeLabel = null!;
 	private Button _copyBtn = null!;
+	private OptionButton _botSkillPicker = null!;
+	private Button _addBotBtn = null!;
 
 	public override void _Ready()
 	{
@@ -130,6 +133,24 @@ public partial class Lobby : Control
 		_speedPicker.Visible = NetworkManager.Instance.IsHost;
 		box.AddChild(_speedPicker);
 
+		if (NetworkManager.Instance.IsHost)
+		{
+			var botRow = new HBoxContainer();
+			box.AddChild(botRow);
+
+			_botSkillPicker = new OptionButton();
+			_botSkillPicker.AddItem("Greenhorn",    (int)BotSkill.Greenhorn);
+			_botSkillPicker.AddItem("Miner",        (int)BotSkill.Miner);
+			_botSkillPicker.AddItem("Foreman",      (int)BotSkill.Foreman);
+			_botSkillPicker.AddItem("Dynamite Dan", (int)BotSkill.DynamiteDan);
+			botRow.AddChild(_botSkillPicker);
+
+			_addBotBtn = new Button { Text = "+ Add Bot" };
+			_addBotBtn.Pressed += () =>
+				NetworkManager.Instance.AddBot((BotSkill)_botSkillPicker.GetSelectedId());
+			botRow.AddChild(_addBotBtn);
+		}
+
 		_startBtn = new Button { Text = "Start Match", Disabled = true };
 		_startBtn.Pressed += () =>
 		{
@@ -200,20 +221,38 @@ public partial class Lobby : Control
 	private void Refresh()
 	{
 		foreach (var c in _list.GetChildren()) c.QueueFree();
+		bool isHost = NetworkManager.Instance.IsHost;
 		foreach (var (id, info) in NetworkManager.Instance.Players)
 		{
-			var row = new Label
+			if (NetworkManager.Instance.IsBotPeer(id) && isHost)
 			{
-				Text = $"{info.Name}  {(info.Ready ? "[READY]" : "[...]")}",
-			};
-			row.AddThemeColorOverride("font_color", PlayerColors.At(info.ColorIndex));
-			_list.AddChild(row);
+				var row = new HBoxContainer();
+				var lbl = new Label { Text = $"{info.Name}  [READY]" };
+				lbl.AddThemeColorOverride("font_color", PlayerColors.At(info.ColorIndex));
+				row.AddChild(lbl);
+				var removeBtn = new Button { Text = "✕" };
+				long capturedId = id;
+				removeBtn.Pressed += () => NetworkManager.Instance.RemoveBot(capturedId);
+				row.AddChild(removeBtn);
+				_list.AddChild(row);
+			}
+			else
+			{
+				var row = new Label
+				{
+					Text = $"{info.Name}  {(info.Ready ? "[READY]" : "[...]")}",
+				};
+				row.AddThemeColorOverride("font_color", PlayerColors.At(info.ColorIndex));
+				_list.AddChild(row);
+			}
 		}
 
 		var players = NetworkManager.Instance.Players.Values;
 		bool canStart = players.Count >= 2 && players.All(p => p.Ready);
 		_startBtn.Disabled = !canStart;
 		_hint.Text = canStart ? "" : "Need ≥2 players, all ready.";
+		if (_addBotBtn != null)
+			_addBotBtn.Disabled = NetworkManager.Instance.Players.Count >= 8;
 	}
 
 	private void RefreshInternet()
