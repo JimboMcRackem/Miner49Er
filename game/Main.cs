@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using Miner49er.Core;
+using Miner49er.Core.AI;
 
 namespace Miner49er;
 
@@ -83,7 +84,9 @@ public partial class Main : Node2D
 				escapeTile);
 			foreach (var item in hostMap.Items)
 				sim.AddItem(item);
-			var peerToMiner = new System.Collections.Generic.Dictionary<long, int>();
+			var peerToMiner    = new System.Collections.Generic.Dictionary<long, int>();
+			var botConfigs     = new System.Collections.Generic.List<(int minerId, BotSkill skill)>();
+			var botMinerToPeer = new System.Collections.Generic.Dictionary<int, long>();
 			GridPos soloSpawn = hostMap.Spawns.Count > 0 ? hostMap.Spawns[0] : hostMap.Center;
 			if (nm.MatchMode == GameMode.Expedition && hostMap.EscapeTile is GridPos esc0 && soloSpawn == esc0)
 			{
@@ -94,9 +97,19 @@ public partial class Main : Node2D
 			for (int i = 0; i < nm.PeerOrder.Length; i++)
 			{
 				int minerId = i + 1;
-				GridPos sp = (nm.MatchMode == GameMode.Expedition && i == 0) ? soloSpawn : hostMap.Spawns[i];
+				long peer   = nm.PeerOrder[i];
+				GridPos sp  = (nm.MatchMode == GameMode.Expedition && i == 0) ? soloSpawn
+				              : (i < hostMap.Spawns.Count ? hostMap.Spawns[i] : hostMap.Spawns[0]);
 				sim.AddMiner(minerId, sp);
-				peerToMiner[nm.PeerOrder[i]] = minerId;
+				if (nm.IsBotPeer(peer))
+				{
+					botConfigs.Add((minerId, nm.GetBotSkill(peer)));
+					botMinerToPeer[minerId] = peer;
+				}
+				else
+				{
+					peerToMiner[peer] = minerId;
+				}
 			}
 			if (nm.MatchMode == GameMode.Expedition)
 			{
@@ -107,7 +120,7 @@ public partial class Main : Node2D
 			}
 			_host = new MatchHost { Name = "MatchHost" };
 			AddChild(_host);
-			_host.Begin(sim, peerToMiner);
+			_host.Begin(sim, peerToMiner, botConfigs, botMinerToPeer);
 		}
 
 		_input = new InputSender { Name = "InputSender" };

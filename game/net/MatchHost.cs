@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Miner49er.Core;
+using Miner49er.Core.AI;
 using Miner49er.Core.Net;
 
 namespace Miner49er;
@@ -31,7 +32,9 @@ public partial class MatchHost : Node
 	private int _cumulativeGold;
 	private readonly Dictionary<int, (int Speed, int Vision, int Blast)> _permLevels = new();
 
-	private readonly Dictionary<int, GridPos> _spawnByMiner = new();
+	private readonly Dictionary<int, GridPos>   _spawnByMiner = new();
+	private readonly Dictionary<int, BotBrain> _botBrains    = new();
+	private readonly Dictionary<int, long>     _botMinerToPeer = new();
 	private bool _respawnPending;
 	private double _respawnTimer;
 	private const double RespawnDelay = 2.0;
@@ -40,9 +43,13 @@ public partial class MatchHost : Node
 	private readonly HashSet<int> _deadMiners = new();
 	private readonly Dictionary<int, double> _coopRespawnTimers = new();
 
-	public void Begin(Simulation sim, Dictionary<long, int> peerToMiner)
+	public void Begin(Simulation sim, Dictionary<long, int> peerToMiner,
+		List<(int minerId, BotSkill skill)>? bots = null,
+		Dictionary<int, long>? botMinerToPeer = null)
 	{
 		_sim = sim;
+		_botBrains.Clear();
+		_botMinerToPeer.Clear();
 		foreach (var (peer, miner) in peerToMiner)
 		{
 			_peerToMiner[peer] = miner;
@@ -57,8 +64,28 @@ public partial class MatchHost : Node
 		_spawnByMiner.Clear();
 		foreach (var (_, mid) in peerToMiner)
 			_spawnByMiner[mid] = sim.GetMiner(mid).Pos;
+
+		if (bots != null)
+		{
+			int seed = sim.Config.Seed;
+			foreach (var (minerId, skill) in bots)
+			{
+				_botBrains[minerId]    = new BotBrain(minerId, skill, (int)((uint)seed ^ (uint)(minerId * 1000003)));
+				_pendingDir[minerId]   = -1;
+				_spawnByMiner[minerId] = sim.GetMiner(minerId).Pos;
+			}
+		}
+		if (botMinerToPeer != null)
+			foreach (var kv in botMinerToPeer) _botMinerToPeer[kv.Key] = kv.Value;
+
 		_deadMiners.Clear();
 		_coopRespawnTimers.Clear();
+	}
+
+	private long FindWinnerPeer(int minerId)
+	{
+		foreach (var kv in _peerToMiner) if (kv.Value == minerId) return kv.Key;
+		return _botMinerToPeer.TryGetValue(minerId, out var p) ? p : -1;
 	}
 
 	public void SetDir(long peerId, int dir)
@@ -185,6 +212,18 @@ public partial class MatchHost : Node
 			return;
 		}
 
+		// Drive bot miners
+		var nmMode = NetworkManager.Instance.MatchMode;
+		foreach (var (minerId, brain) in _botBrains)
+		{
+			var action = brain.Think(_sim, nmMode);
+			_pendingDir[minerId] = action.Dir;
+			if (action.Mine)  _pendingMine.Add(minerId);
+			if (action.Plant) _pendingPlant.Add(minerId);
+			if (action.Use)   _pendingUse.Add(minerId);
+			if (action.Throw) _pendingThrow.Add(minerId);
+		}
+
 		foreach (var (minerId, dir) in _pendingDir)
 		{
 			if (dir < 0) continue;
@@ -251,8 +290,8 @@ public partial class MatchHost : Node
 				string name = nm.Players.TryGetValue(nm.LocalId, out var info) ? info.Name : "Player";
 				ScoreStore.Submit(name, score, nm.MatchFloor);
 			}
-			long winnerPeer = _peerToMiner.FirstOrDefault(kv => kv.Value == result.WinnerId).Key;
-			nm.BroadcastResult(result.WinnerId == -1 ? -1 : winnerPeer);
+			long winnerPeer = result.WinnerId == -1 ? -1 : FindWinnerPeer(result.WinnerId);
+			nm.BroadcastResult(winnerPeer);
 		}
 	}
 
@@ -304,8 +343,7 @@ public partial class MatchHost : Node
 			string name = nm.Players.TryGetValue(nm.LocalId, out var winfo) ? winfo.Name : "Player";
 			ScoreStore.Submit(name, score, nm.MatchFloor);
 			_running = false;
-			long winnerPeer = _peerToMiner.FirstOrDefault(kv => kv.Value == minerId).Key;
-			nm.BroadcastResult(winnerPeer);
+			nm.BroadcastResult(FindWinnerPeer(minerId));
 			return;
 		}
 
@@ -355,6 +393,18 @@ public partial class MatchHost : Node
 				if (east.X < newMap.Grid.Width && newMap.Grid.Get(east) == TileType.Floor)
 					sp = east;
 			}
+			newSim.AddMiner(mid, sp, invulRemaining: 3.0);
+			if (_permLevels.TryGetValue(mid, out var lvl))
+				newSim.SetPermLevels(mid, lvl.Speed, lvl.Vision, lvl.Blast);
+			if (carryGold != null && carryGold.TryGetValue(mid, out int gold))
+				newSim.SetGold(mid, gold);
+			_spawnByMiner[mid] = sp;
+		}
+		// Spawn bot miners for the new floor
+		foreach (var mid in _botBrains.Keys)
+		{
+			int idx = mid - 1;
+			GridPos sp = idx < newMap.Spawns.Count ? newMap.Spawns[idx] : newMap.Spawns[0];
 			newSim.AddMiner(mid, sp, invulRemaining: 3.0);
 			if (_permLevels.TryGetValue(mid, out var lvl))
 				newSim.SetPermLevels(mid, lvl.Speed, lvl.Vision, lvl.Blast);
