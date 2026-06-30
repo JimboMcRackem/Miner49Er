@@ -40,6 +40,25 @@ public sealed class BotBrain
         if (Skill >= BotSkill.Foreman && miner.Held is ItemKind.SpeedPotion or ItemKind.LongerVision)
             return new BotAction(-1, use: true);
 
+        // Explosive avoidance — skill-gated; Greenhorn is oblivious
+        if (Skill > BotSkill.Greenhorn)
+        {
+            var danger = NearestDangerousCharge(sim, miner);
+            if (danger != null)
+            {
+                var fleeTarget = FleeFrom(sim.Grid, miner.Pos, danger.WallPos);
+                if (fleeTarget != null)
+                {
+                    int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false);
+                    if (fleeDir != -1)
+                    {
+                        _ticksUntilReeval = 0; // re-pick goal once clear
+                        return new BotAction(fleeDir);
+                    }
+                }
+            }
+        }
+
         if (_goal == null) return BotAction.Idle;
 
         bool passRock = Skill >= BotSkill.Foreman;
@@ -187,4 +206,66 @@ public sealed class BotBrain
         BotSkill.DynamiteDan => 3,
         _ => 15,
     };
+
+    // Returns the nearest charge worth fleeing, or null if none.
+    // Miner: reacts within 1 tile, fuse ≤ 1.5 s.
+    // Foreman: 2 tiles, fuse ≤ 2.5 s.
+    // Dan: 3 tiles, any fuse, but ignores own charges beyond adjacent.
+    private Charge? NearestDangerousCharge(Simulation sim, Miner miner)
+    {
+        int distThreshold = Skill switch
+        {
+            BotSkill.Miner       => 1,
+            BotSkill.Foreman     => 2,
+            BotSkill.DynamiteDan => 3,
+            _ => 0,
+        };
+        double fuseThreshold = Skill switch
+        {
+            BotSkill.Miner       => 1.5,
+            BotSkill.Foreman     => 2.5,
+            BotSkill.DynamiteDan => double.MaxValue, // Dan reacts immediately
+            _ => 0,
+        };
+
+        Charge? nearest = null;
+        int nearestDist = int.MaxValue;
+        foreach (var charge in sim.Charges)
+        {
+            // Dan ignores charges it planted unless they're right next door
+            if (Skill == BotSkill.DynamiteDan && charge.OwnerId == MinerId
+                && miner.Pos.ChebyshevTo(charge.WallPos) > 1)
+                continue;
+
+            int d = miner.Pos.ChebyshevTo(charge.WallPos);
+            if (d <= distThreshold && charge.FuseRemaining <= fuseThreshold && d < nearestDist)
+            {
+                nearestDist = d;
+                nearest = charge;
+            }
+        }
+        return nearest;
+    }
+
+    // Finds a walkable floor tile several steps away from the danger position.
+    private static GridPos? FleeFrom(TileGrid grid, GridPos pos, GridPos danger)
+    {
+        int dx = pos.X - danger.X;
+        int dy = pos.Y - danger.Y;
+        int nx = dx == 0 ? 0 : (dx > 0 ? 1 : -1);
+        int ny = dy == 0 ? 0 : (dy > 0 ? 1 : -1);
+
+        for (int steps = 5; steps >= 2; steps--)
+        {
+            var candidates = new[]
+            {
+                new GridPos(pos.X + nx * steps, pos.Y + ny * steps),
+                new GridPos(pos.X + nx * steps, pos.Y),
+                new GridPos(pos.X,               pos.Y + ny * steps),
+            };
+            foreach (var c in candidates)
+                if (grid.InBounds(c) && grid.Get(c).IsWalkable()) return c;
+        }
+        return null;
+    }
 }

@@ -251,9 +251,7 @@ public partial class Main : Node2D
 						if (_client.TreasureProgress != null)
 							foreach (var tp in _client.TreasureProgress)
 								if (tp.MinerId == _client.LocalMinerId) { foundCount = tp.Found; break; }
-						string aState = foundCount >= 1 ? "✓" : "○";
-						string bState = foundCount >= 2 ? "✓" : "○";
-						_hud.SetHud(0, $"{IdolName(idolA)} {aState}  {IdolName(idolB)} {bState}", $"{status}{heldStr}");
+						_hud.SetTreasureHud(IdolName(idolA), foundCount >= 1, IdolName(idolB), foundCount >= 2, $"{status}{heldStr}");
 					}
 					else if (NetworkManager.Instance.MatchMode == GameMode.DemolitionDerby)
 					{
