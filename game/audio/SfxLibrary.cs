@@ -64,28 +64,24 @@ public static class SfxLibrary
 		return pick;
 	}
 
+	// DirAccess directory listing on res:// is unreliable in exported PCK builds,
+	// so enumerate candidates explicitly rather than scanning the directory at runtime.
+	private static readonly string[] MusicCandidates =
+	{
+		"res://assets/audio/music_loop1.ogg",
+		"res://assets/audio/music_loop2.ogg",
+		"res://assets/audio/music_loop3.ogg",
+		"res://assets/audio/music_loop4.ogg",
+		"res://assets/audio/music_loop5.ogg",
+		"res://assets/audio/music_loop.ogg",
+	};
+
 	private static List<AudioStream> BuildMusicPool()
 	{
 		var pool = new List<AudioStream>();
-		var dir = DirAccess.Open("res://assets/audio/");
-		if (dir == null) return pool;
-		dir.ListDirBegin();
-		string name = dir.GetNext();
-		while (name != "")
-		{
-			if (!dir.CurrentIsDir())
-			{
-				string lower = name.ToLowerInvariant();
-				if (lower.StartsWith("music_") && (lower.EndsWith(".ogg") || lower.EndsWith(".wav")))
-				{
-					string path = $"res://assets/audio/{name}";
-					if (ResourceLoader.Exists(path))
-						pool.Add(ResourceLoader.Load<AudioStream>(path));
-				}
-			}
-			name = dir.GetNext();
-		}
-		dir.ListDirEnd();
+		foreach (var path in MusicCandidates)
+			if (ResourceLoader.Exists(path))
+				pool.Add(ResourceLoader.Load<AudioStream>(path));
 		return pool;
 	}
 
