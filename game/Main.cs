@@ -236,7 +236,7 @@ public partial class Main : Node2D
 								: 0;
 							objective = $"Floor {nm2.MatchFloor}/20  Gold: {pct}%{modTag}";
 						}
-						_hud.SetHud(Math.Max(0, _client.Lives), $"  {objective}    {status}{timeStr}{heldStr}{stonesStr}");
+						_hud.SetHud(Math.Max(0, _client.Lives), objective, $"{status}{timeStr}{heldStr}{stonesStr}");
 					}
 					else if (NetworkManager.Instance.MatchMode == GameMode.TreasureHunt)
 					{
@@ -248,11 +248,11 @@ public partial class Main : Node2D
 								if (tp.MinerId == _client.LocalMinerId) { foundCount = tp.Found; break; }
 						string aState = foundCount >= 1 ? "✓" : "○";
 						string bState = foundCount >= 2 ? "✓" : "○";
-						_hud.SetText($"{IdolName(idolA)} {aState}  {IdolName(idolB)} {bState}    {status}{heldStr}");
+						_hud.SetHud(0, $"{IdolName(idolA)} {aState}  {IdolName(idolB)} {bState}", $"{status}{heldStr}");
 					}
 					else
 					{
-						_hud.SetText($"Gold: {m.Gold}    {status}{timeStr}{heldStr}{stonesStr}");
+						_hud.SetHud(0, $"Gold: {m.Gold}", $"{status}{timeStr}{heldStr}{stonesStr}");
 					}
 
 					// Shop proximity — Expedition only

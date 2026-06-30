@@ -4,41 +4,50 @@ namespace Miner49er;
 
 public partial class Hud : CanvasLayer
 {
-	private Label _livesLabel = null!;
-	private Label _textLabel  = null!;
+	private Label _leftLabel   = null!;
+	private Label _centerLabel = null!;
+	private Label _rightLabel  = null!;
 
 	public override void _Ready()
 	{
+		var bar = new HBoxContainer { Name = "HudBar" };
+		bar.AnchorLeft   = 0f;
+		bar.AnchorRight  = 1f;
+		bar.AnchorTop    = 0f;
+		bar.AnchorBottom = 0f;
+		bar.OffsetLeft   = 8f;
+		bar.OffsetRight  = -8f;
+		bar.OffsetTop    = 6f;
+		bar.OffsetBottom = 38f;
+		AddChild(bar);
+
 		var font = ThemeDB.FallbackFont;
 
-		_livesLabel = new Label { Position = new Vector2(16, 12) };
-		_livesLabel.AddThemeFontOverride("font", font);
-		_livesLabel.AddThemeFontSizeOverride("font_size", 22);
-		_livesLabel.AddThemeColorOverride("font_color", new Color(1f, 0.18f, 0.18f));
-		AddChild(_livesLabel);
-
-		_textLabel = new Label { Position = new Vector2(16, 12) };
-		_textLabel.AddThemeFontOverride("font", font);
-		_textLabel.AddThemeFontSizeOverride("font_size", 20);
-		_textLabel.AddThemeColorOverride("font_color", Colors.White);
-		AddChild(_textLabel);
+		_leftLabel   = MakeLabel(bar, font, 22, new Color(1f, 0.18f, 0.18f), HorizontalAlignment.Left);
+		_centerLabel = MakeLabel(bar, font, 20, Colors.White,                 HorizontalAlignment.Center);
+		_rightLabel  = MakeLabel(bar, font, 20, Colors.White,                 HorizontalAlignment.Right);
 	}
 
-	// lives: number of ♥ to show (0 hides them); text: everything else (objective, status…)
-	public void SetHud(int lives, string text)
+	private static Label MakeLabel(HBoxContainer parent, Font font, int size, Color color, HorizontalAlignment align)
 	{
-		_livesLabel.Text = lives > 0 ? new string('♥', lives) : "";
-		// Offset text right to sit after the hearts (each ♥ ~16px wide at size 22)
-		float heartsWidth = lives > 0 ? lives * 16f + 8f : 0f;
-		_textLabel.Position = new Vector2(16 + heartsWidth, 12);
-		_textLabel.Text = text;
+		var lbl = new Label
+		{
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			HorizontalAlignment = align,
+			VerticalAlignment   = VerticalAlignment.Center,
+		};
+		lbl.AddThemeFontOverride("font", font);
+		lbl.AddThemeFontSizeOverride("font_size", size);
+		lbl.AddThemeColorOverride("font_color", color);
+		parent.AddChild(lbl);
+		return lbl;
 	}
 
-	// Legacy single-string path (non-expedition modes)
-	public void SetText(string text)
+	// lives: ♥ count (0 hides them); center: mode/objective; right: status, held items, timer…
+	public void SetHud(int lives, string center, string right)
 	{
-		_livesLabel.Text = "";
-		_textLabel.Position = new Vector2(16, 12);
-		_textLabel.Text = text;
+		_leftLabel.Text   = lives > 0 ? new string('♥', lives) : "";
+		_centerLabel.Text = center;
+		_rightLabel.Text  = right.TrimStart();
 	}
 }
