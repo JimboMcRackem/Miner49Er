@@ -241,8 +241,12 @@ public partial class Lobby : Control
 		{
 			if (NetworkManager.Instance.IsBotPeer(id) && isHost)
 			{
-				var row = new HBoxContainer();
-				var lbl = new Label { Text = $"{info.Name}  [READY]" };
+				var row = new HBoxContainer { CustomMinimumSize = new Vector2(280, 0) };
+				var lbl = new Label
+				{
+					Text = $"{info.Name}  [READY]",
+					SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+				};
 				lbl.AddThemeColorOverride("font_color", PlayerColors.At(info.ColorIndex));
 				row.AddChild(lbl);
 				var removeBtn = new Button { Text = "✕" };

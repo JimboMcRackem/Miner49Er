@@ -19,8 +19,9 @@ public partial class DeathFeed : CanvasLayer
 
 	private VBoxContainer _feed = null!;
 	private readonly List<(Label label, float life)> _toasts = new();
-	private const float ToastSeconds = 4f;
-	private const int MaxToasts = 4;
+	private const float ToastSeconds   = 4.5f;
+	private const float FadeSeconds    = 1.5f;   // tail-end fade window
+	private const int   MaxToasts      = 6;
 
 	public void Init(MatchClient client) => _client = client;
 
@@ -35,11 +36,15 @@ public partial class DeathFeed : CanvasLayer
 		_banner.AddThemeFontSizeOverride("font_size", 48);
 		AddChild(_banner);
 
+		// Centred column just below the HUD bar (bar bottom = y 38).
 		_feed = new VBoxContainer
 		{
-			AnchorLeft = 1f, AnchorRight = 1f, AnchorTop = 0f, AnchorBottom = 0f,
-			OffsetLeft = -320, OffsetTop = 16, OffsetRight = -16,
-			GrowHorizontal = Control.GrowDirection.Begin,
+			AnchorLeft   = 0.5f, AnchorRight  = 0.5f,
+			AnchorTop    = 0f,   AnchorBottom = 0f,
+			OffsetLeft   = -240, OffsetRight  = 240,
+			OffsetTop    = 44,
+			GrowHorizontal = Control.GrowDirection.Both,
+			GrowVertical   = Control.GrowDirection.End,
 		};
 		AddChild(_feed);
 	}
@@ -108,10 +113,14 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Mauled => $"{name} was mauled",
 			_ => $"{name} died",
 		};
-		var label = new Label { Text = text };
+		var label = new Label
+		{
+			Text = text,
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AutowrapMode = TextServer.AutowrapMode.Off,
+		};
 		label.AddThemeFontSizeOverride("font_size", 18);
-		_feed.AddChild(label);
-		_feed.MoveChild(label, 0); // newest on top
+		_feed.AddChild(label); // newest at bottom
 		_toasts.Add((label, ToastSeconds));
 
 		while (_toasts.Count > MaxToasts)
@@ -136,7 +145,7 @@ public partial class DeathFeed : CanvasLayer
 			else
 			{
 				if (IsInstanceValid(t.label))
-					t.label.Modulate = new Color(1, 1, 1, Mathf.Min(1f, t.life));
+					t.label.Modulate = new Color(1, 1, 1, Mathf.Min(1f, t.life / FadeSeconds));
 				_toasts[i] = t;
 			}
 		}
