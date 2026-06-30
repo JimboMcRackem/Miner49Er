@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using Miner49er.Core;
+using Miner49er.Core.AI;
 
 namespace Miner49er;
 
@@ -40,6 +41,13 @@ public partial class NetworkManager : Node
 	private string _pendingName = "Miner";
 	private int _pendingColor;
 
+	// Bot management (host-only) ────────────────────────────────────────────
+	private long _nextBotFakeId = -1001;
+	private readonly Dictionary<long, BotSkill> _botSkills = new();
+
+	private static readonly string[] BotNamePool =
+		{ "Dusty", "Rocky", "Gravel", "Nugget", "Pickaxe", "Blaster", "Shafty", "Copperhead" };
+
 	public override void _EnterTree() => Instance = this;
 
 	public override void _Ready()
@@ -60,6 +68,8 @@ public partial class NetworkManager : Node
 		if (err != Error.Ok) return err;
 		Multiplayer.MultiplayerPeer = peer;
 		IsHost = true;
+		_botSkills.Clear();
+		_nextBotFakeId = -1001;
 		Players.Clear();
 		Players[LocalId] = new PlayerInfo { Name = playerName, ColorIndex = colorIndex, Ready = false };
 		LobbyChanged?.Invoke();
@@ -130,6 +140,8 @@ public partial class NetworkManager : Node
 		ResetPeer();
 		IsHost = false;
 		Players.Clear();
+		_botSkills.Clear();
+		_nextBotFakeId = -1001;
 	}
 
 	// Closes the active ENet peer and detaches it. Closing explicitly (not just
@@ -197,6 +209,55 @@ public partial class NetworkManager : Node
 		info.Ready = !info.Ready;
 		Players[sender] = info;
 		BroadcastLobby();
+	}
+
+	public void AddBot(BotSkill skill)
+	{
+		if (!IsHost || Players.Count >= 8) return;
+		long fakeId = _nextBotFakeId--;
+		string name = $"{PickBotName()} ({BotSkillDisplayName(skill)})";
+		Players[fakeId] = new PlayerInfo { Name = name, ColorIndex = PickBotColor(), Ready = true };
+		_botSkills[fakeId] = skill;
+		BroadcastLobby();
+	}
+
+	public void RemoveBot(long fakePeerId)
+	{
+		if (!IsHost || !_botSkills.ContainsKey(fakePeerId)) return;
+		Players.Remove(fakePeerId);
+		_botSkills.Remove(fakePeerId);
+		BroadcastLobby();
+	}
+
+	public bool IsBotPeer(long peerId) => peerId <= -1001;
+
+	public BotSkill GetBotSkill(long peerId) =>
+		_botSkills.TryGetValue(peerId, out var s) ? s : BotSkill.Greenhorn;
+
+	public static string BotSkillDisplayName(BotSkill s) => s switch
+	{
+		BotSkill.Greenhorn   => "Greenhorn",
+		BotSkill.Miner       => "Miner",
+		BotSkill.Foreman     => "Foreman",
+		BotSkill.DynamiteDan => "Dynamite Dan",
+		_ => s.ToString(),
+	};
+
+	private string PickBotName()
+	{
+		var used = new HashSet<string>();
+		foreach (var info in Players.Values) used.Add(info.Name.Split(' ')[0]);
+		foreach (var n in BotNamePool) if (!used.Contains(n)) return n;
+		return $"Bot{_botSkills.Count + 1}";
+	}
+
+	private int PickBotColor()
+	{
+		var used = new HashSet<int>();
+		foreach (var info in Players.Values) used.Add(info.ColorIndex);
+		for (int i = 0; i < PlayerColors.Palette.Length; i++)
+			if (!used.Contains(i)) return i;
+		return _botSkills.Count % PlayerColors.Palette.Length;
 	}
 
 	private void BroadcastLobby()
