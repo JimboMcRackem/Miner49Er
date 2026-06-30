@@ -30,30 +30,18 @@ public partial class Lobby : Control
 	{
 		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic());
 
-		var center = new CenterContainer();
-		center.SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(center);
+		var screen = new CenterContainer();
+		screen.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(screen);
 
-		var box = new VBoxContainer();
-		center.AddChild(box);
+		var columns = new HBoxContainer();
+		columns.AddThemeConstantOverride("separation", 40);
+		screen.AddChild(columns);
 
-		var title = new Label { Text = "LOBBY" };
-		title.AddThemeFontSizeOverride("font_size", 32);
-		box.AddChild(title);
-
-		_list = new VBoxContainer { CustomMinimumSize = new Vector2(320, 200) };
-		box.AddChild(_list);
-
-		_codeLabel = new Label { Text = "", Visible = false };
-		box.AddChild(_codeLabel);
-
-		_copyBtn = new Button { Text = "Copy code", Visible = false };
-		_copyBtn.Pressed += () => { if (NetworkManager.Instance.HostCode is { } c) DisplayServer.ClipboardSet(c); };
-		box.AddChild(_copyBtn);
-
-		_readyBtn = new Button { Text = "Toggle Ready" };
-		_readyBtn.Pressed += () => NetworkManager.Instance.ToggleReady();
-		box.AddChild(_readyBtn);
+		// ── Left column: mode settings ────────────────────────────────────────
+		var leftCol = new VBoxContainer { CustomMinimumSize = new Vector2(220, 0) };
+		leftCol.AddThemeConstantOverride("separation", 8);
+		columns.AddChild(leftCol);
 
 		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive) = SettingsStore.LoadLobby();
 
@@ -65,15 +53,15 @@ public partial class Lobby : Control
 		_modePicker.AddItem("Treasure Hunt",     (int)GameMode.TreasureHunt);
 		_modePicker.Select(savedMode);
 		_modePicker.Visible = NetworkManager.Instance.IsHost;
-		box.AddChild(_modePicker);
+		leftCol.AddChild(_modePicker);
 
 		_modeDesc = new Label
 		{
 			Text = ModeDescription(_modePicker.GetSelectedId()),
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
-			CustomMinimumSize = new Vector2(320, 0),
+			CustomMinimumSize = new Vector2(220, 0),
 		};
-		box.AddChild(_modeDesc);
+		leftCol.AddChild(_modeDesc);
 
 		_timePicker = new OptionButton();
 		_timePicker.AddItem("No Time Limit", 0);
@@ -81,12 +69,11 @@ public partial class Lobby : Control
 		_timePicker.AddItem("2 min", 120);
 		_timePicker.AddItem("3 min", 180);
 		_timePicker.AddItem("5 min", 300);
-		// Select the item whose ID matches the saved time; fall back to index 1 (1 min).
 		int timeIdx = Enumerable.Range(0, _timePicker.ItemCount)
 			.FirstOrDefault(i => _timePicker.GetItemId(i) == savedTime, 1);
 		_timePicker.Select(timeIdx);
 		_timePicker.Visible = NetworkManager.Instance.IsHost;
-		box.AddChild(_timePicker);
+		leftCol.AddChild(_timePicker);
 
 		_mapSizePicker = new OptionButton();
 		_mapSizePicker.AddItem("Small",  1);
@@ -96,26 +83,26 @@ public partial class Lobby : Control
 		int sizeIdx = Enumerable.Range(0, _mapSizePicker.ItemCount)
 			.FirstOrDefault(i => _mapSizePicker.GetItemId(i) == savedMapScale, 0);
 		_mapSizePicker.Select(sizeIdx);
-		box.AddChild(_mapSizePicker);
+		leftCol.AddChild(_mapSizePicker);
 
 		_modePicker.ItemSelected += _ => RefreshModeControls();
 
 		_floodCheck = new CheckBox { Text = "Flooding", ButtonPressed = savedFlood };
 		_floodCheck.Visible = NetworkManager.Instance.IsHost;
 		_floodCheck.Toggled += (bool on) => { if (on && _timePicker.Selected == 0) _timePicker.Select(1); };
-		box.AddChild(_floodCheck);
+		leftCol.AddChild(_floodCheck);
 
 		_pitsCheck = new CheckBox { Text = "Pits", ButtonPressed = savedPits };
 		_pitsCheck.Visible = NetworkManager.Instance.IsHost;
-		box.AddChild(_pitsCheck);
+		leftCol.AddChild(_pitsCheck);
 
 		_caveInCheck = new CheckBox { Text = "Cave-ins", ButtonPressed = savedCaveIn };
 		_caveInCheck.Visible = NetworkManager.Instance.IsHost;
-		box.AddChild(_caveInCheck);
+		leftCol.AddChild(_caveInCheck);
 
 		_lavaCheck = new CheckBox { Text = "Lava", ButtonPressed = savedLava };
 		_lavaCheck.Visible = NetworkManager.Instance.IsHost;
-		box.AddChild(_lavaCheck);
+		leftCol.AddChild(_lavaCheck);
 
 		_explosivePicker = new OptionButton();
 		_explosivePicker.AddItem("Dynamite",           (int)ExplosiveMode.Dynamite);
@@ -123,7 +110,7 @@ public partial class Lobby : Control
 		_explosivePicker.AddItem("Detonators Only",    (int)ExplosiveMode.DetonatorsOnly);
 		_explosivePicker.Select(savedExplosive);
 		_explosivePicker.Visible = NetworkManager.Instance.IsHost;
-		box.AddChild(_explosivePicker);
+		leftCol.AddChild(_explosivePicker);
 
 		_speedPicker = new OptionButton();
 		_speedPicker.AddItem("Slow", 0);
@@ -131,12 +118,36 @@ public partial class Lobby : Control
 		_speedPicker.AddItem("Fast", 2);
 		_speedPicker.Select(savedSpeed);
 		_speedPicker.Visible = NetworkManager.Instance.IsHost;
-		box.AddChild(_speedPicker);
+		leftCol.AddChild(_speedPicker);
+
+		// ── Center column: player list ─────────────────────────────────────────
+		var centerCol = new VBoxContainer { CustomMinimumSize = new Vector2(280, 0) };
+		centerCol.AddThemeConstantOverride("separation", 8);
+		columns.AddChild(centerCol);
+
+		var title = new Label { Text = "LOBBY" };
+		title.AddThemeFontSizeOverride("font_size", 32);
+		centerCol.AddChild(title);
+
+		_list = new VBoxContainer { CustomMinimumSize = new Vector2(280, 200) };
+		centerCol.AddChild(_list);
+
+		// ── Right column: options ──────────────────────────────────────────────
+		var rightCol = new VBoxContainer { CustomMinimumSize = new Vector2(220, 0) };
+		rightCol.AddThemeConstantOverride("separation", 8);
+		columns.AddChild(rightCol);
+
+		_codeLabel = new Label { Text = "", Visible = false };
+		rightCol.AddChild(_codeLabel);
+
+		_copyBtn = new Button { Text = "Copy code", Visible = false };
+		_copyBtn.Pressed += () => { if (NetworkManager.Instance.HostCode is { } c) DisplayServer.ClipboardSet(c); };
+		rightCol.AddChild(_copyBtn);
 
 		if (NetworkManager.Instance.IsHost)
 		{
 			var botRow = new HBoxContainer();
-			box.AddChild(botRow);
+			rightCol.AddChild(botRow);
 
 			_botSkillPicker = new OptionButton();
 			_botSkillPicker.AddItem("Greenhorn",    (int)BotSkill.Greenhorn);
@@ -150,6 +161,10 @@ public partial class Lobby : Control
 				NetworkManager.Instance.AddBot((BotSkill)_botSkillPicker.GetSelectedId());
 			botRow.AddChild(_addBotBtn);
 		}
+
+		_readyBtn = new Button { Text = "Toggle Ready" };
+		_readyBtn.Pressed += () => NetworkManager.Instance.ToggleReady();
+		rightCol.AddChild(_readyBtn);
 
 		_startBtn = new Button { Text = "Start Match", Disabled = true };
 		_startBtn.Pressed += () =>
@@ -174,17 +189,17 @@ public partial class Lobby : Control
 				(ExplosiveMode)explosive);
 		};
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
-		box.AddChild(_startBtn);
+		rightCol.AddChild(_startBtn);
 
 		_hint = new Label { Text = "" };
-		box.AddChild(_hint);
+		rightCol.AddChild(_hint);
 
 		NetworkManager.Instance.LobbyChanged += Refresh;
 		NetworkManager.Instance.Disconnected += OnDisconnected;
 		NetworkManager.Instance.MatchStarting += OnMatchStarting;
 		NetworkManager.Instance.InternetStatusChanged += RefreshInternet;
 		Refresh();
-		RefreshInternet();   // reflect status that may have resolved during the scene change
+		RefreshInternet();
 		RefreshModeControls();
 	}
 
