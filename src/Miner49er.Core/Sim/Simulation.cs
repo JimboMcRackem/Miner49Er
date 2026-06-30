@@ -736,8 +736,13 @@ public sealed class Simulation
             if (it.Kind == ItemKind.TreasureChest &&
                 (!_chestPos.TryGetValue(m.Id, out var ownedAt) || ownedAt != it.Pos)) continue;
             var taken = it.Kind;
-            if (m.Held is { } heldKind) _items[i] = new Item(m.Pos, heldKind, ItemPlacement.Loose);
-            else                        _items.RemoveAt(i);
+            if (m.Held is { } heldKind)
+            {
+                _items[i] = new Item(m.Pos, heldKind, ItemPlacement.Loose);
+                // Track the chest's new floor position so deposit + re-pickup still work.
+                if (heldKind == ItemKind.TreasureChest) _chestPos[m.Id] = m.Pos;
+            }
+            else { _items.RemoveAt(i); }
             if (taken == ItemKind.TreasureChest) _chestPos[m.Id] = null;
             m.Held = taken;
             _events.Add(new ItemPickedUp(m.Id, m.Pos, taken));

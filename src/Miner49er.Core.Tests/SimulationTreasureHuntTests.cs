@@ -128,6 +128,64 @@ public class SimulationTreasureHuntTests
     }
 
     [Fact]
+    public void Swapping_chest_for_idol_tracks_chest_position_and_allows_deposit()
+    {
+        // Repro: miner swaps held chest for an unburied idol (Space on idol tile).
+        // Before the fix, _chestPos stayed null → deposit never fired and chest
+        // could not be re-picked-up.
+        var sim = TreasureSim(1, out var miners);
+        var (idolA, _) = TreasureAssignment.For(42, 1);
+
+        // Place an unburied idol at (3,1) and have the miner walk onto it.
+        sim.AddItem(new Item(new GridPos(3, 1), idolA, ItemPlacement.Loose));
+        sim.TryMove(1, Direction.East); // (1,1) → (2,1)
+        sim.Tick(1.0);
+        sim.TryMove(1, Direction.East); // (2,1) → (3,1)  — standing on idol
+
+        // Space while holding chest: swaps — chest drops at (3,1), idol picked up.
+        sim.TryUseItem(1);
+        Assert.Equal(idolA, miners[0].Held);
+
+        // The dropped chest must be tracked so the owned re-pickup check passes.
+        var chests = sim.GetPlacedChests();
+        Assert.Single(chests);
+        Assert.Equal(3, chests[0].X);
+        Assert.Equal(1, chests[0].Y);
+
+        // Move away then walk back onto the (swapped) chest tile — deposit must fire.
+        sim.Tick(1.0);
+        sim.TryMove(1, Direction.West); // (3,1) → (2,1)
+        sim.Tick(1.0);
+        sim.TryMove(1, Direction.East); // (2,1) → (3,1)  — auto-deposit
+        Assert.Null(miners[0].Held);
+        Assert.Equal(1, sim.GetTreasureProgress().First(p => p.MinerId == 1).Found);
+    }
+
+    [Fact]
+    public void Swapped_out_chest_can_be_re_picked_up()
+    {
+        var sim = TreasureSim(1, out var miners);
+        var (idolA, _) = TreasureAssignment.For(42, 1);
+        sim.AddItem(new Item(new GridPos(3, 1), idolA, ItemPlacement.Loose));
+        sim.TryMove(1, Direction.East);
+        sim.Tick(1.0);
+        sim.TryMove(1, Direction.East); // on idol at (3,1)
+        sim.TryUseItem(1); // swap: chest at (3,1), holding idol
+
+        // Deposit the idol by walking off and back.
+        sim.Tick(1.0);
+        sim.TryMove(1, Direction.West);
+        sim.Tick(1.0);
+        sim.TryMove(1, Direction.East); // deposit fires; now holding nothing
+        Assert.Null(miners[0].Held);
+
+        // Now press Space on the chest tile to pick the chest back up.
+        sim.TryUseItem(1);
+        Assert.Equal(ItemKind.TreasureChest, miners[0].Held);
+        Assert.Empty(sim.GetPlacedChests());
+    }
+
+    [Fact]
     public void Owner_can_re_pick_up_placed_chest()
     {
         var sim = TreasureSim(1, out var miners);
