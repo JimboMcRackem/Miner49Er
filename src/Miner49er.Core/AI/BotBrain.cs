@@ -52,23 +52,43 @@ public sealed class BotBrain
         var nextTile = sim.Grid.InBounds(nextPos) ? sim.Grid.Get(nextPos) : TileType.Rock;
         bool mine = nextTile.IsMinable();
 
-        bool plant     = Skill == BotSkill.DynamiteDan && GoldClusterAdjacent(sim.Grid, miner.Pos);
-        bool throwStone = Skill == BotSkill.DynamiteDan && miner.StoneCount > 0
-                          && NearestRivalDist(sim, miner) <= 2;
+        bool derby = mode == GameMode.DemolitionDerby;
+        bool plant = derby
+            ? Skill >= BotSkill.Miner && nextTile.IsMinable()
+            : Skill == BotSkill.DynamiteDan && GoldClusterAdjacent(sim.Grid, miner.Pos);
+        bool throwStone = miner.StoneCount > 0 && NearestRivalDist(sim, miner) <= 2
+                          && (derby ? Skill >= BotSkill.Miner : Skill == BotSkill.DynamiteDan);
 
         return new BotAction(dir, mine, plant, throwStone: throwStone);
     }
 
     // ── Goal selection ─────────────────────────────────────────────────────
 
-    private GridPos? PickGoal(Simulation sim, GameMode mode, Miner miner) => Skill switch
+    private GridPos? PickGoal(Simulation sim, GameMode mode, Miner miner)
     {
-        BotSkill.Greenhorn   => RandomFloor(sim.Grid, miner.Pos),
-        BotSkill.Miner       => MinerGoal(sim, mode, miner),
-        BotSkill.Foreman     => ForemanGoal(sim, mode, miner),
-        BotSkill.DynamiteDan => ForemanGoal(sim, mode, miner),
-        _ => null,
-    };
+        if (mode == GameMode.DemolitionDerby) return DerbyGoal(sim, miner);
+        return Skill switch
+        {
+            BotSkill.Greenhorn   => RandomFloor(sim.Grid, miner.Pos),
+            BotSkill.Miner       => MinerGoal(sim, mode, miner),
+            BotSkill.Foreman     => ForemanGoal(sim, mode, miner),
+            BotSkill.DynamiteDan => ForemanGoal(sim, mode, miner),
+            _ => null,
+        };
+    }
+
+    private GridPos? DerbyGoal(Simulation sim, Miner miner)
+    {
+        GridPos? best = null;
+        int bestDist = int.MaxValue;
+        foreach (var m in sim.Miners)
+        {
+            if (m.Id == miner.Id || !m.Alive) continue;
+            int d = miner.Pos.ChebyshevTo(m.Pos);
+            if (d < bestDist) { bestDist = d; best = m.Pos; }
+        }
+        return best ?? RandomFloor(sim.Grid, miner.Pos);
+    }
 
     private GridPos? RandomFloor(TileGrid grid, GridPos from)
     {

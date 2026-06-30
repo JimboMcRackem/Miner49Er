@@ -72,6 +72,11 @@ public partial class Main : Node2D
 				DynamiteEnabled  = nm.MatchExplosive != ExplosiveMode.DetonatorsOnly,
 				TreasureHuntMode = nm.MatchMode == GameMode.TreasureHunt,
 			};
+			if (nm.MatchMode == GameMode.DemolitionDerby)
+			{
+				f1SimCfg.DynamiteEnabled = true;
+				f1SimCfg.FuseSeconds     = 2.0;
+			}
 			FloorModifiers.Apply(f1Modifier, hostMapCfg, f1SimCfg);
 			var hostMap = MapGenerator.Generate(hostMapCfg);
 			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.EscapeTile : null;
@@ -249,6 +254,10 @@ public partial class Main : Node2D
 						string aState = foundCount >= 1 ? "✓" : "○";
 						string bState = foundCount >= 2 ? "✓" : "○";
 						_hud.SetHud(0, $"{IdolName(idolA)} {aState}  {IdolName(idolB)} {bState}", $"{status}{heldStr}");
+					}
+					else if (NetworkManager.Instance.MatchMode == GameMode.DemolitionDerby)
+					{
+						_hud.SetHud(0, "Demolition Derby", $"{status}{heldStr}");
 					}
 					else
 					{

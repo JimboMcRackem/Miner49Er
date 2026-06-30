@@ -84,6 +84,17 @@ public sealed class MapConfig
             cfg.VisibleItemCount = 0;
             cfg.BuriedIdolKinds  = TreasureAssignment.AllAssigned(seed, playerCount);
         }
+        if (mode == GameMode.DemolitionDerby)
+        {
+            cfg.GoldVeinCount    = 0;
+            cfg.BaseItemCount    = 0;
+            cfg.VisibleItemCount = 0;
+            cfg.WaterPlankCount  = 0;
+            cfg.SlowMoldCount    = 0;
+            cfg.LanternCount     = 0;
+            cfg.ChestCount       = 0;
+            cfg.DecoyCount       = 0;
+        }
         cfg.DetonatorCount = explosive == ExplosiveMode.Dynamite ? 0 : playerCount;
         return cfg;
     }

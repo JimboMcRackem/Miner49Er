@@ -46,11 +46,12 @@ public partial class Lobby : Control
 		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive) = SettingsStore.LoadLobby();
 
 		_modePicker = new OptionButton();
-		_modePicker.AddItem("Last Man Standing", (int)GameMode.LastManStanding);
-		_modePicker.AddItem("Gold Rush",         (int)GameMode.GoldRush);
-		_modePicker.AddItem("Reach Center",      (int)GameMode.ReachCenter);
-		_modePicker.AddItem("Expedition",        (int)GameMode.Expedition);
-		_modePicker.AddItem("Treasure Hunt",     (int)GameMode.TreasureHunt);
+		_modePicker.AddItem("Last Man Standing",  (int)GameMode.LastManStanding);
+		_modePicker.AddItem("Gold Rush",          (int)GameMode.GoldRush);
+		_modePicker.AddItem("Reach Center",       (int)GameMode.ReachCenter);
+		_modePicker.AddItem("Expedition",         (int)GameMode.Expedition);
+		_modePicker.AddItem("Treasure Hunt",      (int)GameMode.TreasureHunt);
+		_modePicker.AddItem("Demolition Derby",   (int)GameMode.DemolitionDerby);
 		_modePicker.Select(savedMode);
 		_modePicker.Visible = NetworkManager.Instance.IsHost;
 		leftCol.AddChild(_modePicker);
@@ -171,9 +172,10 @@ public partial class Lobby : Control
 		{
 			bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
 			bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
+			bool derby      = _modePicker.GetSelectedId() == (int)GameMode.DemolitionDerby;
 			int mapScale  = expedition ? _mapSizePicker.GetSelectedId() : 1;
-			int explosive = (expedition || treasure) ? 0 : _explosivePicker.GetSelectedId();
-			int timeLimit = (expedition || treasure) ? 0 : _timePicker.GetSelectedId();
+			int explosive = (expedition || treasure || derby) ? 0 : _explosivePicker.GetSelectedId();
+			int timeLimit = (expedition || treasure || derby) ? 0 : _timePicker.GetSelectedId();
 			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), timeLimit,
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
 				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive);
@@ -208,7 +210,8 @@ public partial class Lobby : Control
 		bool isHost     = NetworkManager.Instance.IsHost;
 		bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
 		bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
-		bool normalMode = !expedition && !treasure;
+		bool derby      = _modePicker.GetSelectedId() == (int)GameMode.DemolitionDerby;
+		bool normalMode = !expedition && !treasure && !derby;
 		_timePicker.Visible      = isHost && normalMode;
 		_mapSizePicker.Visible   = isHost && expedition;
 		_explosivePicker.Visible = isHost && normalMode;
@@ -222,6 +225,7 @@ public partial class Lobby : Control
 		GameMode.ReachCenter     => "They say there's something at the heart of this mountain. Nobody who's gone looking has come back to say what. You've decided you'll be the first. So have a few other idiots. May the fastest miner win.",
 		GameMode.Expedition      => "Hearing rumours of ancient treasure you gain entry to the abandoned mine, only to find you are not alone. Survive with your life...and riches.",
 		GameMode.TreasureHunt    => "Someone moved the idols. Centuries-old relics, scattered through the dark by hands unknown — and your buyer wants two specific ones. You've got the descriptions, you've got a chest, and you've got competition. First to seal their haul wins.",
+		GameMode.DemolitionDerby => "No gold. No mercy. Just dynamite and bad intentions. Every miner starts with unlimited charges and one objective: be the last one breathing. Blow through walls, chase rivals into dead ends, and don't stand next to anything that's about to explode.",
 		_                        => "",
 	};
 
