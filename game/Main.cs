@@ -287,6 +287,14 @@ public partial class Main : Node2D
 						else if (!atShop && _shopPanel.IsOpen)
 							_shopPanel.Close();
 						_wasAtShop = atShop;
+
+						// Whistle at the ladder — call bots to the exit.
+						bool atEscape = _client.EscapeOpen && _client.EscapeTile is GridPos eTile && localPos == eTile;
+						if (atEscape && Input.IsActionJustPressed(InputBindings.UseItem) && _host != null)
+						{
+							_host.WhistleBots();
+							PlayLocalSound(SfxLibrary.Whistle);
+						}
 					}
 			}
 		// Death-fade overlay (expedition only): black out on death, fade in on revive.
@@ -395,6 +403,14 @@ public partial class Main : Node2D
 		ItemKind.IdolSkull        => "Skull",
 		_                         => "Idol",
 	};
+
+	private void PlayLocalSound(AudioStream stream)
+	{
+		var p = new AudioStreamPlayer { Stream = stream };
+		AddChild(p);
+		p.Play();
+		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
+	}
 
 	private void OnReturnToLobby()
 	{

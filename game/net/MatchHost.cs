@@ -439,4 +439,13 @@ public partial class MatchHost : Node
 
 		nm.BroadcastNewFloor(newFloor);
 	}
+
+	// Called by Main when the local player whistles at the escape ladder.
+	// Forces all idle bots to redirect to the exit for the next ~4 seconds.
+	public void WhistleBots()
+	{
+		if (_sim.EscapeTile is not GridPos esc) return;
+		foreach (var brain in _botBrains.Values)
+			brain.ForceEscape(esc);
+	}
 }

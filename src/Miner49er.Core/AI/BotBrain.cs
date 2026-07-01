@@ -277,6 +277,14 @@ public sealed class BotBrain
         return best;
     }
 
+    // Override the bot's next goal to the escape tile for ~4 s (120 ticks at 30 Hz).
+    // The bot finishes any in-progress activity first, then heads for the exit.
+    public void ForceEscape(GridPos escapeTile)
+    {
+        _goal = escapeTile;
+        _ticksUntilReeval = 120;
+    }
+
     private int RevalInterval() => Skill switch
     {
         BotSkill.Greenhorn   => 30,
