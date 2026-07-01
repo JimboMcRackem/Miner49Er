@@ -32,5 +32,9 @@ public sealed class Miner
 
     public double InvulnerableRemaining { get; internal set; }
 
+    // Pickaxe stun: target is frozen; attacker is on cooldown.
+    public double StunRemaining { get; internal set; }
+    public double StunCooldown  { get; internal set; }
+
     internal Miner(int id, GridPos pos) { Id = id; Pos = pos; }
 }

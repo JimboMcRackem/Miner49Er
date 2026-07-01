@@ -7,6 +7,7 @@ public sealed class Simulation
 
     private readonly Dictionary<int, Miner> _miners = new();
     private readonly List<Charge> _charges = new();
+    private readonly List<TripCharge> _tripCharges = new();
     private readonly List<Item> _items = new();
     private readonly List<MoldPatch> _molds = new();
     private readonly List<LavaVent> _lavaVents = new();
@@ -14,6 +15,9 @@ public sealed class Simulation
     private readonly List<Monster> _monsters = new();
     private readonly List<ReelCharge> _reelCharges = new();
     private readonly List<NoiseSource> _noiseSources = new();
+    private readonly List<PendingFall> _pendingFalls = new();
+    private double _rockFallTimer;
+    private bool _rockFallsActive;
 
     private readonly Dictionary<int, GridPos?>          _chestPos        = new();
     private readonly Dictionary<int, int>               _idolsFound      = new();
@@ -29,14 +33,26 @@ public sealed class Simulation
         public GridPos Pos;
         public double LifetimeRemaining;
     }
+
+    public sealed class PendingFall
+    {
+        public GridPos Pos { get; }
+        public double SecondsRemaining { get; internal set; }
+        public double TotalSeconds { get; }
+        public double FractionElapsed => 1.0 - SecondsRemaining / TotalSeconds;
+        internal PendingFall(GridPos pos, double totalSeconds)
+        { Pos = pos; TotalSeconds = totalSeconds; SecondsRemaining = totalSeconds; }
+    }
     public  Octopus? Octopus => _octopus;
 
     public IReadOnlyCollection<Miner> Miners => _miners.Values;
     public IReadOnlyList<Charge> Charges => _charges;
+    public IReadOnlyList<TripCharge> TripCharges => _tripCharges;
     public IReadOnlyList<Item> Items => _items;
     public IReadOnlyList<MoldPatch> Molds => _molds;
     public IReadOnlyList<Monster> Monsters => _monsters;
     public IReadOnlyList<ReelCharge> ReelCharges => _reelCharges;
+    public IReadOnlyList<PendingFall> PendingFalls => _pendingFalls;
 
     public void AddItem(Item item) => _items.Add(item);   // host seeds these from GeneratedMap.Items
 
@@ -339,8 +355,17 @@ public sealed class Simulation
     private void AdvanceCooldowns(double dt)
     {
         foreach (var m in _miners.Values)
+        {
             if (m.MoveCooldownRemaining > 0)
                 m.MoveCooldownRemaining = Math.Max(0, m.MoveCooldownRemaining - dt);
+            if (m.StunRemaining > 0)
+                m.StunRemaining = Math.Max(0, m.StunRemaining - dt);
+            if (m.StunCooldown > 0)
+                m.StunCooldown = Math.Max(0, m.StunCooldown - dt);
+        }
+        foreach (var mo in _monsters)
+            if (mo.StunRemaining > 0)
+                mo.StunRemaining = Math.Max(0, mo.StunRemaining - dt);
     }
 
     // A miner who lingers on a crack rather than crossing it loads the floor a
@@ -432,6 +457,7 @@ public sealed class Simulation
 
             mo.MoveCooldownRemaining -= dt;
             if (mo.MoveCooldownRemaining > 0) continue;
+            if (mo.StunRemaining > 0) { mo.MoveCooldownRemaining = MonsterCadence(mo.Kind); continue; }
 
             // Step first, THEN check mold so the cadence reset below uses
             // the multiplier current AFTER landing (slow takes effect immediately).
@@ -571,6 +597,7 @@ public sealed class Simulation
         var m = _miners[id];
         if (!m.Alive) return false;
         if (m.MoveCooldownRemaining > 0) return false;   // gate before facing/activity
+        if (m.StunRemaining > 0) return false;           // stunned — can't act
 
         m.Facing = dir;
         CancelActivity(m);
@@ -628,6 +655,20 @@ public sealed class Simulation
             ApplyEffect(id, EffectKind.SlowMold, EffectChannel.MoveSpeed,
                         Config.MoldSlowFactor, Config.MoldSlowSeconds);
 
+        // Trip mines: stepping onto a planted trap detonates it.
+        if (m.Alive)
+        {
+            for (int ti = _tripCharges.Count - 1; ti >= 0; ti--)
+            {
+                var tc = _tripCharges[ti];
+                if (tc.Pos != target) continue;
+                _tripCharges.RemoveAt(ti);
+                _events.Add(new TripMineTriggered(tc.OwnerId, id, target));
+                DetonateAt(target, tc.BlastBonus, tc.OwnerId);
+                break;
+            }
+        }
+
         m.MoveCooldownRemaining = EffectiveMoveSeconds(m);   // set from destination tile
         m.CrackDwell = 0;   // moving resets the linger timer; only standing still trips a crack
         return true;
@@ -643,9 +684,34 @@ public sealed class Simulation
     {
         var m = _miners[id];
         if (!m.Alive) return false;
+        if (m.StunRemaining > 0) return false;
+        if (m.Activity != ActivityKind.None) return false;
 
         var target = m.Pos + m.Facing.ToOffset();
-        if (!Grid.InBounds(target) || !Grid.Get(target).IsMinable()) return false;
+        if (!Grid.InBounds(target)) return false;
+
+        // Pickaxe stun: if facing an adjacent rival miner or Goat, stun them instead of mining.
+        if (m.StunCooldown <= 0 && !Grid.Get(target).IsMinable())
+        {
+            foreach (var rival in _miners.Values)
+            {
+                if (rival.Id == id || !rival.Alive || rival.Pos != target) continue;
+                rival.StunRemaining = 0.8;
+                m.StunCooldown = 2.0;
+                _events.Add(new MinerStunned(id, rival.Id));
+                return true;
+            }
+            foreach (var mo in _monsters)
+            {
+                if (mo.Kind != MonsterKind.Goat || !mo.Alive || mo.Pos != target) continue;
+                mo.StunRemaining = 0.8;
+                m.StunCooldown = 2.0;
+                _events.Add(new MonsterStunned(id, mo.Id));
+                return true;
+            }
+        }
+
+        if (!Grid.Get(target).IsMinable()) return false;
 
         m.Activity = ActivityKind.Mining;
         m.ActivityTarget = target;
@@ -659,11 +725,21 @@ public sealed class Simulation
         var m = _miners[id];
         if (!m.Alive) return false;
         if (!Config.DynamiteEnabled) return false;
+        if (m.StunRemaining > 0) return false;
+        if (m.Activity != ActivityKind.None) return false;
 
         var target = m.Pos + m.Facing.ToOffset();
-        if (!Grid.InBounds(target) || !Grid.Get(target).IsBlastable()) return false;
-        if (LiveChargeCount(id) >= Config.MaxLiveChargesPerMiner) return false;
-        if (_charges.Any(c => c.WallPos == target)) return false;
+        if (!Grid.InBounds(target)) return false;
+
+        var tile = Grid.Get(target);
+        bool isWallPlant = tile.IsBlastable()
+                           && !_charges.Any(c => c.WallPos == target)
+                           && LiveChargeCount(id) < Config.MaxLiveChargesPerMiner;
+        bool isTripMine  = Config.TripMinesEnabled
+                           && tile == TileType.Floor
+                           && !_tripCharges.Any(tc => tc.Pos == target);
+
+        if (!isWallPlant && !isTripMine) return false;
 
         m.Activity = ActivityKind.Planting;
         m.ActivityTarget = target;
@@ -687,6 +763,7 @@ public sealed class Simulation
         AdvanceMonsters(dt);
         AdvanceOctopus(dt);
         AdvanceReels();
+        AdvanceFalls(dt);
         // Snapshot charges before advancing activities so newly-planted charges
         // (spawned this tick) are not advanced until the next tick.
         var chargesThisTick = _charges.ToList();
@@ -1155,11 +1232,21 @@ public sealed class Simulation
         }
         else if (kind == ActivityKind.Planting)
         {
-            if (!Grid.InBounds(target) || !Grid.Get(target).IsBlastable()) return;
-            if (LiveChargeCount(m.Id) >= Config.MaxLiveChargesPerMiner) return;
-            if (_charges.Any(c => c.WallPos == target)) return;
-            _charges.Add(new Charge(m.Id, target, Config.FuseSeconds, EffectiveBlastBonus(m.Id)));
-            _events.Add(new ChargePlanted(m.Id, target));
+            if (!Grid.InBounds(target)) return;
+            var tile = Grid.Get(target);
+            if (tile.IsBlastable())
+            {
+                if (LiveChargeCount(m.Id) >= Config.MaxLiveChargesPerMiner) return;
+                if (_charges.Any(c => c.WallPos == target)) return;
+                _charges.Add(new Charge(m.Id, target, Config.FuseSeconds, EffectiveBlastBonus(m.Id)));
+                _events.Add(new ChargePlanted(m.Id, target));
+            }
+            else if (Config.TripMinesEnabled && tile == TileType.Floor
+                     && !_tripCharges.Any(tc => tc.Pos == target))
+            {
+                _tripCharges.Add(new TripCharge(m.Id, target, EffectiveBlastBonus(m.Id)));
+                _events.Add(new TripMinePlanted(m.Id, target));
+            }
         }
         else if (kind == ActivityKind.PlantingDetonator)
         {
@@ -1194,6 +1281,86 @@ public sealed class Simulation
         _events.Add(new ReelDetonated(m.Id, rc.WallPos));
         DetonateAt(rc.WallPos, rc.BlastBonus, rc.OwnerId);
         return true;
+    }
+
+    private static readonly (int dx, int dy)[] CardinalOffsets = { (0,-1),(1,0),(0,1),(-1,0) };
+
+    private void AdvanceFalls(double dt)
+    {
+        if (!Config.RockFallsEnabled) return;
+
+        // Activate when ≥95% of gold has been collected.
+        if (!_rockFallsActive && GoldCollectedFraction >= 0.95)
+        {
+            _rockFallsActive = true;
+            _rockFallTimer = Config.RockFallIntervalSeconds;
+        }
+        if (!_rockFallsActive) return;
+
+        // Advance existing pending falls; resolve any that expire.
+        for (int i = _pendingFalls.Count - 1; i >= 0; i--)
+        {
+            var pf = _pendingFalls[i];
+            pf.SecondsRemaining -= dt;
+            if (pf.SecondsRemaining > 0) continue;
+
+            _pendingFalls.RemoveAt(i);
+            if (!Grid.InBounds(pf.Pos) || Grid.Get(pf.Pos) != TileType.Floor) continue;
+
+            Grid.Set(pf.Pos, TileType.Rock);
+            _events.Add(new RockFell(pf.Pos));
+            foreach (var m in _miners.Values)
+            {
+                if (m.Alive && m.Pos == pf.Pos)
+                {
+                    m.Alive = false;
+                    m.Activity = ActivityKind.None;
+                    m.DeathCause = DeathCause.Crushed;
+                    _events.Add(new MinerCrushed(m.Id));
+                }
+            }
+        }
+
+        // Spawn new falls on the interval timer (max 3 simultaneous).
+        if (_pendingFalls.Count < 3)
+        {
+            _rockFallTimer -= dt;
+            if (_rockFallTimer <= 0)
+            {
+                _rockFallTimer = Config.RockFallIntervalSeconds;
+                var pos = PickRockFallCandidate();
+                if (pos.HasValue)
+                {
+                    double delay = Config.RockFallMinDelay
+                                   + _rng.NextDouble() * (Config.RockFallMaxDelay - Config.RockFallMinDelay);
+                    _pendingFalls.Add(new PendingFall(pos.Value, delay));
+                    _events.Add(new RockFallWarned(pos.Value));
+                }
+            }
+        }
+    }
+
+    // Pick an open floor tile (most floor neighbours) as a fall candidate.
+    private GridPos? PickRockFallCandidate()
+    {
+        var best = new List<GridPos>();
+        int bestScore = 1; // minimum: at least 2 floor neighbours
+        foreach (var p in Grid.Positions())
+        {
+            if (Grid.Get(p) != TileType.Floor) continue;
+            if (_pendingFalls.Exists(pf => pf.Pos == p)) continue;
+
+            int score = 0;
+            foreach (var (dx, dy) in CardinalOffsets)
+            {
+                var nb = new GridPos(p.X + dx, p.Y + dy);
+                if (Grid.InBounds(nb) && Grid.Get(nb) == TileType.Floor) score++;
+            }
+            if (score < bestScore) continue;
+            if (score > bestScore) { best.Clear(); bestScore = score; }
+            best.Add(p);
+        }
+        return best.Count > 0 ? best[_rng.Next(best.Count)] : null;
     }
 
     private void AdvanceReels()

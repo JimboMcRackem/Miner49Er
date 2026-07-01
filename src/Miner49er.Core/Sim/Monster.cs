@@ -14,6 +14,7 @@ public sealed class Monster
     public double MoveCooldownRemaining { get; internal set; }            // per-kind cadence gate
     public double SlowTimer { get; internal set; }                        // seconds of mold-slow remaining
     public double SlowMultiplier { get; internal set; } = 1.0;           // >1 = slower; 1.0 = normal
+    public double StunRemaining { get; internal set; }                    // Goat only: pickaxe stun seconds
 
     internal Monster(int id, GridPos pos, MonsterKind kind)
     {

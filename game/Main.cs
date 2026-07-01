@@ -65,12 +65,15 @@ public partial class Main : Node2D
 		{
 			var hostMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale, nm.MatchExplosive);
 			hostMapCfg.Flooding = nm.MatchFlooding;
+			bool isPvP = nm.MatchMode != GameMode.Expedition;
 			var f1SimCfg = new SimConfig
 			{
 				BaseMoveSeconds  = nm.MatchBaseMoveSeconds,
 				Seed             = seed,
 				DynamiteEnabled  = nm.MatchExplosive != ExplosiveMode.DetonatorsOnly,
 				TreasureHuntMode = nm.MatchMode == GameMode.TreasureHunt,
+				TripMinesEnabled = isPvP,
+				RockFallsEnabled = isPvP,
 			};
 			if (nm.MatchMode == GameMode.DemolitionDerby)
 			{

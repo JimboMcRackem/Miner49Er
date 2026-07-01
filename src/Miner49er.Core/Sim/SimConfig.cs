@@ -60,4 +60,13 @@ public sealed class SimConfig
     public bool TreasureHuntMode { get; set; } = false;
 
     public float MonsterCountMultiplier { get; set; } = 1.0f;
+
+    // Floor traps — plant dynamite on floor tiles; triggers when a miner steps on it.
+    public bool TripMinesEnabled { get; set; } = false;
+
+    // Ceiling rock falls — drops Rock tiles when gold drops to ≤ 5%.
+    public bool RockFallsEnabled { get; set; } = false;
+    public double RockFallMinDelay { get; set; } = 2.0;
+    public double RockFallMaxDelay { get; set; } = 4.0;
+    public double RockFallIntervalSeconds { get; set; } = 6.0;
 }

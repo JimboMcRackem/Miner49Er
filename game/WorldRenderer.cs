@@ -647,6 +647,50 @@ public partial class WorldRenderer : Node2D
 			DrawString(ThemeDB.FallbackFont, new Vector2(sp.X * ts + 4, sp.Y * ts + ts - 6),
 				"$", HorizontalAlignment.Left, -1, 16, new Color(0.1f, 0.05f, 0f));
 		}
+
+		// Trip mines: pulsing red-orange ring on each trapped floor tile.
+		if (_client.TripCharges != null)
+		{
+			float pulse = 0.55f + 0.45f * Mathf.Sin((float)(Time.GetTicksMsec() * 0.004));
+			foreach (var tc in _client.TripCharges)
+			{
+				var tp = new GridPos(tc.X, tc.Y);
+				if (!_client.Fog.IsVisible(tp) && _client.FogRenderer?.SpectatorMode != true) continue;
+				float alpha = (tc.OwnerId == _client.LocalMinerId ? 0.85f : 0.45f) * pulse;
+				var center = new Vector2(tc.X * ts + ts / 2f, tc.Y * ts + ts / 2f);
+				DrawArc(center, ts * 0.38f, 0, Mathf.Tau, 32, new Color(1f, 0.30f, 0f, alpha), 2.5f);
+				DrawArc(center, ts * 0.20f, 0, Mathf.Tau, 16, new Color(1f, 0.60f, 0f, alpha * 0.6f), 1.5f);
+			}
+		}
+
+		// Pending rock falls: growing dark shadow circle, full opacity at impact.
+		if (_client.PendingFalls != null)
+			foreach (var pf in _client.PendingFalls)
+			{
+				var pfp = new GridPos(pf.X, pf.Y);
+				if (!_client.Fog.IsVisible(pfp) && _client.FogRenderer?.SpectatorMode != true) continue;
+				float radius = ts * 0.46f * pf.FractionElapsed;
+				var center = new Vector2(pf.X * ts + ts / 2f, pf.Y * ts + ts / 2f);
+				DrawCircle(center, radius, new Color(0f, 0f, 0f, 0.60f));
+				DrawArc(center, radius, 0, Mathf.Tau, 32, new Color(0.4f, 0.2f, 0f, 0.8f), 1.5f);
+			}
+
+		// Stun stars: three yellow dots orbiting above stunned miners / Goat.
+		double stunNow = Time.GetTicksMsec() / 1000.0;
+		foreach (var m in _client.Miners)
+		{
+			if (!m.Alive || m.StunRemaining <= 0f) continue;
+			var mp = new GridPos(m.X, m.Y);
+			if (!_client.Fog.IsVisible(mp) && _client.FogRenderer?.SpectatorMode != true) continue;
+			DrawStunStars(_client.MinerVisualPos(m.Id, m.X, m.Y), stunNow, ts);
+		}
+		foreach (var mo in _client.Monsters)
+		{
+			if (!mo.Alive || mo.Kind != MonsterKind.Goat || mo.StunRemaining <= 0f) continue;
+			var mp = new GridPos(mo.X, mo.Y);
+			if (!_client.Fog.IsVisible(mp) && _client.FogRenderer?.SpectatorMode != true) continue;
+			DrawStunStars(_client.MonsterVisualPos(mo.Id, mo.X, mo.Y), stunNow, ts);
+		}
 	}
 
 	private static Color ItemColor(ItemKind kind) => kind switch
@@ -714,6 +758,20 @@ public partial class WorldRenderer : Node2D
 		ItemKind.IdolSkull        => "Skl",
 		_                         => "?",
 	};
+
+	// Three yellow dots orbiting above a stunned miner's/goat's head, rotating at 180°/s.
+	private void DrawStunStars(Vector2 pos, double t, int ts)
+	{
+		float cx = pos.X;
+		float cy = pos.Y - ts * 0.60f;
+		float orbitR = ts * 0.22f;
+		for (int i = 0; i < 3; i++)
+		{
+			float angle = (float)(t * Mathf.Pi) + i * Mathf.Tau / 3f;
+			var dot = new Vector2(cx + Mathf.Cos(angle) * orbitR, cy + Mathf.Sin(angle) * orbitR * 0.5f);
+			DrawCircle(dot, 2.5f, new Color(1f, 0.95f, 0.15f));
+		}
+	}
 
 	private void DrawShimmer(int x, int y, Color col, int ts)
 	{

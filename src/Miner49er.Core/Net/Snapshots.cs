@@ -5,7 +5,8 @@ namespace Miner49er.Core.Net;
 public readonly record struct MinerSnapshot(
     int Id, int X, int Y, int Facing, bool Alive, int Gold, int Activity,
     double ActivityRemaining, double MoveSeconds, int VisionRadius, int Held,
-    DeathCause Cause = DeathCause.None, float InvulRemaining = 0f, int StoneCount = 0);
+    DeathCause Cause = DeathCause.None, float InvulRemaining = 0f, int StoneCount = 0,
+    float StunRemaining = 0f);
 
 public readonly record struct ChargeSnapshot(int OwnerId, int X, int Y, double FuseRemaining);
 
@@ -14,7 +15,7 @@ public readonly record struct ItemSnapshot(int X, int Y, ItemKind Kind, ItemPlac
 public readonly record struct MoldSnapshot(int X, int Y, double RemainingSeconds);
 
 public readonly record struct MonsterSnapshot(
-    int Id, int X, int Y, int Facing, MonsterKind Kind, bool Alive);
+    int Id, int X, int Y, int Facing, MonsterKind Kind, bool Alive, float StunRemaining = 0f);
 
 public readonly record struct ReelChargeSnapshot(int OwnerId, int WallX, int WallY);
 
@@ -26,6 +27,8 @@ public readonly record struct OctopusSnapshot(int X, int Y);
 
 public readonly record struct TreasureProgressSnapshot(int MinerId, int Found);
 public readonly record struct PlacedChestSnapshot(int MinerId, int X, int Y);
+public readonly record struct TripChargeSnapshot(int OwnerId, int X, int Y);
+public readonly record struct PendingFallSnapshot(int X, int Y, float FractionElapsed);
 
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,
@@ -35,6 +38,8 @@ public sealed record WorldSnapshot(
     OctopusSnapshot? Octopus = null, int Lives = 3,
     IReadOnlyList<ReelChargeSnapshot>? ReelCharges = null,
     IReadOnlyList<TreasureProgressSnapshot>? TreasureProgress = null,
-    IReadOnlyList<PlacedChestSnapshot>?      PlacedChests     = null);
+    IReadOnlyList<PlacedChestSnapshot>?      PlacedChests     = null,
+    IReadOnlyList<TripChargeSnapshot>?       TripCharges      = null,
+    IReadOnlyList<PendingFallSnapshot>?      PendingFalls     = null);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);

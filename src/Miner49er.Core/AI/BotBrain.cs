@@ -81,6 +81,23 @@ public sealed class BotBrain
             }
         }
 
+        // Rock fall avoidance: all skill levels flee a pending fall within 3 tiles.
+        foreach (var pf in sim.PendingFalls)
+        {
+            if (miner.Pos.ChebyshevTo(pf.Pos) > 3) continue;
+            var fleeTarget = FleeFrom(sim.Grid, miner.Pos, pf.Pos);
+            if (fleeTarget != null)
+            {
+                int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false);
+                if (fleeDir != -1)
+                {
+                    _ticksUntilReeval = 0;
+                    return new BotAction(fleeDir);
+                }
+            }
+            break; // only react to the nearest fall
+        }
+
         if (_goal == null) return BotAction.Idle;
 
         bool passRock = Skill >= BotSkill.Foreman;

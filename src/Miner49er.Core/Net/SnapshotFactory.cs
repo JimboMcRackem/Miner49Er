@@ -14,7 +14,7 @@ public static class SnapshotFactory
                 m.GoldCollected, (int)m.Activity, m.ActivitySecondsRemaining,
                 sim.EffectiveMoveSeconds(m.Id), sim.EffectiveVisionRadius(m.Id),
                 m.Held is { } h ? (int)h : -1, m.DeathCause, (float)m.InvulnerableRemaining,
-                m.StoneCount))
+                m.StoneCount, (float)m.StunRemaining))
             .ToList();
 
         var charges = sim.Charges
@@ -31,7 +31,8 @@ public static class SnapshotFactory
 
         var monsters = sim.Monsters
             .Select(mo => new MonsterSnapshot(
-                mo.Id, mo.Pos.X, mo.Pos.Y, (int)mo.Facing, mo.Kind, mo.Alive))
+                mo.Id, mo.Pos.X, mo.Pos.Y, (int)mo.Facing, mo.Kind, mo.Alive,
+                (float)mo.StunRemaining))
             .ToList();
 
         OctopusSnapshot? octopus = sim.Octopus is { } oct
@@ -54,8 +55,16 @@ public static class SnapshotFactory
                 .ToList();
         }
 
+        var tripCharges = sim.TripCharges
+            .Select(tc => new TripChargeSnapshot(tc.OwnerId, tc.Pos.X, tc.Pos.Y))
+            .ToList();
+
+        var pendingFalls = sim.PendingFalls
+            .Select(pf => new PendingFallSnapshot(pf.Pos.X, pf.Pos.Y, (float)pf.FractionElapsed))
+            .ToList();
+
         return new WorldSnapshot(tick, miners, charges, items, molds, monsters,
             (float)sim.SecondsRemaining, sim.EscapeOpen, octopus, lives, reelCharges,
-            treasureProgress, placedChests);
+            treasureProgress, placedChests, tripCharges, pendingFalls);
     }
 }
