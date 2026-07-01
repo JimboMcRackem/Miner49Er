@@ -48,12 +48,19 @@ public static class SfxLibrary
 	public static AudioStream ZombieGrunt => Get("zombie_grunt", () => Noise(0.18f, 140f, decay: true));    // guttural grunt
 	public static AudioStream? Music => GetOptional("music_loop");
 
-	// Returns a random track from any music_*.ogg/wav files in assets/audio/,
-	// avoiding repeating the last track played when more than one is available.
-	public static AudioStream? PickMusic()
+	// Returns a track from the music pool. When seed is provided all callers with
+	// the same seed pick the same track (used so all players in a match hear the same
+	// music). When seed is null a random non-repeating track is chosen.
+	public static AudioStream? PickMusic(int? seed = null)
 	{
 		_musicPool ??= BuildMusicPool();
 		if (_musicPool.Count == 0) return null;
+		if (seed.HasValue)
+		{
+			int idx = Math.Abs(seed.Value) % _musicPool.Count;
+			_lastMusic = _musicPool[idx];
+			return _lastMusic;
+		}
 		if (_musicPool.Count == 1) return _musicPool[0];
 		var rng = new Random();
 		AudioStream pick;

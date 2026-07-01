@@ -116,6 +116,13 @@ public partial class Main : Node2D
 					peerToMiner[peer] = minerId;
 				}
 			}
+			if (nm.MatchExplosive == ExplosiveMode.DetonatorsOnly)
+			{
+				foreach (var minerId in peerToMiner.Values)
+					sim.SetMinerHeld(minerId, ItemKind.Detonator);
+				foreach (var (minerId, _) in botConfigs)
+					sim.SetMinerHeld(minerId, ItemKind.Detonator);
+			}
 			if (nm.MatchMode == GameMode.Expedition)
 			{
 				int monsterCount = MonsterRoster.CountFor(hostMap.Grid.Width, hostMap.Grid.Height);
@@ -313,7 +320,7 @@ public partial class Main : Node2D
 	private void OnNewFloor(int floor)
 	{
 		_client.ResetFloor(floor);
-		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic());
+		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed ^ floor));
 
 		var bannerMod = FloorModifiers.Pick(NetworkManager.Instance.MatchSeed, floor);
 		string bannerText = floor == 21 ? "BOSS FLOOR"

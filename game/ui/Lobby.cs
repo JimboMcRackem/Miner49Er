@@ -25,6 +25,7 @@ public partial class Lobby : Control
 	private Button _copyBtn = null!;
 	private OptionButton _botSkillPicker = null!;
 	private Button _addBotBtn = null!;
+	private Label? _pendingModeLabel;
 
 	public override void _Ready()
 	{
@@ -86,7 +87,11 @@ public partial class Lobby : Control
 		_mapSizePicker.Select(sizeIdx);
 		leftCol.AddChild(_mapSizePicker);
 
-		_modePicker.ItemSelected += _ => RefreshModeControls();
+		_modePicker.ItemSelected += _ =>
+		{
+			RefreshModeControls();
+			NetworkManager.Instance.BroadcastPendingMode(_modePicker.GetSelectedId());
+		};
 
 		_floodCheck = new CheckBox { Text = "Flooding", ButtonPressed = savedFlood };
 		_floodCheck.Visible = NetworkManager.Instance.IsHost;
@@ -129,6 +134,13 @@ public partial class Lobby : Control
 		var title = new Label { Text = "LOBBY" };
 		title.AddThemeFontSizeOverride("font_size", 32);
 		centerCol.AddChild(title);
+
+		if (!NetworkManager.Instance.IsHost)
+		{
+			_pendingModeLabel = new Label { Text = "" };
+			_pendingModeLabel.AddThemeFontSizeOverride("font_size", 18);
+			centerCol.AddChild(_pendingModeLabel);
+		}
 
 		_list = new VBoxContainer { CustomMinimumSize = new Vector2(280, 200) };
 		centerCol.AddChild(_list);
@@ -203,6 +215,8 @@ public partial class Lobby : Control
 		Refresh();
 		RefreshInternet();
 		RefreshModeControls();
+		if (NetworkManager.Instance.IsHost)
+			NetworkManager.Instance.BroadcastPendingMode(_modePicker.GetSelectedId());
 	}
 
 	private void RefreshModeControls()
@@ -237,8 +251,21 @@ public partial class Lobby : Control
 		NetworkManager.Instance.InternetStatusChanged -= RefreshInternet;
 	}
 
+	private static string ModeName(int modeId) => (GameMode)modeId switch
+	{
+		GameMode.LastManStanding => "Last Man Standing",
+		GameMode.GoldRush        => "Gold Rush",
+		GameMode.ReachCenter     => "Reach Center",
+		GameMode.Expedition      => "Expedition",
+		GameMode.TreasureHunt    => "Treasure Hunt",
+		GameMode.DemolitionDerby => "Demolition Derby",
+		_                        => "Unknown",
+	};
+
 	private void Refresh()
 	{
+		if (_pendingModeLabel != null)
+			_pendingModeLabel.Text = $"Mode: {ModeName(NetworkManager.Instance.PendingLobbyMode)}";
 		foreach (var c in _list.GetChildren()) c.QueueFree();
 		bool isHost = NetworkManager.Instance.IsHost;
 		foreach (var (id, info) in NetworkManager.Instance.Players)

@@ -260,6 +260,23 @@ public partial class NetworkManager : Node
 		return _botSkills.Count % PlayerColors.Palette.Length;
 	}
 
+	// Pending mode (host selection visible to joiners during lobby) ─────────
+	public int PendingLobbyMode { get; private set; } = 0;
+
+	public void BroadcastPendingMode(int modeId)
+	{
+		if (!IsHost) return;
+		PendingLobbyMode = modeId;
+		Rpc(nameof(ReceivePendingMode), modeId);
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.Authority)]
+	public void ReceivePendingMode(int modeId)
+	{
+		PendingLobbyMode = modeId;
+		LobbyChanged?.Invoke();
+	}
+
 	private void BroadcastLobby()
 	{
 		var ids = new long[Players.Count];

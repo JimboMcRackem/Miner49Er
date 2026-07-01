@@ -122,6 +122,12 @@ public sealed class Simulation
 
     public Miner GetMiner(int id) => _miners[id];
 
+    public void SetMinerHeld(int minerId, ItemKind? item)
+    {
+        if (_miners.TryGetValue(minerId, out var m))
+            m.Held = item;
+    }
+
     public void KillMiner(int id)
     {
         var m = _miners[id];
@@ -412,9 +418,7 @@ public sealed class Simulation
     {
         if (_monsters.Count == 0) return;
 
-        // Single-player: the lone living miner is the target. OrderBy(Id) keeps both the
-        // target choice and the monster step order deterministic.
-        Miner? target = _miners.Values.Where(m => m.Alive).OrderBy(m => m.Id).FirstOrDefault();
+        var aliveMiners = _miners.Values.Where(m => m.Alive).ToList();
 
         foreach (var mo in _monsters.OrderBy(x => x.Id))
         {
@@ -431,6 +435,9 @@ public sealed class Simulation
 
             // Step first, THEN check mold so the cadence reset below uses
             // the multiplier current AFTER landing (slow takes effect immediately).
+            var target = aliveMiners.Count > 0
+                ? aliveMiners.MinBy(m => m.Pos.ManhattanTo(mo.Pos))
+                : null;
             StepMonster(mo, target);
 
             if (mo.Alive && mo.Kind != MonsterKind.Ghost && _molds.Any(mp => mp.Pos == mo.Pos))

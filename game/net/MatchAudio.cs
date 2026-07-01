@@ -36,7 +36,7 @@ public partial class MatchAudio : Node2D
 	{
 		_client = client;
 		_client.Exploded += OnExploded;
-		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic());
+		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed));
 		SpawnDrips();
 	}
 
