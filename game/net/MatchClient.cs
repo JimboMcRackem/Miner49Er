@@ -78,6 +78,7 @@ public partial class MatchClient : Node2D
 		_terrainMap = new TerrainMap { Name = "TerrainMap", ZIndex = -10 };
 		sceneRoot.AddChild(_terrainMap);
 		_terrainMap.Init(this);
+		_terrainMap.SetFloor(NetworkManager.Instance.MatchFloor);
 
 		_world = new WorldRenderer { Name = "WorldRenderer", ZIndex = -9 };
 		sceneRoot.AddChild(_world);
@@ -176,6 +177,7 @@ public partial class MatchClient : Node2D
 		_terrainMap = new TerrainMap { Name = "TerrainMap", ZIndex = -10 };
 		_sceneRoot.AddChild(_terrainMap);
 		_terrainMap.Init(this);
+		_terrainMap.SetFloor(floor);
 
 		_world = new WorldRenderer { Name = "WorldRenderer", ZIndex = -9 };
 		_sceneRoot.AddChild(_world);

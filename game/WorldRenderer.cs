@@ -46,7 +46,8 @@ public partial class WorldRenderer : Node2D
 	private Texture2D? _chargeTex;
 	private Texture2D? _toolboxTex;
 	private Texture2D? _moldPatchTex;
-	private Texture2D? _goldRockTex;
+	private Texture2D? _goldRockTex;      // base rock texture drawn under gold veins
+	private Texture2D? _rockBaseTex;      // plain dark rock, used as gold-vein base
 	private Texture2D? _plankTex;
 	private Texture2D? _lavaVentTex;
 	private Texture2D? _crumbledTex;
@@ -75,6 +76,7 @@ public partial class WorldRenderer : Node2D
 		_toolboxTex   = GD.Load<Texture2D>("res://assets/objects/toolbox.png");
 		_moldPatchTex = GD.Load<Texture2D>("res://assets/objects/mold_patch.png");
 		_goldRockTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_6.png");
+		_rockBaseTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_0.png");
 		_plankTex     = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_1.png");
 		_lavaVentTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_5.png");
 		_crumbledTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_11.png");
@@ -273,7 +275,9 @@ public partial class WorldRenderer : Node2D
 			switch (grid.Get(p))
 			{
 				case TileType.GoldRock:
-					if (_goldRockTex != null) DrawTextureRect(_goldRockTex, r, false);
+					// Draw plain rock base then overlay prominent gold ore veins.
+					if (_rockBaseTex != null) DrawTextureRect(_rockBaseTex, r, false);
+					DrawGoldVeins(p.X, p.Y, ts);
 					break;
 				case TileType.Plank:
 					if (_plankTex != null) DrawTextureRect(_plankTex, r, false);
@@ -715,5 +719,31 @@ public partial class WorldRenderer : Node2D
 	{
 		var c = new Vector2(x * ts + ts / 2f, y * ts + ts / 2f);
 		DrawCircle(c, ts * 0.42f, col);
+	}
+
+	// Draws prominent diagonal gold ore veins on a GoldRock tile.
+	// Two veins per tile — direction and offset are deterministic from tile position.
+	private void DrawGoldVeins(int tx, int ty, int ts)
+	{
+		uint h = (uint)(tx * 73856093 ^ ty * 19349663);
+		float x0 = tx * ts, y0 = ty * ts;
+
+		// Primary thick vein — diagonal direction alternates by hash
+		bool nw2se = (h & 1u) == 0;
+		var va = nw2se ? new Vector2(x0 + 3, y0 + 3)      : new Vector2(x0 + ts - 3, y0 + 3);
+		var vb = nw2se ? new Vector2(x0 + ts - 3, y0 + ts - 3) : new Vector2(x0 + 3, y0 + ts - 3);
+		DrawLine(va, vb, new Color(1.00f, 0.85f, 0.05f), 3.5f);   // bright gold
+		DrawLine(va, vb, new Color(0.60f, 0.45f, 0.01f), 1.5f);   // dark shadow centre
+
+		// Secondary thinner vein — offset and perpendicular tendency
+		float ox = 4f + (h >> 4 & 7u);
+		float oy = 3f + (h >> 8 & 5u);
+		var vc = new Vector2(x0 + ox,         y0 + ts * 0.35f);
+		var vd = new Vector2(x0 + ts - ox,    y0 + ts * 0.70f);
+		DrawLine(vc, vd, new Color(0.95f, 0.78f, 0.08f, 0.90f), 2.0f);
+
+		// Small gold nugget dots at vein ends
+		DrawCircle(va, 2.5f, new Color(1.00f, 0.90f, 0.20f));
+		DrawCircle(vb, 2.5f, new Color(1.00f, 0.90f, 0.20f));
 	}
 }

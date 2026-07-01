@@ -19,6 +19,20 @@ public partial class TerrainMap : Node2D
 	private bool _ready;
 	private int _sourceId;
 
+	// Expedition dungeon: tint wall/floor layer to reflect depth.
+	// Bands: 1-5 normal, 6-10 slate-blue, 11-15 purple granite, 16+ volcanic red.
+	public void SetFloor(int floor)
+	{
+		if (_layer == null) return;
+		_layer.Modulate = floor switch
+		{
+			<= 5  => new Color(1.00f, 1.00f, 1.00f),
+			<= 10 => new Color(0.80f, 0.86f, 1.10f),
+			<= 15 => new Color(0.88f, 0.76f, 1.12f),
+			_     => new Color(1.12f, 0.74f, 0.68f),
+		};
+	}
+
 	// Terrain ids — MUST match the converter's TERRAIN_REGISTRY.
 	private const int Wall      = 0;
 	private const int Floor     = 1;
