@@ -118,6 +118,29 @@ public sealed class BotBrain
             }
         }
 
+        // Treasure Hunt: place chest, pick up idol, navigate to deposit.
+        if (mode == GameMode.TreasureHunt)
+        {
+            var (idolA, idolB) = TreasureAssignment.For(sim.Config.Seed, MinerId);
+
+            // Place chest at current tile the moment we're idle.
+            if (miner.Held == ItemKind.TreasureChest)
+                return new BotAction(-1, use: true);
+
+            // Pick up assigned idol when standing on it.
+            foreach (var it in sim.Items)
+                if (it.Placement == ItemPlacement.Loose && it.Pos == miner.Pos
+                    && (it.Kind == idolA || it.Kind == idolB))
+                    return new BotAction(-1, use: true);
+
+            // While carrying an assigned idol, override goal to own chest tile.
+            if (miner.Held is { } h && h.IsIdol() && (h == idolA || h == idolB))
+            {
+                var chestAt = sim.ChestPosFor(MinerId);
+                if (chestAt.HasValue) { _goal = chestAt.Value; _ticksUntilReeval = 3; }
+            }
+        }
+
         if (_goal == null) return BotAction.Idle;
 
         bool passRock = Skill >= BotSkill.Foreman;

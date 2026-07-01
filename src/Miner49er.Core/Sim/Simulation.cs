@@ -312,6 +312,9 @@ public sealed class Simulation
         return list;
     }
 
+    public GridPos? ChestPosFor(int minerId) =>
+        _chestPos.TryGetValue(minerId, out var pos) ? pos : null;
+
     internal void GiveItemForTest(int minerId, ItemKind kind)
     {
         if (_miners.TryGetValue(minerId, out var m)) m.Held = kind;
