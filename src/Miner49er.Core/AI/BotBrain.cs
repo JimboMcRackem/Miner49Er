@@ -178,6 +178,10 @@ public sealed class BotBrain
 
     private GridPos? PickGoal(Simulation sim, GameMode mode, Miner miner)
     {
+        // All skill levels rush the exit when it opens — floor won't advance until every alive miner is there.
+        if (mode == GameMode.Expedition && sim.EscapeOpen && sim.EscapeTile is { } esc)
+            return esc;
+
         if (mode == GameMode.DemolitionDerby) return DerbyGoal(sim, miner);
         if (mode == GameMode.LastManStanding && Skill >= BotSkill.Foreman)
         {
