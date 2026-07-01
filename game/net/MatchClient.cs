@@ -51,6 +51,9 @@ public partial class MatchClient : Node2D
 	public OctopusSnapshot? Octopus { get; private set; }
 	public IReadOnlyList<TreasureProgressSnapshot>? TreasureProgress { get; private set; }
 	public IReadOnlyList<PlacedChestSnapshot>?      PlacedChests     { get; private set; }
+	public IReadOnlyList<TripChargeSnapshot>?        TripCharges      { get; private set; }
+	public IReadOnlyList<PendingFallSnapshot>?       PendingFalls     { get; private set; }
+	public FogRenderer? FogRenderer { get; private set; }
 
 	private TerrainMap _terrainMap = null!;
 	private WorldRenderer _world = null!;
@@ -87,6 +90,7 @@ public partial class MatchClient : Node2D
 		_fogRenderer = new FogRenderer { Name = "FogRenderer", ZIndex = -5 };
 		sceneRoot.AddChild(_fogRenderer);
 		_fogRenderer.Init(this);
+		FogRenderer = _fogRenderer;
 
 		_minerTex      = BuildMinerTextures();
 		_minerWalkTex  = BuildMinerWalkTextures();
@@ -134,6 +138,8 @@ public partial class MatchClient : Node2D
 		Lives            = update.Snapshot.Lives;
 		TreasureProgress = update.Snapshot.TreasureProgress;
 		PlacedChests     = update.Snapshot.PlacedChests;
+		TripCharges      = update.Snapshot.TripCharges;
+		PendingFalls     = update.Snapshot.PendingFalls;
 		_reelChargeSnaps = new List<ReelChargeSnapshot>(update.Snapshot.ReelCharges ?? System.Array.Empty<ReelChargeSnapshot>());
 		UpdateFog();
 	}
@@ -186,6 +192,7 @@ public partial class MatchClient : Node2D
 		_fogRenderer = new FogRenderer { Name = "FogRenderer", ZIndex = -5 };
 		_sceneRoot.AddChild(_fogRenderer);
 		_fogRenderer.Init(this);
+		FogRenderer = _fogRenderer;
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -242,9 +249,10 @@ public partial class MatchClient : Node2D
 			_cam.Zoom = _cam.Zoom.Lerp(new Vector2(2f, 2f), Mathf.Min(1f, (float)delta * 4f));
 			if (_fogRenderer != null) _fogRenderer.SpectatorMode = false;
 		}
-		else if (_cam != null)
+		else if (_cam != null && NetworkManager.Instance.MatchMode != GameMode.Expedition)
 		{
-			// Dead — zoom out to show the whole map so the player can watch the action.
+			// Dead in a single-life mode — zoom out to show the whole map so the player can watch the action.
+			// Expedition uses its own black-fade overlay and respawns the miner, so we leave it alone.
 			float mapW = Grid.Width  * TileSize;
 			float mapH = Grid.Height * TileSize;
 			var vpSize = GetViewport().GetVisibleRect().Size;
