@@ -728,22 +728,22 @@ public partial class WorldRenderer : Node2D
 		uint h = (uint)(tx * 73856093 ^ ty * 19349663);
 		float x0 = tx * ts, y0 = ty * ts;
 
-		// Primary thick vein — diagonal direction alternates by hash
+		// Primary vein — diagonal, direction and inset randomised per tile
 		bool nw2se = (h & 1u) == 0;
-		var va = nw2se ? new Vector2(x0 + 3, y0 + 3)      : new Vector2(x0 + ts - 3, y0 + 3);
-		var vb = nw2se ? new Vector2(x0 + ts - 3, y0 + ts - 3) : new Vector2(x0 + 3, y0 + ts - 3);
-		DrawLine(va, vb, new Color(1.00f, 0.85f, 0.05f), 3.5f);   // bright gold
-		DrawLine(va, vb, new Color(0.60f, 0.45f, 0.01f), 1.5f);   // dark shadow centre
+		float inA = 5f + (h >> 2 & 7u);   // 5–12 px inset at start
+		float inB = 5f + (h >> 6 & 7u);   // 5–12 px inset at end
+		var va = nw2se ? new Vector2(x0 + inA, y0 + inA)           : new Vector2(x0 + ts - inA, y0 + inA);
+		var vb = nw2se ? new Vector2(x0 + ts - inB, y0 + ts - inB) : new Vector2(x0 + inB,      y0 + ts - inB);
+		DrawLine(va, vb, new Color(0.90f, 0.72f, 0.04f, 0.55f), 2.0f);
 
-		// Secondary thinner vein — offset and perpendicular tendency
-		float ox = 4f + (h >> 4 & 7u);
-		float oy = 3f + (h >> 8 & 5u);
-		var vc = new Vector2(x0 + ox,         y0 + ts * 0.35f);
-		var vd = new Vector2(x0 + ts - ox,    y0 + ts * 0.70f);
-		DrawLine(vc, vd, new Color(0.95f, 0.78f, 0.08f, 0.90f), 2.0f);
-
-		// Small gold nugget dots at vein ends
-		DrawCircle(va, 2.5f, new Color(1.00f, 0.90f, 0.20f));
-		DrawCircle(vb, 2.5f, new Color(1.00f, 0.90f, 0.20f));
+		// Secondary short vein — only drawn on ~60 % of tiles to add variety
+		if ((h >> 10 & 3u) != 0)
+		{
+			float ox = 6f + (h >> 4 & 7u);
+			float oy = 4f + (h >> 8 & 5u);
+			var vc = new Vector2(x0 + ox,          y0 + ts * 0.30f + oy * 0.5f);
+			var vd = new Vector2(x0 + ts - ox - 2, y0 + ts * 0.65f + oy * 0.3f);
+			DrawLine(vc, vd, new Color(0.80f, 0.65f, 0.06f, 0.40f), 1.5f);
+		}
 	}
 }
