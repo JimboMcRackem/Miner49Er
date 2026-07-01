@@ -14,4 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="src/Miner49er.Core/Miner49er.Core.csproj" />
   </ItemGroup>
+  <Target Name="GenerateVersionFile" BeforeTargets="BeforeBuild">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\gen-version.ps1&quot;" />
+  </Target>
 </Project>

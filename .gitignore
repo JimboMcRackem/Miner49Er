@@ -23,6 +23,9 @@ mono_crash.*
 /assets/audio/*.mp3
 /assets/audio/*.import
 
+# Auto-generated version file (regenerated on every build from version.txt + git)
+game/GameVersion.g.cs
+
 # OS / editor
 .DS_Store
 Thumbs.db

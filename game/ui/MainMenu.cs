@@ -70,6 +70,15 @@ public partial class MainMenu : Control
 
 		NetworkManager.Instance.JoinFailed    += OnJoinFailed;
 		NetworkManager.Instance.MatchStarting += OnMatchStarting;
+
+		var verLabel = new Label { Text = GameVersion.Full, HorizontalAlignment = HorizontalAlignment.Right };
+		verLabel.SetAnchorsPreset(LayoutPreset.BottomRight);
+		verLabel.OffsetLeft = -190f;
+		verLabel.OffsetTop  = -22f;
+		verLabel.AddThemeFontSizeOverride("font_size", 11);
+		verLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 1f, 0.45f));
+		verLabel.MouseFilter = MouseFilterEnum.Ignore;
+		AddChild(verLabel);
 	}
 
 	public override void _ExitTree()
