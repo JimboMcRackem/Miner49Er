@@ -29,6 +29,9 @@ public sealed class BotBrain
         var miner = sim.GetMiner(MinerId);
         if (!miner.Alive) return BotAction.Idle;
 
+        // Let any in-progress activity finish — sending a direction cancels mining.
+        if (miner.Activity != ActivityKind.None) return BotAction.Idle;
+
         _ticksUntilReeval--;
         if (_ticksUntilReeval <= 0)
         {
