@@ -269,9 +269,12 @@ public partial class MatchClient : Node2D
 
 	public override void _Draw()
 	{
+		bool spectating = _fogRenderer?.SpectatorMode == true;
 		foreach (var m in _miners)
 		{
 			if (!m.Alive) continue;
+			// Hide rivals outside the local vision circle unless dead and spectating.
+			if (m.Id != LocalMinerId && !spectating && !Fog.IsVisible(new GridPos(m.X, m.Y))) continue;
 			var p = _visualPos.TryGetValue(m.Id, out var v) ? v : Vector2.Zero;
 
 			float alpha = 1f;

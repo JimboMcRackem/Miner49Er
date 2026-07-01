@@ -319,8 +319,10 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
+		bool spectating = _client.FogRenderer?.SpectatorMode == true;
 		foreach (var c in _client.Charges)
 		{
+			if (!_client.Fog.IsVisible(new GridPos(c.X, c.Y)) && !spectating) continue;
 			var r = new Rect2(c.X * ts, c.Y * ts, ts, ts);
 			if (_chargeTex != null)
 				DrawTextureRect(_chargeTex, r, false);
@@ -341,6 +343,7 @@ public partial class WorldRenderer : Node2D
 		// Reel charges: red marker on wall tile + orange wire to owner.
 		foreach (var rc in _client.ReelCharges)
 		{
+			if (!_client.Fog.IsVisible(new GridPos(rc.WallX, rc.WallY)) && !spectating) continue;
 			var wallCenter = new Vector2(rc.WallX * ts + ts / 2f, rc.WallY * ts + ts / 2f);
 			DrawCircle(wallCenter, ts * 0.22f, ReelChargeColor);
 			DrawCircle(wallCenter, ts * 0.14f, new Color(1f, 0.85f, 0.1f, 0.9f));
@@ -465,6 +468,7 @@ public partial class WorldRenderer : Node2D
 		foreach (var m in _client.Miners)
 		{
 			if (!m.Alive || m.Held != (int)ItemKind.Lantern) continue;
+			if (!_client.Fog.IsVisible(new GridPos(m.X, m.Y)) && !spectating) continue;
 			var center = new Vector2(m.X * ts + ts / 2f, m.Y * ts + ts / 2f);
 			DrawTextureRect(_lanternGlowTex,
 				new Rect2(center.X - glowPx / 2f, center.Y - glowPx / 2f, glowPx, glowPx),
@@ -606,6 +610,7 @@ public partial class WorldRenderer : Node2D
 		if (_client.PlacedChests != null)
 			foreach (var pc in _client.PlacedChests)
 			{
+				if (!_client.Fog.IsVisible(new GridPos(pc.X, pc.Y)) && !spectating) continue;
 				var pcRect   = new Rect2(pc.X * ts, pc.Y * ts, ts, ts);
 				var pcCenter = new Vector2(pc.X * ts + ts / 2f, pc.Y * ts + ts / 2f);
 				if (_itemTex.TryGetValue(ItemKind.TreasureChest, out var pctex))
