@@ -59,6 +59,25 @@ public sealed class BotBrain
             }
         }
 
+        // Monster avoidance: Miner+ flees monsters within 2 tiles
+        if (Skill >= BotSkill.Miner)
+        {
+            var nearestMonster = NearestMonsterPos(sim, miner);
+            if (nearestMonster.HasValue && miner.Pos.ChebyshevTo(nearestMonster.Value) <= 2)
+            {
+                var fleeTarget = FleeFrom(sim.Grid, miner.Pos, nearestMonster.Value);
+                if (fleeTarget != null)
+                {
+                    int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false);
+                    if (fleeDir != -1)
+                    {
+                        _ticksUntilReeval = 0;
+                        return new BotAction(fleeDir);
+                    }
+                }
+            }
+        }
+
         if (_goal == null) return BotAction.Idle;
 
         bool passRock = Skill >= BotSkill.Foreman;
@@ -71,10 +90,18 @@ public sealed class BotBrain
         var nextTile = sim.Grid.InBounds(nextPos) ? sim.Grid.Get(nextPos) : TileType.Rock;
         bool mine = nextTile.IsMinable();
 
+        // Hold the current goal while actively mining so the bot doesn't drift mid-swing
+        if (mine)
+            _ticksUntilReeval = Math.Max(_ticksUntilReeval, 30);
+
         bool derby = mode == GameMode.DemolitionDerby;
+        bool lms   = mode == GameMode.LastManStanding;
         bool plant = derby
             ? Skill >= BotSkill.Miner && nextTile.IsMinable()
-            : Skill == BotSkill.DynamiteDan && GoldClusterAdjacent(sim.Grid, miner.Pos);
+            : lms
+                ? (Skill >= BotSkill.Foreman && NearestRivalDist(sim, miner) <= 2 && nextTile.IsMinable())
+                    || (Skill == BotSkill.DynamiteDan && GoldClusterAdjacent(sim.Grid, miner.Pos))
+                : Skill == BotSkill.DynamiteDan && GoldClusterAdjacent(sim.Grid, miner.Pos);
         bool throwStone = miner.StoneCount > 0 && NearestRivalDist(sim, miner) <= 2
                           && (derby ? Skill >= BotSkill.Miner : Skill == BotSkill.DynamiteDan);
 
@@ -86,6 +113,12 @@ public sealed class BotBrain
     private GridPos? PickGoal(Simulation sim, GameMode mode, Miner miner)
     {
         if (mode == GameMode.DemolitionDerby) return DerbyGoal(sim, miner);
+        if (mode == GameMode.LastManStanding && Skill >= BotSkill.Foreman)
+        {
+            var nearest = NearestRivalPos(sim, miner);
+            if (nearest.HasValue && miner.Pos.ChebyshevTo(nearest.Value) <= 6)
+                return nearest;
+        }
         return Skill switch
         {
             BotSkill.Greenhorn   => RandomFloor(sim.Grid, miner.Pos),
@@ -113,7 +146,7 @@ public sealed class BotBrain
     {
         for (int i = 0; i < 20; i++)
         {
-            var p = new GridPos(from.X + _rng.Next(-10, 11), from.Y + _rng.Next(-10, 11));
+            var p = new GridPos(from.X + _rng.Next(-6, 7), from.Y + _rng.Next(-6, 7));
             if (grid.InBounds(p) && grid.Get(p).IsWalkable()) return p;
         }
         return null;
@@ -196,6 +229,32 @@ public sealed class BotBrain
             if (d < min) min = d;
         }
         return min;
+    }
+
+    private static GridPos? NearestRivalPos(Simulation sim, Miner self)
+    {
+        GridPos? best = null;
+        int bestDist = int.MaxValue;
+        foreach (var m in sim.Miners)
+        {
+            if (m.Id == self.Id || !m.Alive) continue;
+            int d = self.Pos.ChebyshevTo(m.Pos);
+            if (d < bestDist) { bestDist = d; best = m.Pos; }
+        }
+        return best;
+    }
+
+    private static GridPos? NearestMonsterPos(Simulation sim, Miner self)
+    {
+        GridPos? best = null;
+        int bestDist = int.MaxValue;
+        foreach (var mo in sim.Monsters)
+        {
+            if (!mo.Alive) continue;
+            int d = self.Pos.ChebyshevTo(mo.Pos);
+            if (d < bestDist) { bestDist = d; best = mo.Pos; }
+        }
+        return best;
     }
 
     private int RevalInterval() => Skill switch

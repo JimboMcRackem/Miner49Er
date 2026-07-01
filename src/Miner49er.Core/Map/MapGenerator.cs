@@ -39,6 +39,8 @@ public static class MapGenerator
                         region, spawns, center, items);
         if (config.Lava)
             PlaceLavaVents(grid, rng, config.LavaVentCount + (config.PlayerCount - 1), region, items, decoys);
+        if (config.SealCenter && center != default)
+            SealCenterTile(grid, center);
         GridPos? shopPos = config.HasShop
             ? PlaceShopkeeper(grid, spawns, spawns.Count > 0 ? spawns[0] : (GridPos?)null)
             : null;
@@ -48,6 +50,18 @@ public static class MapGenerator
             EscapeTile = spawns.Count > 0 ? spawns[0] : null,
             ShopPos = shopPos,
         };
+    }
+
+    private static void SealCenterTile(TileGrid g, GridPos center)
+    {
+        for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                var p = new GridPos(center.X + dx, center.Y + dy);
+                if (g.InBounds(p) && g.Get(p) == TileType.Floor)
+                    g.Set(p, TileType.Rock);
+            }
     }
 
     private static GridPos? PlaceShopkeeper(TileGrid grid, IReadOnlyList<GridPos> spawns, GridPos? escapeTile)

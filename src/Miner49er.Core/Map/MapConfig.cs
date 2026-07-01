@@ -26,6 +26,8 @@ public sealed class MapConfig
     // map interior so it floods last rather than at the corner where it floods first.
     public bool Flooding { get; set; } = false;
 
+    public bool SealCenter { get; set; } = false; // ring center with Rock so ReachCenter requires digging
+
     // Bottomless pits (Phase 4d) — host lobby toggle, off by default.
     public bool Pits { get; set; } = false;            // gates the whole PlacePits pass
     public int PitSiteCount { get; set; } = 6;          // base number of pit sites (light per-player scaling)
@@ -68,6 +70,7 @@ public sealed class MapConfig
             cfg.BaseWidth = 64;
             cfg.BaseHeight = 64;
             cfg.InitialFloorChance = 0.42f;
+            cfg.SealCenter = true;
         }
         if (mapScale > 1)
         {
