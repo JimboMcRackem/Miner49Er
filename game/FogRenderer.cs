@@ -14,6 +14,9 @@ public partial class FogRenderer : Node2D
 	private ImageTexture? _fogGradientTex;
 	private int _lastRadius = -1;
 
+	// Set true when the local miner is dead — suppresses all fog so the full map is visible.
+	public bool SpectatorMode { get; set; }
+
 	private static readonly Color Unexplored = new(0, 0, 0, 1f);
 	private const float DimAlpha = 0.78f;
 	private static readonly Color Dim = new(0, 0, 0, DimAlpha);
@@ -46,6 +49,7 @@ public partial class FogRenderer : Node2D
 	public override void _Draw()
 	{
 		if (_client == null) return;
+		if (SpectatorMode) return;
 		var grid = _client.Grid;
 		var fog = _client.Fog;
 		int ts = MatchClient.TileSize;

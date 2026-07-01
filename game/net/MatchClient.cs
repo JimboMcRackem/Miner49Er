@@ -200,6 +200,9 @@ public partial class MatchClient : Node2D
 
 		// Smooth each miner visual toward its authoritative tile position.
 		double now = Time.GetTicksMsec() / 1000.0;
+		bool foundLocal = false;
+		bool localAlive = false;
+		Vector2 localVisualPos = Vector2.Zero;
 		foreach (var m in _miners)
 		{
 			var target = new Vector2(m.X * TileSize + TileSize / 2f, m.Y * TileSize + TileSize / 2f);
@@ -212,7 +215,11 @@ public partial class MatchClient : Node2D
 			_lastMinerPos[m.Id] = (m.X, m.Y);
 
 			if (m.Id == LocalMinerId)
-				_camera.Position = _visualPos[m.Id];
+			{
+				foundLocal = true;
+				localAlive = m.Alive;
+				localVisualPos = _visualPos[m.Id];
+			}
 		}
 		foreach (var mo in _monsters)
 		{
@@ -223,6 +230,32 @@ public partial class MatchClient : Node2D
 			float pixelsPerSec = TileSize / 0.15f;
 			_monsterVisualPos[mo.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
 		}
+
+		// Camera and fog: follow local miner when alive; reveal full map when dead.
+		if (!foundLocal)
+		{
+			// No snapshot yet — leave camera where it is.
+		}
+		else if (localAlive && _cam != null)
+		{
+			_camera.Position = localVisualPos;
+			_cam.Zoom = _cam.Zoom.Lerp(new Vector2(2f, 2f), Mathf.Min(1f, (float)delta * 4f));
+			if (_fogRenderer != null) _fogRenderer.SpectatorMode = false;
+		}
+		else if (_cam != null)
+		{
+			// Dead — zoom out to show the whole map so the player can watch the action.
+			float mapW = Grid.Width  * TileSize;
+			float mapH = Grid.Height * TileSize;
+			var vpSize = GetViewport().GetVisibleRect().Size;
+			float fitZoom = Mathf.Min(vpSize.X / mapW, vpSize.Y / mapH) * 0.92f;
+			var mapCenter = new Vector2(mapW / 2f, mapH / 2f);
+
+			_cam.Zoom       = _cam.Zoom.Lerp(new Vector2(fitZoom, fitZoom), Mathf.Min(1f, (float)delta * 2.5f));
+			_camera.Position = _camera.Position.Lerp(mapCenter,              Mathf.Min(1f, (float)delta * 2.5f));
+			if (_fogRenderer != null) _fogRenderer.SpectatorMode = true;
+		}
+
 		QueueRedraw();
 	}
 
