@@ -262,13 +262,16 @@ public sealed class BotBrain
     private GridPos? TreasureGoal(Simulation sim, Miner miner)
     {
         var (a, b) = TreasureAssignment.For(sim.Config.Seed, MinerId);
+        // Only navigate to already-discovered (loose) idols — buried positions are unknown.
         foreach (var item in sim.Items)
             if (item.Placement == ItemPlacement.Loose && (item.Kind == a || item.Kind == b))
                 return item.Pos;
-        foreach (var item in sim.Items)
-            if (item.Placement == ItemPlacement.Buried && (item.Kind == a || item.Kind == b))
-                return item.Pos;
-        return RandomFloor(sim.Grid, miner.Pos);
+        // No loose idol yet — mine toward gold; buried idols surface when rock is cleared.
+        var gold = new List<GridPos>();
+        foreach (var p in sim.Grid.Positions())
+            if (sim.Grid.Get(p) == TileType.GoldRock) gold.Add(p);
+        return BotPathfinder.Nearest(sim.Grid, miner.Pos, gold, passRock: true)
+               ?? RandomFloor(sim.Grid, miner.Pos);
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
