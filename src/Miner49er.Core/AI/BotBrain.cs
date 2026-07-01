@@ -32,6 +32,10 @@ public sealed class BotBrain
         // Let any in-progress activity finish — sending a direction cancels mining.
         if (miner.Activity != ActivityKind.None) return BotAction.Idle;
 
+        bool isPvP  = mode != GameMode.Expedition;
+        bool derby  = mode == GameMode.DemolitionDerby;
+        bool lms    = mode == GameMode.LastManStanding;
+
         _ticksUntilReeval--;
         if (_ticksUntilReeval <= 0)
         {
@@ -98,6 +102,22 @@ public sealed class BotBrain
             break; // only react to the nearest fall
         }
 
+        // Rival proximity (PvP, defensive): Miner+ flees when a rival is adjacent,
+        // unless in a mode where this bot is already chasing rivals (handled by attack swing instead).
+        if (isPvP && Skill >= BotSkill.Miner && !derby && !(lms && Skill >= BotSkill.Foreman))
+        {
+            var nearestRival = NearestRivalPos(sim, miner);
+            if (nearestRival.HasValue && miner.Pos.ChebyshevTo(nearestRival.Value) <= 1)
+            {
+                var fleeTarget = FleeFrom(sim.Grid, miner.Pos, nearestRival.Value);
+                if (fleeTarget != null)
+                {
+                    int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false);
+                    if (fleeDir != -1) { _ticksUntilReeval = 0; return new BotAction(fleeDir); }
+                }
+            }
+        }
+
         if (_goal == null) return BotAction.Idle;
 
         bool passRock = Skill >= BotSkill.Foreman;
@@ -110,12 +130,15 @@ public sealed class BotBrain
         var nextTile = sim.Grid.InBounds(nextPos) ? sim.Grid.Get(nextPos) : TileType.Rock;
         bool mine = nextTile.IsMinable();
 
+        // Aggressive swing: Derby/LMS-pursuing bots swing (pickaxe stun) at a rival in the step direction.
+        bool aggressiveTowardRivals = isPvP && (derby || (lms && Skill >= BotSkill.Foreman));
+        if (aggressiveTowardRivals && !mine && sim.Grid.InBounds(nextPos) && RivalAt(sim, nextPos, miner.Id))
+            mine = true;
+
         // Hold the current goal while actively mining so the bot doesn't drift mid-swing
         if (mine)
             _ticksUntilReeval = Math.Max(_ticksUntilReeval, 30);
 
-        bool derby = mode == GameMode.DemolitionDerby;
-        bool lms   = mode == GameMode.LastManStanding;
         bool plant = derby
             ? Skill >= BotSkill.Miner && nextTile.IsMinable()
             : lms
@@ -249,6 +272,13 @@ public sealed class BotBrain
             if (d < min) min = d;
         }
         return min;
+    }
+
+    private static bool RivalAt(Simulation sim, GridPos pos, int selfId)
+    {
+        foreach (var m in sim.Miners)
+            if (m.Id != selfId && m.Alive && m.Pos == pos) return true;
+        return false;
     }
 
     private static GridPos? NearestRivalPos(Simulation sim, Miner self)
