@@ -21,7 +21,7 @@ public partial class Main : Node2D
 	private SettingsPanel _audioPanel = null!;
 	private ShopPanel _shopPanel = null!;
 	private bool _wasListening;
-	private bool _wasAtShop;
+	private bool _wasAtShop = true; // suppresses auto-open on frame 1; prevents spawn-on-shop lock
 	private ColorRect _fadeOverlay = null!;
 	private float _fadeAlpha;
 	private const float FadeOutSpeed = 3f;  // 0→1 in ~0.33s
