@@ -18,6 +18,9 @@ on each floor descent, never repeating the previous track.
 | music_loop3.ogg       | ✅ real |
 | music_loop4.ogg       | ✅ real |
 | music_loop5.ogg       | ✅ real |
+| music_loop6.ogg       | ✅ real |
+| music_loop7.ogg       | ✅ real |
+| music_loop8.ogg       | ✅ real |
 
 ## Miner SFX
 

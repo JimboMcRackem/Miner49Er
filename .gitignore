@@ -17,10 +17,8 @@ mono_crash.*
 # Godot-generated desktop binaries (exported build output at repo root)
 /*.exe
 
-# Local audio drop-ins (kept out of git; README manifest is tracked)
-/assets/audio/*.ogg
-/assets/audio/*.wav
-/assets/audio/*.mp3
+# Audio: commit final .ogg/.wav; keep raw source projects and Godot import cache out
+/assets/audio/Source/
 /assets/audio/*.import
 
 # Auto-generated version file (regenerated on every build from version.txt + git)
