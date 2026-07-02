@@ -8,6 +8,9 @@ public partial class Hud : CanvasLayer
 	private Label _centerLabel  = null!;
 	private Label _centerLabel2 = null!;
 	private Label _rightLabel   = null!;
+	private Label _hintLabel    = null!;
+
+	public bool TimerUrgent { get; set; }
 
 	public override void _Ready()
 	{
@@ -35,22 +38,37 @@ public partial class Hud : CanvasLayer
 		_centerLabel2.Visible = false;
 
 		_rightLabel = MakeLabel(bar, font, 20, Colors.White, HorizontalAlignment.Right);
+
+		// Contextual hint — bottom-centre, shown when near an interactable.
+		_hintLabel = new Label
+		{
+			Text = "",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AnchorLeft = 0f,  AnchorRight  = 1f,
+			AnchorTop  = 1f,  AnchorBottom = 1f,
+			OffsetTop  = -38f, OffsetBottom = -6f,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		_hintLabel.AddThemeFontOverride("font", font);
+		_hintLabel.AddThemeFontSizeOverride("font_size", 17);
+		_hintLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 0.6f, 0.92f));
+		AddChild(_hintLabel);
 	}
 
-	private static Label MakeLabel(HBoxContainer parent, Font font, int size, Color color, HorizontalAlignment align)
+	public override void _Process(double delta)
 	{
-		var lbl = new Label
+		if (TimerUrgent)
 		{
-			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-			HorizontalAlignment = align,
-			VerticalAlignment   = VerticalAlignment.Center,
-		};
-		lbl.AddThemeFontOverride("font", font);
-		lbl.AddThemeFontSizeOverride("font_size", size);
-		lbl.AddThemeColorOverride("font_color", color);
-		parent.AddChild(lbl);
-		return lbl;
+			float flash = (Mathf.Sin((float)Time.GetTicksMsec() * 0.006f) + 1f) * 0.5f;
+			_rightLabel.AddThemeColorOverride("font_color", new Color(1f, flash * 0.15f + 0.05f, 0.05f));
+		}
+		else
+		{
+			_rightLabel.AddThemeColorOverride("font_color", Colors.White);
+		}
 	}
+
+	public void SetHint(string hint) => _hintLabel.Text = hint;
 
 	// lives: ♥ count (0 hides them); center: mode/objective; right: status, held items, timer…
 	public void SetHud(int lives, string center, string right)
@@ -69,5 +87,20 @@ public partial class Hud : CanvasLayer
 		_centerLabel2.Visible = true;
 		_centerLabel2.Text    = $"{(found2 ? "✓" : "○")} {idol2}";
 		_rightLabel.Text      = right.TrimStart();
+	}
+
+	private static Label MakeLabel(HBoxContainer parent, Font font, int size, Color color, HorizontalAlignment align)
+	{
+		var lbl = new Label
+		{
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			HorizontalAlignment = align,
+			VerticalAlignment   = VerticalAlignment.Center,
+		};
+		lbl.AddThemeFontOverride("font", font);
+		lbl.AddThemeFontSizeOverride("font_size", size);
+		lbl.AddThemeColorOverride("font_color", color);
+		parent.AddChild(lbl);
+		return lbl;
 	}
 }

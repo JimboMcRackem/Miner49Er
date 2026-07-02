@@ -205,6 +205,14 @@ public partial class Lobby : Control
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		rightCol.AddChild(_startBtn);
 
+		var leaveBtn = new Button { Text = "Leave Game" };
+		leaveBtn.Pressed += () =>
+		{
+			NetworkManager.Instance.Leave();
+			GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");
+		};
+		rightCol.AddChild(leaveBtn);
+
 		_hint = new Label { Text = "" };
 		rightCol.AddChild(_hint);
 

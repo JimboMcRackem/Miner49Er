@@ -33,6 +33,16 @@ public partial class Main : Node2D
 	private const float BannerHold  = 1.5f;
 	private const float BannerTotal = BannerHold + BannerFade * 2;
 
+	// Pause menu
+	private CanvasLayer _pauseOverlay = null!;
+	private bool _pauseShown;
+
+	// Tab scoreboard
+	private ScoreboardOverlay _scoreboard = null!;
+
+	// Minimap
+	private MinimapOverlay _minimap = null!;
+
 	public override void _Ready()
 	{
 		var nm = NetworkManager.Instance;
@@ -154,6 +164,20 @@ public partial class Main : Node2D
 		_shopPanel = new ShopPanel { Name = "ShopPanel" };
 		AddChild(_shopPanel);
 
+		// Tab scoreboard
+		_scoreboard = new ScoreboardOverlay { Name = "ScoreboardOverlay" };
+		AddChild(_scoreboard);
+		_scoreboard.Init(_client);
+
+		// Minimap
+		_minimap = new MinimapOverlay { Name = "MinimapOverlay" };
+		AddChild(_minimap);
+		_minimap.Init(_client);
+
+		// Pause overlay (Escape menu)
+		_pauseOverlay = BuildPauseOverlay();
+		AddChild(_pauseOverlay);
+
 		_fadeOverlay = new ColorRect { Name = "FadeOverlay", ZIndex = 50 };
 		_fadeOverlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		_fadeOverlay.Color = new Color(0f, 0f, 0f, 0f);
@@ -184,8 +208,8 @@ public partial class Main : Node2D
 		{
 			GetViewport().SetInputAsHandled();
 			if (_audioPanel.IsOpen) { _audioPanel.Close(); return; }
-			NetworkManager.Instance.Leave(); // in-match: ESC backs out to the main menu
-			GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");
+			if (_pauseShown) { HidePauseMenu(); return; }
+			ShowPauseMenu();
 		}
 	}
 
@@ -272,6 +296,12 @@ public partial class Main : Node2D
 						_hud.SetHud(0, $"Gold: {m.Gold}", $"{status}{timeStr}{heldStr}{stonesStr}");
 					}
 
+					// Timer urgency: flash red when under 30 s.
+					_hud.TimerUrgent = _client.SecondsRemaining >= 0f && _client.SecondsRemaining < 30f;
+
+					// Contextual hint — what Space does right now.
+					_hud.SetHint(localAlive ? ComputeContextHint(m, new GridPos(m.X, m.Y)) : "");
+
 					// Shop proximity — Expedition only
 					if (localAlive && NetworkManager.Instance.MatchMode == GameMode.Expedition)
 					{
@@ -297,6 +327,7 @@ public partial class Main : Node2D
 						}
 					}
 			}
+
 		// Death-fade overlay (expedition only): black out on death, fade in on revive.
 		if (sawLocal && NetworkManager.Instance.MatchMode == GameMode.Expedition)
 		{
@@ -311,7 +342,7 @@ public partial class Main : Node2D
 		if (Input.IsActionJustPressed(InputBindings.Settings))
 			_audioPanel.Toggle();
 		bool panelOpen = _audioPanel.IsOpen;
-		if (_input != null) _input.Enabled = (!sawLocal || localAlive) && !panelOpen && !_shopPanel.IsOpen;
+		if (_input != null) _input.Enabled = (!sawLocal || localAlive) && !panelOpen && !_shopPanel.IsOpen && !_pauseShown;
 
 		bool listening = localAlive && !panelOpen && Input.IsActionPressed(InputBindings.Listen);
 		if (_input != null) _input.Listening = listening;
@@ -326,6 +357,111 @@ public partial class Main : Node2D
 
 		if (Input.IsActionJustPressed(InputBindings.Mute))
 			AudioManager.Instance.ToggleMute();
+
+		// Tab scoreboard — show while Tab held, hide when released.
+		bool wantScoreboard = !_pauseShown && Input.IsKeyPressed(Key.Tab);
+		if (wantScoreboard && !_scoreboard.Visible)
+		{
+			_scoreboard.Refresh();
+			_scoreboard.Visible = true;
+		}
+		else if (!wantScoreboard && _scoreboard.Visible)
+		{
+			_scoreboard.Visible = false;
+		}
+	}
+
+	private string ComputeContextHint(Core.Net.MinerSnapshot m, GridPos localPos)
+	{
+		var nm = NetworkManager.Instance;
+		var heldKind = m.Held >= 0 ? (ItemKind?)((ItemKind)m.Held) : null;
+
+		if (nm.MatchMode == GameMode.Expedition)
+		{
+			if (_client.EscapeOpen && _client.EscapeTile == localPos)
+				return "[Space]  ESCAPE!";
+			if (_client.ShopPos == localPos && !_shopPanel.IsOpen)
+				return "[Space]  Open Shop";
+		}
+
+		if (heldKind != null)
+		{
+			if (heldKind == ItemKind.TreasureChest)
+				return "[Space]  Drop Chest";
+			if (heldKind.Value.IsIdol())
+			{
+				// Check if we're adjacent to our own placed chest.
+				if (_client.PlacedChests != null)
+					foreach (var c in _client.PlacedChests)
+						if (c.MinerId == _client.LocalMinerId)
+						{
+							int dx = Math.Abs(c.X - localPos.X);
+							int dy = Math.Abs(c.Y - localPos.Y);
+							if (dx <= 1 && dy <= 1)
+								return $"[Space]  Deposit {IdolName(heldKind.Value)}";
+						}
+				return $"[Space]  Drop {IdolName(heldKind.Value)}";
+			}
+		}
+
+		return "";
+	}
+
+	private CanvasLayer BuildPauseOverlay()
+	{
+		var layer = new CanvasLayer { Layer = 45, Visible = false, Name = "PauseOverlay" };
+
+		var bg = new ColorRect
+		{
+			Color = new Color(0, 0, 0, 0.70f),
+			AnchorLeft = 0f, AnchorRight = 1f, AnchorTop = 0f, AnchorBottom = 1f,
+		};
+		layer.AddChild(bg);
+
+		var center = new CenterContainer();
+		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		layer.AddChild(center);
+
+		var box = new VBoxContainer { CustomMinimumSize = new Vector2(220, 0) };
+		box.AddThemeConstantOverride("separation", 12);
+		center.AddChild(box);
+
+		var title = new Label { Text = "PAUSED", HorizontalAlignment = HorizontalAlignment.Center };
+		title.AddThemeFontSizeOverride("font_size", 36);
+		box.AddChild(title);
+
+		box.AddChild(new HSeparator());
+
+		var resume = new Button { Text = "Resume" };
+		resume.Pressed += HidePauseMenu;
+		box.AddChild(resume);
+
+		var settings = new Button { Text = "Settings" };
+		settings.Pressed += () => { HidePauseMenu(); _audioPanel.Open(); };
+		box.AddChild(settings);
+
+		var quit = new Button { Text = "Quit to Menu" };
+		quit.Pressed += () =>
+		{
+			NetworkManager.Instance.Leave();
+			GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");
+		};
+		box.AddChild(quit);
+
+		return layer;
+	}
+
+	private void ShowPauseMenu()
+	{
+		_pauseShown = true;
+		_pauseOverlay.Visible = true;
+		if (_input != null) _input.Enabled = false;
+	}
+
+	private void HidePauseMenu()
+	{
+		_pauseShown = false;
+		_pauseOverlay.Visible = false;
 	}
 
 	private void OnNewFloor(int floor)
@@ -355,19 +491,44 @@ public partial class Main : Node2D
 	private void OnMatchEnded(long winnerPeerId)
 	{
 		if (_results != null) return;
+		HidePauseMenu();
 		_results = new ResultsOverlay { Name = "ResultsOverlay" };
 		AddChild(_results);
 		var nm = NetworkManager.Instance;
 		bool expedition = nm.MatchMode == GameMode.Expedition;
 		string label;
 		string scoreText = "";
+		Action? playAgain = null;
+
 		if (expedition)
 		{
 			bool won = winnerPeerId != -1;
 			label = won
 				? (nm.MatchFloor == 21 ? "You conquered the dungeon!" : "You escaped with the gold!")
 				: "You died in the mine.";
-			scoreText = $"Floor {nm.MatchFloor}  (score submitted)";
+
+			int gold = _host?.CumulativeGold ?? 0;
+			int score = 100 * nm.MatchFloor + gold;
+
+			// Death cause from the last local miner snapshot.
+			string causeStr = "";
+			foreach (var m in _client.Miners)
+				if (m.Id == _client.LocalMinerId && m.Cause != DeathCause.None)
+					causeStr = $"\nCause: {DeathCauseLabel(m.Cause)}";
+
+			scoreText = $"Floor {nm.MatchFloor}  ·  Gold: {gold}g  ·  Score: {score}{causeStr}";
+
+			// Play Again restarts expedition with same settings.
+			if (nm.IsHost)
+			{
+				playAgain = () =>
+				{
+					nm.StartMatch(nm.MatchMode, nm.MatchTimeLimitSeconds, nm.MatchFlooding,
+						nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchBaseMoveSeconds,
+						nm.MatchMapScale, nm.MatchExplosive);
+					GetTree().ChangeSceneToFile("res://game/Main.tscn");
+				};
+			}
 		}
 		else
 		{
@@ -376,11 +537,26 @@ public partial class Main : Node2D
 				: $"Winner: {NameOf(winnerPeerId)}";
 		}
 		_results.Show(label, nm.IsHost,
-			expedition ? "Return to Menu" : "Return to Lobby", scoreText);
+			expedition ? "Return to Menu" : "Return to Lobby", scoreText, playAgain);
 	}
 
 	private static string NameOf(long peerId) =>
 		NetworkManager.Instance.Players.TryGetValue(peerId, out var info) ? info.Name : $"Peer {peerId}";
+
+	private static string DeathCauseLabel(DeathCause cause) => cause switch
+	{
+		DeathCause.Drowned    => "Drowned",
+		DeathCause.Exploded   => "Blown up",
+		DeathCause.Left       => "Left behind",
+		DeathCause.Fell       => "Fell into a pit",
+		DeathCause.Crushed    => "Crushed by a rock",
+		DeathCause.Burned     => "Burned by lava",
+		DeathCause.Slimed     => "Dissolved by a slime",
+		DeathCause.Terrified  => "Scared to death",
+		DeathCause.Headbutted => "Headbutted by a goat",
+		DeathCause.Mauled     => "Mauled by a zombie",
+		_                     => cause.ToString(),
+	};
 
 	private static string IdolName(ItemKind k) => k switch
 	{

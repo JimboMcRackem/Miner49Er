@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace Miner49er;
 
-public sealed record ScoreEntry(string Name, int Score, int Floor, string Date);
+public sealed record ScoreEntry(string Name, int Score, int Floor, string Date, int Gold = 0);
 
 /// <summary>Persists a top-10 high score list to user://scores.cfg using Godot ConfigFile.</summary>
 public static class ScoreStore
@@ -24,17 +24,18 @@ public static class ScoreStore
 			int    score = (int)   cfg.GetValue(section, "score", 0);
 			int    floor = (int)   cfg.GetValue(section, "floor", 0);
 			string date  = (string)cfg.GetValue(section, "date",  "");
-			entries.Add(new ScoreEntry(name, score, floor, date));
+			int    gold  = (int)   cfg.GetValue(section, "gold",  0);
+			entries.Add(new ScoreEntry(name, score, floor, date, gold));
 		}
 
 		entries.Sort((a, b) => b.Score.CompareTo(a.Score));
 		return entries;
 	}
 
-	public static void Submit(string name, int score, int floor)
+	public static void Submit(string name, int score, int floor, int gold = 0)
 	{
 		var entries = Load();
-		entries.Add(new ScoreEntry(name, score, floor, DateTime.Now.ToString("yyyy-MM-dd")));
+		entries.Add(new ScoreEntry(name, score, floor, DateTime.Now.ToString("yyyy-MM-dd"), gold));
 		entries.Sort((a, b) => b.Score.CompareTo(a.Score));
 		if (entries.Count > MaxCount) entries.RemoveRange(MaxCount, entries.Count - MaxCount);
 
@@ -46,6 +47,7 @@ public static class ScoreStore
 			cfg.SetValue(section, "score", entries[i].Score);
 			cfg.SetValue(section, "floor", entries[i].Floor);
 			cfg.SetValue(section, "date",  entries[i].Date);
+			cfg.SetValue(section, "gold",  entries[i].Gold);
 		}
 		cfg.Save(Path);
 	}

@@ -25,7 +25,7 @@ public partial class HighScorePanel : CanvasLayer
 		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		AddChild(center);
 
-		var box = new VBoxContainer { CustomMinimumSize = new Vector2(560, 0) };
+		var box = new VBoxContainer { CustomMinimumSize = new Vector2(620, 0) };
 		center.AddChild(box);
 
 		var title = new Label { Text = "HIGH SCORES", HorizontalAlignment = HorizontalAlignment.Center };
@@ -62,7 +62,8 @@ public partial class HighScorePanel : CanvasLayer
 		foreach (Node child in _rows.GetChildren()) child.QueueFree();
 
 		// Header
-		_rows.AddChild(MakeRow("#  Name", "Score", "Floor", "Date", 16, new Color(1f, 0.85f, 0.4f)));
+		var headerColor = new Color(1f, 0.85f, 0.4f);
+		_rows.AddChild(MakeRow("#  Name", "Score", "Gold", "Floor", "Date", 16, headerColor));
 		_rows.AddChild(new HSeparator());
 
 		var entries = ScoreStore.Load();
@@ -76,11 +77,12 @@ public partial class HighScorePanel : CanvasLayer
 		for (int i = 0; i < entries.Count; i++)
 		{
 			var e = entries[i];
-			_rows.AddChild(MakeRow($"{i + 1,2}. {e.Name}", e.Score.ToString(), $"Fl.{e.Floor}", e.Date, 18, Colors.White));
+			string goldStr = e.Gold > 0 ? $"{e.Gold}g" : "-";
+			_rows.AddChild(MakeRow($"{i + 1,2}. {e.Name}", e.Score.ToString(), goldStr, $"Fl.{e.Floor}", e.Date, 18, Colors.White));
 		}
 	}
 
-	private static HBoxContainer MakeRow(string name, string score, string floor, string date, int fontSize, Color color)
+	private static HBoxContainer MakeRow(string name, string score, string gold, string floor, string date, int fontSize, Color color)
 	{
 		var row = new HBoxContainer();
 
@@ -102,6 +104,15 @@ public partial class HighScorePanel : CanvasLayer
 		scoreLbl.AddThemeFontSizeOverride("font_size", fontSize);
 		scoreLbl.AddThemeColorOverride("font_color", color);
 
+		var goldLbl = new Label
+		{
+			Text = gold,
+			CustomMinimumSize = new Vector2(64, 0),
+			HorizontalAlignment = HorizontalAlignment.Right,
+		};
+		goldLbl.AddThemeFontSizeOverride("font_size", fontSize);
+		goldLbl.AddThemeColorOverride("font_color", color);
+
 		var floorLbl = new Label
 		{
 			Text = floor,
@@ -122,6 +133,7 @@ public partial class HighScorePanel : CanvasLayer
 
 		row.AddChild(nameLbl);
 		row.AddChild(scoreLbl);
+		row.AddChild(goldLbl);
 		row.AddChild(floorLbl);
 		row.AddChild(dateLbl);
 		return row;

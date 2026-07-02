@@ -30,6 +30,7 @@ public partial class MatchHost : Node
 	private int _livesRemaining;
 	private int _livesMax;
 	private int _cumulativeGold;
+	public int CumulativeGold => _cumulativeGold;
 	private readonly Dictionary<int, (int Speed, int Vision, int Blast)> _permLevels = new();
 
 	private readonly Dictionary<int, GridPos>   _spawnByMiner = new();
@@ -291,7 +292,7 @@ public partial class MatchHost : Node
 			{
 				int score = 100 * nm.MatchFloor + _cumulativeGold;
 				string name = nm.Players.TryGetValue(nm.LocalId, out var info) ? info.Name : "Player";
-				ScoreStore.Submit(name, score, nm.MatchFloor);
+				ScoreStore.Submit(name, score, nm.MatchFloor, _cumulativeGold);
 			}
 			long winnerPeer = result.WinnerId == -1 ? -1 : FindWinnerPeer(result.WinnerId);
 			nm.BroadcastResult(winnerPeer);
@@ -344,7 +345,7 @@ public partial class MatchHost : Node
 		{
 			int score = 100 * nm.MatchFloor + _cumulativeGold;
 			string name = nm.Players.TryGetValue(nm.LocalId, out var winfo) ? winfo.Name : "Player";
-			ScoreStore.Submit(name, score, nm.MatchFloor);
+			ScoreStore.Submit(name, score, nm.MatchFloor, _cumulativeGold);
 			_running = false;
 			nm.BroadcastResult(FindWinnerPeer(minerId));
 			return;
