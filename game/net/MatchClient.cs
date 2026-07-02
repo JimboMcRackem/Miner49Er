@@ -251,17 +251,27 @@ public partial class MatchClient : Node2D
 		}
 		else if (_cam != null && NetworkManager.Instance.MatchMode != GameMode.Expedition)
 		{
-			// Dead in a single-life mode — zoom out to show the whole map so the player can watch the action.
+			// Dead — ease to a browsable zoom; camera stays near death position.
 			// Expedition uses its own black-fade overlay and respawns the miner, so we leave it alone.
-			float mapW = Grid.Width  * TileSize;
-			float mapH = Grid.Height * TileSize;
-			var vpSize = GetViewport().GetVisibleRect().Size;
-			float fitZoom = Mathf.Min(vpSize.X / mapW, vpSize.Y / mapH) * 0.92f;
-			var mapCenter = new Vector2(mapW / 2f, mapH / 2f);
-
-			_cam.Zoom       = _cam.Zoom.Lerp(new Vector2(fitZoom, fitZoom), Mathf.Min(1f, (float)delta * 2.5f));
-			_camera.Position = _camera.Position.Lerp(mapCenter,              Mathf.Min(1f, (float)delta * 2.5f));
+			_cam.Zoom = _cam.Zoom.Lerp(new Vector2(1.5f, 1.5f), Mathf.Min(1f, (float)delta * 2.5f));
 			if (_fogRenderer != null) _fogRenderer.SpectatorMode = true;
+
+			// WASD/arrow keys scroll the camera; clamp to map bounds.
+			float scrollSpeed = TileSize * 10f;
+			var scroll = Vector2.Zero;
+			if (Input.IsActionPressed(InputBindings.MoveUp))    scroll.Y -= 1f;
+			if (Input.IsActionPressed(InputBindings.MoveDown))  scroll.Y += 1f;
+			if (Input.IsActionPressed(InputBindings.MoveLeft))  scroll.X -= 1f;
+			if (Input.IsActionPressed(InputBindings.MoveRight)) scroll.X += 1f;
+			if (scroll != Vector2.Zero)
+			{
+				_camera.Position += scroll.Normalized() * scrollSpeed * (float)delta;
+				float mapW = Grid.Width  * TileSize;
+				float mapH = Grid.Height * TileSize;
+				_camera.Position = new Vector2(
+					Mathf.Clamp(_camera.Position.X, 0f, mapW),
+					Mathf.Clamp(_camera.Position.Y, 0f, mapH));
+			}
 		}
 
 		QueueRedraw();
