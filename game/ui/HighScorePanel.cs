@@ -25,7 +25,7 @@ public partial class HighScorePanel : CanvasLayer
 		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		AddChild(center);
 
-		var box = new VBoxContainer { CustomMinimumSize = new Vector2(480, 0) };
+		var box = new VBoxContainer { CustomMinimumSize = new Vector2(560, 0) };
 		center.AddChild(box);
 
 		var title = new Label { Text = "HIGH SCORES", HorizontalAlignment = HorizontalAlignment.Center };
@@ -61,6 +61,10 @@ public partial class HighScorePanel : CanvasLayer
 	{
 		foreach (Node child in _rows.GetChildren()) child.QueueFree();
 
+		// Header
+		_rows.AddChild(MakeRow("#  Name", "Score", "Floor", "Date", 16, new Color(1f, 0.85f, 0.4f)));
+		_rows.AddChild(new HSeparator());
+
 		var entries = ScoreStore.Load();
 		if (entries.Count == 0)
 		{
@@ -72,13 +76,54 @@ public partial class HighScorePanel : CanvasLayer
 		for (int i = 0; i < entries.Count; i++)
 		{
 			var e = entries[i];
-			var row = new Label
-			{
-				Text = $"{i + 1,2}. {e.Name,-14} {e.Score,8}   Floor {e.Floor,-3}  {e.Date}",
-				HorizontalAlignment = HorizontalAlignment.Left,
-			};
-			row.AddThemeFontSizeOverride("font_size", 18);
-			_rows.AddChild(row);
+			_rows.AddChild(MakeRow($"{i + 1,2}. {e.Name}", e.Score.ToString(), $"Fl.{e.Floor}", e.Date, 18, Colors.White));
 		}
+	}
+
+	private static HBoxContainer MakeRow(string name, string score, string floor, string date, int fontSize, Color color)
+	{
+		var row = new HBoxContainer();
+
+		var nameLbl = new Label
+		{
+			Text = name,
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			HorizontalAlignment = HorizontalAlignment.Left,
+		};
+		nameLbl.AddThemeFontSizeOverride("font_size", fontSize);
+		nameLbl.AddThemeColorOverride("font_color", color);
+
+		var scoreLbl = new Label
+		{
+			Text = score,
+			CustomMinimumSize = new Vector2(72, 0),
+			HorizontalAlignment = HorizontalAlignment.Right,
+		};
+		scoreLbl.AddThemeFontSizeOverride("font_size", fontSize);
+		scoreLbl.AddThemeColorOverride("font_color", color);
+
+		var floorLbl = new Label
+		{
+			Text = floor,
+			CustomMinimumSize = new Vector2(52, 0),
+			HorizontalAlignment = HorizontalAlignment.Right,
+		};
+		floorLbl.AddThemeFontSizeOverride("font_size", fontSize);
+		floorLbl.AddThemeColorOverride("font_color", color);
+
+		var dateLbl = new Label
+		{
+			Text = date,
+			CustomMinimumSize = new Vector2(100, 0),
+			HorizontalAlignment = HorizontalAlignment.Right,
+		};
+		dateLbl.AddThemeFontSizeOverride("font_size", fontSize);
+		dateLbl.AddThemeColorOverride("font_color", color);
+
+		row.AddChild(nameLbl);
+		row.AddChild(scoreLbl);
+		row.AddChild(floorLbl);
+		row.AddChild(dateLbl);
+		return row;
 	}
 }
