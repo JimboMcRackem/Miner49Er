@@ -76,12 +76,15 @@ public static class SfxLibrary
 	// so enumerate candidates explicitly rather than scanning the directory at runtime.
 	private static readonly string[] MusicCandidates =
 	{
+		"res://assets/audio/music_loop.ogg",
 		"res://assets/audio/music_loop1.ogg",
 		"res://assets/audio/music_loop2.ogg",
 		"res://assets/audio/music_loop3.ogg",
 		"res://assets/audio/music_loop4.ogg",
 		"res://assets/audio/music_loop5.ogg",
-		"res://assets/audio/music_loop.ogg",
+		"res://assets/audio/music_loop6.ogg",
+		"res://assets/audio/music_loop7.ogg",
+		"res://assets/audio/music_loop8.ogg",
 	};
 
 	private static List<AudioStream> BuildMusicPool()
