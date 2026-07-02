@@ -29,6 +29,7 @@ public partial class MainMenu : Control
 	// Overlays (always in tree, shown on demand)
 	private SettingsPanel   _audioPanel      = null!;
 	private HighScorePanel  _highScorePanel  = null!;
+	private CreditsPanel    _creditsPanel    = null!;
 
 	public override void _Ready()
 	{
@@ -67,6 +68,9 @@ public partial class MainMenu : Control
 
 		_highScorePanel = new HighScorePanel { Name = "HighScorePanel" };
 		AddChild(_highScorePanel);
+
+		_creditsPanel = new CreditsPanel { Name = "CreditsPanel" };
+		AddChild(_creditsPanel);
 
 		NetworkManager.Instance.JoinFailed    += OnJoinFailed;
 		NetworkManager.Instance.MatchStarting += OnMatchStarting;
@@ -116,6 +120,10 @@ public partial class MainMenu : Control
 		var scoresBtn = new Button { Text = "High Scores" };
 		scoresBtn.Pressed += () => _highScorePanel.Open();
 		box.AddChild(scoresBtn);
+
+		var creditsBtn = new Button { Text = "Credits" };
+		creditsBtn.Pressed += () => _creditsPanel.Open();
+		box.AddChild(creditsBtn);
 
 		return box;
 	}
@@ -255,6 +263,7 @@ public partial class MainMenu : Control
 
 		if (_audioPanel.IsOpen)     { _audioPanel.Close();     return; }
 		if (_highScorePanel.IsOpen) { _highScorePanel.Close(); return; }
+		if (_creditsPanel.IsOpen)   { _creditsPanel.Close();   return; }
 		if (_soloPanel.Visible)     { ShowPanel(_modePanel);   return; }
 		if (_multiPanel.Visible)    { _status.Text = ""; ShowPanel(_modePanel); return; }
 		GetTree().Quit();
