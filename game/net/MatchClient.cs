@@ -23,6 +23,7 @@ public partial class MatchClient : Node2D
 	public bool EscapeOpen { get; private set; }
 	public GridPos? EscapeTile { get; private set; }
 	public GridPos? ShopPos { get; private set; }
+	public GridPos? CenterTile { get; private set; }
 	public int GoldRemaining { get; private set; }
 	public Vector2 MonsterVisualPos(int id, int x, int y) =>
 		_monsterVisualPos.TryGetValue(id, out var v)
@@ -67,7 +68,7 @@ public partial class MatchClient : Node2D
 	private readonly Dictionary<int, (int X, int Y)> _lastMinerPos = new();
 	private readonly Dictionary<int, double> _walkUntil = new();
 
-	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null, GridPos? shopPos = null)
+	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null, GridPos? shopPos = null, GridPos? centerTile = null)
 	{
 		_sceneRoot = sceneRoot;
 		Grid = grid;
@@ -75,6 +76,7 @@ public partial class MatchClient : Node2D
 		Decoys = decoys;
 		EscapeTile = escapeTile;
 		ShopPos = shopPos;
+		CenterTile = centerTile;
 		GoldRemaining = CountGold(grid);
 		StartingGoldCount = GoldRemaining;
 

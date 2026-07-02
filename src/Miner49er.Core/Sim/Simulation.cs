@@ -636,7 +636,9 @@ public sealed class Simulation
         if (m.Alive && killer != null)
             MaulMiner(m, killer.Kind);
 
-        if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive)
+        // Reach Center: must carry at least 5 gold (only enforced when the map has gold veins).
+        if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive
+            && (StartingGoldCount == 0 || m.GoldCollected >= 5))
         {
             FirstToReachCenter = id;
             _events.Add(new MinerReachedCenter(id));

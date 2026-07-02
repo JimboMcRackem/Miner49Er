@@ -59,9 +59,10 @@ public partial class Main : Node2D
 		int localMinerId = nm.LocalMinerId();
 
 		GridPos? clientEscape = nm.MatchMode == GameMode.Expedition ? map.EscapeTile : null;
+		GridPos? clientCenter = nm.MatchMode == GameMode.ReachCenter ? (GridPos?)map.Center : null;
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
-		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos);
+		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos, clientCenter);
 
 		_audio = new MatchAudio { Name = "MatchAudio" };
 		AddChild(_audio);
@@ -287,6 +288,13 @@ public partial class Main : Node2D
 								if (tp.MinerId == _client.LocalMinerId) { foundCount = tp.Found; break; }
 						_hud.SetTreasureHud(IdolName(idolA), foundCount >= 1, IdolName(idolB), foundCount >= 2, $"{status}{heldStr}");
 					}
+					else if (NetworkManager.Instance.MatchMode == GameMode.ReachCenter)
+					{
+						string rcCenter = m.Gold >= 5
+							? "Reach the Center!"
+							: $"Center — Gold: {m.Gold}/5";
+						_hud.SetHud(0, rcCenter, $"{status}{timeStr}{heldStr}{stonesStr}");
+					}
 					else if (NetworkManager.Instance.MatchMode == GameMode.DemolitionDerby)
 					{
 						_hud.SetHud(0, "Demolition Derby", $"{status}{heldStr}");
@@ -382,6 +390,14 @@ public partial class Main : Node2D
 				return "[Space]  ESCAPE!";
 			if (_client.ShopPos == localPos && !_shopPanel.IsOpen)
 				return "[Space]  Open Shop";
+		}
+
+		if (nm.MatchMode == GameMode.ReachCenter && _client.CenterTile is GridPos ct)
+		{
+			int dx = Math.Abs(ct.X - localPos.X), dy = Math.Abs(ct.Y - localPos.Y);
+			bool adjacent = dx <= 1 && dy <= 1;
+			if (adjacent && m.Gold < 5)
+				return $"Need {5 - m.Gold} more gold to unlock the center!";
 		}
 
 		if (heldKind != null)

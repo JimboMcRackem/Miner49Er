@@ -606,6 +606,45 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
+		// Reach Center: draw a portcullis grill on the center tile so players know the objective.
+		if (NetworkManager.Instance.MatchMode == GameMode.ReachCenter && _client.CenterTile is { } centerTile)
+		{
+			var cp = new GridPos(centerTile.X, centerTile.Y);
+			if (_client.Fog.IsExplored(cp) || spectating)
+			{
+				float cx = centerTile.X * ts, cy = centerTile.Y * ts;
+				float pulse = 0.5f + 0.5f * Mathf.Sin((float)Time.GetTicksMsec() * 0.003f);
+
+				// Check local miner's gold to pick locked vs unlocked colour.
+				bool hasGold = false;
+				foreach (var m in _client.Miners)
+					if (m.Id == _client.LocalMinerId) { hasGold = m.Gold >= 5; break; }
+
+				var railCol = hasGold
+					? new Color(0.95f, 0.80f, 0.15f, 0.60f + 0.35f * pulse) // gold when unlocked
+					: new Color(0.35f, 0.28f, 0.18f, 0.75f);                 // dark iron when locked
+
+				// Horizontal rails (top + bottom of tile).
+				DrawRect(new Rect2(cx + 3, cy + 4,  ts - 6, 3), railCol);
+				DrawRect(new Rect2(cx + 3, cy + ts - 7, ts - 6, 3), railCol);
+
+				// Four vertical bars.
+				for (int b = 0; b < 4; b++)
+				{
+					float bx = cx + 5 + b * 6;
+					DrawRect(new Rect2(bx, cy + 4, 2.5f, ts - 8), railCol);
+				}
+
+				// Pulsing star marker above the tile indicating it's the objective.
+				var font = ThemeDB.FallbackFont;
+				var starCol = hasGold
+					? new Color(1f, 0.92f, 0.2f, 0.70f + 0.30f * pulse)
+					: new Color(0.7f, 0.6f, 0.3f, 0.55f + 0.25f * pulse);
+				DrawString(font, new Vector2(cx + ts / 2f, cy - 2f),
+					"★", HorizontalAlignment.Center, -1, ts - 4, starCol);
+			}
+		}
+
 		// Placed TreasureChests (treasure hunt mode)
 		if (_client.PlacedChests != null)
 			foreach (var pc in _client.PlacedChests)

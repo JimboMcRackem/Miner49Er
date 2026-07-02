@@ -64,4 +64,39 @@ public class GameModeTests
         sim.TryMove(1, Direction.East);
         Assert.Equal(-1, sim.FirstToReachCenter);
     }
+
+    [Fact]
+    public void ReachCenter_requires_5_gold_when_map_has_gold_veins()
+    {
+        // 5×1 strip: [gold][gold][gold][gold][gold][floor=center] with miner at x=0
+        var grid = new TileGrid(7, 1, TileType.Floor);
+        for (int x = 0; x < 5; x++) grid.Set(new GridPos(x, 0), TileType.GoldRock);
+        var center = new GridPos(6, 0);
+        var sim = new Simulation(grid, new SimConfig(), center: center);
+        sim.AddMiner(1, new GridPos(5, 0)); // adjacent to center, 0 gold so far
+
+        // Arrive at center with 0 gold — should NOT trigger win.
+        sim.TryMove(1, Direction.East);
+        Assert.Equal(-1, sim.FirstToReachCenter);
+
+        // Drain move cooldown, back off, grant 5 gold, return to center.
+        sim.Tick(0.2);
+        sim.TryMove(1, Direction.West);
+        sim.SetGold(1, 5);
+        sim.Tick(0.2);
+        sim.TryMove(1, Direction.East);
+        Assert.Equal(1, sim.FirstToReachCenter);
+    }
+
+    [Fact]
+    public void ReachCenter_no_gold_requirement_when_map_has_no_gold()
+    {
+        // Gold-free map: the 5-gold requirement must NOT apply.
+        var grid = new TileGrid(3, 3, TileType.Floor);
+        var sim = new Simulation(grid, new SimConfig(), center: new GridPos(2, 1));
+        sim.AddMiner(1, new GridPos(1, 1));
+
+        sim.TryMove(1, Direction.East);
+        Assert.Equal(1, sim.FirstToReachCenter);
+    }
 }
