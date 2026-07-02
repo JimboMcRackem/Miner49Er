@@ -185,6 +185,9 @@ public partial class MatchHost : Node
 				case LavaQuenched lq:
 					changes.Add(new TileChange(lq.Pos.X, lq.Pos.Y, false, TileType.Cracked));
 					break;
+				case RockFell rf:
+					changes.Add(new TileChange(rf.Pos.X, rf.Pos.Y, false, TileType.Rock));
+					break;
 				case LifeRestored:
 					_livesRemaining = Math.Min(_livesRemaining + 1, _livesMax);
 					break;
