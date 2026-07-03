@@ -143,7 +143,8 @@ public sealed class BotBrain
 
         if (_goal == null) return BotAction.Idle;
 
-        bool passRock = Skill >= BotSkill.Foreman;
+        bool passRock = Skill >= BotSkill.Foreman
+            || (mode == GameMode.ReachCenter && miner.GoldCollected >= 5);
         int dir = BotPathfinder.NextDir(sim.Grid, miner.Pos, _goal.Value, passRock);
 
         if (dir == -1) { _ticksUntilReeval = 0; return BotAction.Idle; }
@@ -224,7 +225,8 @@ public sealed class BotBrain
 
     private GridPos? MinerGoal(Simulation sim, GameMode mode, Miner miner)
     {
-        if (mode == GameMode.ReachCenter && sim.Center is { } center) return center;
+        if (mode == GameMode.ReachCenter && sim.Center is { } center && miner.GoldCollected >= 5)
+            return center;
 
         if (mode == GameMode.TreasureHunt)
         {
@@ -248,7 +250,8 @@ public sealed class BotBrain
 
     private GridPos? ForemanGoal(Simulation sim, GameMode mode, Miner miner)
     {
-        if (mode == GameMode.ReachCenter && sim.Center is { } center) return center;
+        if (mode == GameMode.ReachCenter && sim.Center is { } center && miner.GoldCollected >= 5)
+            return center;
 
         if (mode == GameMode.Expedition && sim.EscapeOpen && sim.EscapeTile is { } esc)
             return esc;

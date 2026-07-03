@@ -84,7 +84,7 @@ public partial class Main : Node2D
 				Seed             = seed,
 				DynamiteEnabled  = nm.MatchExplosive != ExplosiveMode.DetonatorsOnly,
 				TreasureHuntMode = nm.MatchMode == GameMode.TreasureHunt,
-				TripMinesEnabled = isPvP,
+				TripMinesEnabled = nm.MatchMode == GameMode.LastManStanding || nm.MatchMode == GameMode.DemolitionDerby,
 				RockFallsEnabled = isPvP,
 			};
 			if (nm.MatchMode == GameMode.DemolitionDerby)
