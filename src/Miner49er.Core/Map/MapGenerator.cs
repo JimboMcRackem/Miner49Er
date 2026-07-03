@@ -23,8 +23,9 @@ public static class MapGenerator
         if (config.Lava)
             PlaceLava(grid, rng, config.LavaPoolCount, config.LavaPoolGrowChance, config.LavaPoolMax);
         var region = LargestTraversableRegion(grid);
-        var spawns = PlaceSpawns(grid, config.PlayerCount, region, config.Flooding);
         var center = NearestFloorToCenter(grid, region);
+        var spawns = PlaceSpawns(grid, config.PlayerCount, region, config.Flooding,
+                                  config.SealCenter ? (GridPos?)center : null);
         PlaceGold(grid, rng, config.GoldVeinCount, region);
         int total = config.BaseItemCount + config.ItemsPerPlayer * (config.PlayerCount - 1);
         var items = PlaceItems(grid, rng, total, config.VisibleItemCount, region, spawns);
@@ -435,7 +436,7 @@ public static class MapGenerator
     // deterministic grid order (SelectFarthest is order-stable) so host and clients agree —
     // no rng needed. Prefers floor away from water, relaxing that only if too few remain.
     private static List<GridPos> PlaceSpawns(TileGrid g, int count, HashSet<GridPos> region,
-                                              bool flooding = false)
+                                              bool flooding = false, GridPos? farFromCenter = null)
     {
         var floors = region.Where(p => g.Get(p) == TileType.Floor && !IsWaterAdjacent(g, p))
             .OrderBy(p => p.Y).ThenBy(p => p.X).ToList();
@@ -460,6 +461,19 @@ public static class MapGenerator
                 result.AddRange(SpawnPlacement.SelectFarthest(rest, count - 1));
             }
             return result;
+        }
+
+        if (farFromCenter is { } ct && floors.Count > count * 2)
+        {
+            // ReachCenter: restrict candidates to the farthest half of floor tiles from
+            // the goal so all miners start on the opposite side of the map from the centre.
+            var sorted = floors.OrderByDescending(p =>
+            {
+                long dx = p.X - ct.X, dy = p.Y - ct.Y;
+                return dx * dx + dy * dy;
+            }).ToList();
+            var far = sorted.Take(System.Math.Max(count, sorted.Count / 2)).ToList();
+            return SpawnPlacement.SelectFarthest(far, count);
         }
 
         return SpawnPlacement.SelectFarthest(floors, count);

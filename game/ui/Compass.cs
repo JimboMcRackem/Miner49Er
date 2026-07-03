@@ -68,7 +68,11 @@ public partial class Compass : CanvasLayer
 
 	private float? ComputeExitAngle()
 	{
-		if (_client.EscapeTile is not { } et) return null;
+		// In ReachCenter the goal is the centre tile, not an escape ladder.
+		GridPos? target = NetworkManager.Instance.MatchMode == GameMode.ReachCenter
+			? _client.CenterTile
+			: _client.EscapeTile;
+		if (target is not { } et) return null;
 		GridPos? self = null;
 		foreach (var m in _client.Miners)
 			if (m.Id == _client.LocalMinerId && m.Alive) { self = new GridPos(m.X, m.Y); break; }

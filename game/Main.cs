@@ -58,7 +58,8 @@ public partial class Main : Node2D
 
 		int localMinerId = nm.LocalMinerId();
 
-		GridPos? clientEscape = map.EscapeTile; // all modes; null when map has no escape tile
+		// ReachCenter has no ladder — goal is the center tile, not an escape tile.
+		GridPos? clientEscape = nm.MatchMode == GameMode.ReachCenter ? null : map.EscapeTile;
 		GridPos? clientCenter = nm.MatchMode == GameMode.ReachCenter ? (GridPos?)map.Center : null;
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
