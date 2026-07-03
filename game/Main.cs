@@ -58,7 +58,7 @@ public partial class Main : Node2D
 
 		int localMinerId = nm.LocalMinerId();
 
-		GridPos? clientEscape = nm.MatchMode == GameMode.Expedition ? map.EscapeTile : null;
+		GridPos? clientEscape = map.EscapeTile; // all modes; null when map has no escape tile
 		GridPos? clientCenter = nm.MatchMode == GameMode.ReachCenter ? (GridPos?)map.Center : null;
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
@@ -240,8 +240,9 @@ public partial class Main : Node2D
 				sawLocal = true;
 				localAlive = m.Alive;
 				status = m.Alive
-					? (m.Activity == (int)ActivityKind.Mining ? $"Mining… {m.ActivityRemaining:0.0}s"
-						: m.Activity == (int)ActivityKind.Planting ? $"Planting… {m.ActivityRemaining:0.0}s"
+					? (m.Activity == (int)ActivityKind.Mining           ? $"Mining… {m.ActivityRemaining:0.0}s"
+						: m.Activity == (int)ActivityKind.Planting          ? $"Planting… {m.ActivityRemaining:0.0}s"
+						: m.Activity == (int)ActivityKind.PlantingDetonator ? $"Planting detonator… {m.ActivityRemaining:0.0}s"
 						: "Ready")
 					: "Dead — spectating";
 				string timeStr = _client.SecondsRemaining >= 0 ? $"    Time: {_client.SecondsRemaining:0}s" : "";
@@ -402,6 +403,31 @@ public partial class Main : Node2D
 
 		if (heldKind != null)
 		{
+			const int ReelSafeDist = 3; // mirrors SimConfig.ReelSafeDistance
+
+			if (heldKind == ItemKind.Detonator)
+			{
+				if (m.Activity == (int)ActivityKind.PlantingDetonator)
+					return $"Planting detonator… {m.ActivitySecondsRemaining:0.0}s";
+				foreach (var rc in _client.ReelCharges)
+					if (rc.OwnerId == _client.LocalMinerId)
+						return "Detonator planted — detonate it first!";
+				return "[Space]  Plant Detonator";
+			}
+
+			if (heldKind == ItemKind.Reel)
+			{
+				foreach (var rc in _client.ReelCharges)
+					if (rc.OwnerId == _client.LocalMinerId)
+					{
+						int dist = Math.Abs(rc.WallX - localPos.X) + Math.Abs(rc.WallY - localPos.Y);
+						return dist < ReelSafeDist
+							? $"Move {ReelSafeDist - dist} more tile{(ReelSafeDist - dist == 1 ? "" : "s")} back to detonate"
+							: "[Space]  Detonate!";
+					}
+				return ""; // charge snapped; item will clear next tick
+			}
+
 			if (heldKind == ItemKind.TreasureChest)
 				return "[Space]  Drop Chest";
 			if (heldKind.Value.IsIdol())

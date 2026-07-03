@@ -319,6 +319,93 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
+		// Skeletal remains embedded in ~6% of rock walls — seeded, 4 archaeological variants.
+		foreach (var p in grid.Positions())
+		{
+			if (grid.Get(p) != TileType.Rock) continue;
+			uint h = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xCAFEu);
+			if ((h & 0xFu) != 1u) continue;
+			float x0 = p.X * ts, y0 = p.Y * ts;
+			float cx = x0 + ts * 0.5f + ((h >> 4) & 0x7u) - 3.5f;
+			float cy = y0 + ts * 0.5f + ((h >> 8) & 0x5u) - 2.5f;
+			var col = new Color(0.76f, 0.70f, 0.60f, 0.42f);
+			switch ((h >> 12) & 0x3u)
+			{
+				case 0: // Human — side profile lying horizontally, spine + ribs visible
+				{
+					// Skull oval at left
+					DrawArc(new Vector2(cx - 9f, cy), 4f, 0f, Mathf.Tau, 14, col, 1.5f);
+					DrawRect(new Rect2(cx - 11f, cy - 1.5f, 2f, 2f), col); // eye socket
+					// Jaw
+					DrawLine(new Vector2(cx - 12.5f, cy + 2f), new Vector2(cx - 5.5f, cy + 2f), col, 1f);
+					// Vertebrae (spine going right as small rectangles)
+					for (int i = 0; i < 5; i++)
+						DrawRect(new Rect2(cx - 3.5f + i * 3f, cy - 0.8f, 2f, 1.6f), col);
+					// Ribs angling up and down from spine
+					float[] ribXa = { cx - 2f, cx + 1f, cx + 4f, cx + 7f };
+					foreach (float rx in ribXa)
+					{
+						DrawLine(new Vector2(rx, cy - 0.5f), new Vector2(rx - 1f, cy - 5f), col, 1f);
+						DrawLine(new Vector2(rx, cy + 0.5f), new Vector2(rx - 1f, cy + 5f), col, 1f);
+					}
+					break;
+				}
+				case 1: // Dinosaur skull — long snout, teeth, large eye socket, neck vertebrae
+				{
+					// Upper skull ridge
+					DrawLine(new Vector2(cx - 11f, cy + 1f), new Vector2(cx + 8f, cy - 5f), col, 1.5f);
+					// Back of skull (rounded arc)
+					DrawArc(new Vector2(cx + 7f, cy - 2f), 3.5f, Mathf.DegToRad(-110f), Mathf.DegToRad(90f), 8, col, 1.5f);
+					// Lower jaw
+					DrawLine(new Vector2(cx - 11f, cy + 1f), new Vector2(cx + 4f, cy + 3f), col, 1.5f);
+					DrawLine(new Vector2(cx + 4f, cy + 3f), new Vector2(cx + 7f, cy + 1f), col, 1f);
+					// Teeth along lower jaw
+					for (int i = 0; i < 5; i++)
+						DrawLine(new Vector2(cx - 9f + i * 3f, cy + 1.5f),
+						         new Vector2(cx - 8.5f + i * 3f, cy + 4f), col, 1f);
+					// Large eye socket
+					DrawArc(new Vector2(cx + 3f, cy - 1.5f), 2.5f, 0f, Mathf.Tau, 10, col, 1f);
+					// Neck vertebrae leaving skull
+					for (int i = 0; i < 3; i++)
+						DrawRect(new Rect2(cx - 12.5f - i * 3f, cy + 1.5f + i * 2f, 2f, 1.8f), col);
+					break;
+				}
+				case 2: // Human — top-down ribcage (burial pit view)
+				{
+					// Skull above spine
+					DrawArc(new Vector2(cx, cy - 10f), 3f, 0f, Mathf.Tau, 12, col, 1f);
+					DrawRect(new Rect2(cx - 2.5f, cy - 11f, 1.5f, 2f), col); // L eye
+					DrawRect(new Rect2(cx + 1f,   cy - 11f, 1.5f, 2f), col); // R eye
+					// Spine down centre
+					DrawLine(new Vector2(cx, cy - 7f), new Vector2(cx, cy + 8f), col, 1.5f);
+					// Rib pairs arching outward from spine
+					float[] ribYb = { cy - 5f, cy - 2f, cy + 1f, cy + 4f };
+					foreach (float ry in ribYb)
+					{
+						DrawLine(new Vector2(cx, ry), new Vector2(cx - 5f, ry - 2f), col, 1f);
+						DrawLine(new Vector2(cx - 5f, ry - 2f), new Vector2(cx - 7f, ry + 2.5f), col, 1f);
+						DrawLine(new Vector2(cx, ry), new Vector2(cx + 5f, ry - 2f), col, 1f);
+						DrawLine(new Vector2(cx + 5f, ry - 2f), new Vector2(cx + 7f, ry + 2.5f), col, 1f);
+					}
+					break;
+				}
+				default: // Partial excavation — single large femur + scattered vertebrae
+				{
+					// Femur: long bone lying diagonally with rounded epiphyses
+					var fA = new Vector2(cx - 9f, cy - 6f);
+					var fB = new Vector2(cx + 7f, cy + 5f);
+					DrawLine(fA, fB, col, 2.5f);
+					DrawCircle(fA, 3f, col);   // femoral head
+					DrawCircle(fB, 2.5f, col); // condyle
+					// Scattered vertebrae (not crossing the femur)
+					DrawCircle(new Vector2(cx + 5f, cy - 7f), 2f, col);
+					DrawCircle(new Vector2(cx - 6f, cy + 7f), 1.8f, col);
+					DrawCircle(new Vector2(cx + 9f, cy + 6f), 1.5f, col);
+					break;
+				}
+			}
+		}
+
 		bool spectating = _client.FogRenderer?.SpectatorMode == true;
 		foreach (var c in _client.Charges)
 		{

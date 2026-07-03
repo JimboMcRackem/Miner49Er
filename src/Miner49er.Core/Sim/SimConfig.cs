@@ -32,7 +32,7 @@ public sealed class SimConfig
     public double LavaSpreadIntervalSeconds { get; set; } = 1.5;   // seconds per spread ring once a vent is breached
     public int LavaVentBudget { get; set; } = 8;                    // max tiles a single vent converts before going inert
 
-    public int ReelSafeDistance { get; set; } = 5;   // min Manhattan tiles from charge to detonate
+    public int ReelSafeDistance { get; set; } = 3;   // min Manhattan tiles from charge to detonate
     public int ReelMaxLength    { get; set; } = 10;  // max tiles before the wire snaps and charge is lost
 
     // Determinism: seeds the sim's monster RNG (wander steps, goat re-aim).

@@ -58,6 +58,14 @@ public partial class MatchAudio : Node2D
 		if (listening) _listenPingTimer = 0; // fire first ping immediately
 	}
 
+	// Returns the local miner's grid position, or null if dead/not found.
+	private GridPos? LocalPos()
+	{
+		foreach (var m in _client.Miners)
+			if (m.Id == _client.LocalMinerId && m.Alive) return new GridPos(m.X, m.Y);
+		return null;
+	}
+
 	public override void _Process(double delta)
 	{
 		_hadExplosionThisFrame = false;
@@ -68,7 +76,7 @@ public partial class MatchAudio : Node2D
 			if (_listenPingTimer <= 0)
 			{
 				_listenPingTimer = ListenPingInterval;
-				PingNearestMonster();
+				PingNearestEntity();
 			}
 		}
 
@@ -265,12 +273,7 @@ public partial class MatchAudio : Node2D
 		};
 	}
 
-	private (int x, int y)? LocalTile()
-	{
-		foreach (var m in _client.Miners)
-			if (m.Id == _client.LocalMinerId && m.Alive) return (m.X, m.Y);
-		return null;
-	}
+	private (int x, int y)? LocalTile() => LocalPos() is { } p ? (p.X, p.Y) : null;
 
 	private static Vector2 WorldOf(int x, int y) =>
 		new(x * MatchClient.TileSize + MatchClient.TileSize / 2f,
@@ -302,26 +305,32 @@ public partial class MatchAudio : Node2D
 		MaxDistance = _listening ? ListenMaxDistance : DefaultMaxDistance,
 	};
 
-	private void PingNearestMonster()
+	private void PingNearestEntity()
 	{
-		GridPos? selfPos = null;
-		foreach (var m in _client.Miners)
-			if (m.Id == _client.LocalMinerId && m.Alive) { selfPos = new GridPos(m.X, m.Y); break; }
-		if (selfPos is null) return;
+		if (LocalPos() is not { } selfPos) return;
 
 		float bestSq = float.MaxValue;
 		int nx = 0, ny = 0;
-		MonsterKind? nearestKind = null;
+		AudioStream? nearestSound = null;
+
 		foreach (var mo in _client.Monsters)
 		{
 			if (!mo.Alive) continue;
-			float dx = mo.X - selfPos.Value.X, dy = mo.Y - selfPos.Value.Y;
+			float dx = mo.X - selfPos.X, dy = mo.Y - selfPos.Y;
 			float sq = dx * dx + dy * dy;
-			if (sq < bestSq) { bestSq = sq; nx = mo.X; ny = mo.Y; nearestKind = mo.Kind; }
+			if (sq < bestSq) { bestSq = sq; nx = mo.X; ny = mo.Y; nearestSound = MonsterMoveSound(mo.Kind); }
 		}
 
-		if (nearestKind is { } kind)
-			OneShot(MonsterMoveSound(kind), WorldOf(nx, ny));
+		foreach (var m in _client.Miners)
+		{
+			if (!m.Alive || m.Id == _client.LocalMinerId) continue;
+			float dx = m.X - selfPos.X, dy = m.Y - selfPos.Y;
+			float sq = dx * dx + dy * dy;
+			if (sq < bestSq) { bestSq = sq; nx = m.X; ny = m.Y; nearestSound = SfxLibrary.Footstep; }
+		}
+
+		if (nearestSound != null)
+			OneShot(nearestSound, WorldOf(nx, ny));
 	}
 
 	private static AudioStream MonsterMoveSound(MonsterKind kind) => kind switch
