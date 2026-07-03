@@ -268,6 +268,64 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
+		// Scattered bone fragments on ~5% of floor tiles — 4 variants, seeded by position.
+		foreach (var p in grid.Positions())
+		{
+			if (grid.Get(p) != TileType.Floor) continue;
+			uint h = (uint)(p.X * 3266489917u ^ p.Y * 2246822519u ^ 0xBEEFu);
+			if ((h & 0x13u) != 1u) continue; // ~5% of floor tiles
+			float x0 = p.X * ts, y0 = p.Y * ts;
+			float cx = x0 + ts * 0.5f + ((h >> 5) & 0x7u) - 3.5f;
+			float cy = y0 + ts * 0.5f + ((h >> 9) & 0x7u) - 3.5f;
+			var col = new Color(0.72f, 0.66f, 0.55f, 0.38f);
+			float angle = ((h >> 16) & 0xFFu) * (Mathf.Tau / 255f); // random rotation
+			var rot = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+			var perp = new Vector2(-rot.Y, rot.X);
+			switch ((h >> 14) & 0x3u)
+			{
+				case 0: // Single rib — curved elongated bone
+				{
+					var a = new Vector2(cx, cy) - rot * 8f;
+					var b = new Vector2(cx, cy) + rot * 8f;
+					DrawLine(a, b, col, 2.5f);
+					DrawCircle(a, 2f, col);
+					DrawCircle(b, 1.5f, col);
+					// Slight curve suggestion via a midpoint offset
+					DrawCircle(new Vector2(cx, cy) + perp * 2f, 1.2f, col);
+					break;
+				}
+				case 1: // Vertebrae cluster — 3–4 small ovals in a line
+				{
+					for (int i = -1; i <= 2; i++)
+					{
+						var vc = new Vector2(cx, cy) + rot * (i * 4.5f);
+						DrawCircle(vc, 2.2f, col);
+						DrawLine(vc - perp * 2f, vc + perp * 2f, col, 1f); // transverse process
+					}
+					break;
+				}
+				case 2: // Finger / toe bones — several short parallel bones
+				{
+					for (int i = -1; i <= 1; i++)
+					{
+						var off = perp * (i * 3.5f);
+						DrawLine(new Vector2(cx, cy) + off - rot * 5f,
+						         new Vector2(cx, cy) + off + rot * 5f, col, 1.5f);
+						DrawCircle(new Vector2(cx, cy) + off - rot * 5f, 1.5f, col);
+						DrawCircle(new Vector2(cx, cy) + off + rot * 5f, 1.2f, col);
+					}
+					break;
+				}
+				default: // Skull fragment — partial dome with eye socket
+				{
+					DrawArc(new Vector2(cx, cy), 5f, angle - Mathf.DegToRad(120f),
+					        angle + Mathf.DegToRad(120f), 10, col, 2f);
+					DrawCircle(new Vector2(cx, cy) + rot * 1.5f - perp * 1.5f, 1.8f, col);
+					break;
+				}
+			}
+		}
+
 		// Single-pass tile overlays on top of TerrainMap (FogRenderer at ZIndex -5 covers these naturally).
 		foreach (var p in grid.Positions())
 		{
