@@ -500,6 +500,32 @@ public partial class WorldRenderer : Node2D
 				DrawLine(wallCenter, _client.MinerVisualPos(ownerSnap.Id, ownerSnap.X, ownerSnap.Y), WireColor, 1.5f);
 		}
 
+		// Trip mines: only visible to the miner who planted them (or spectators).
+		// Drawn as a small lying dynamite stick with a short fuse.
+		if (_client.TripCharges != null)
+		foreach (var tc in _client.TripCharges)
+		{
+			if (tc.OwnerId != _client.LocalMinerId && !spectating) continue;
+			var tp = new GridPos(tc.X, tc.Y);
+			if (!_client.Fog.IsVisible(tp) && !spectating) continue;
+
+			float mx = tc.X * ts + ts * 0.5f;
+			float my = tc.Y * ts + ts * 0.62f;
+			float hw = ts * 0.18f;   // half-width of dynamite body
+			float hh = ts * 0.07f;   // half-height
+
+			// Body: red rectangle lying flat.
+			DrawRect(new Rect2(mx - hw, my - hh, hw * 2f, hh * 2f), new Color(0.85f, 0.12f, 0.12f, 0.90f));
+			// End cap: slightly darker band on left.
+			DrawRect(new Rect2(mx - hw, my - hh, hw * 0.28f, hh * 2f), new Color(0.55f, 0.08f, 0.08f, 0.90f));
+			// Fuse: thin line rising from right end.
+			var fuseBase = new Vector2(mx + hw, my);
+			var fuseTip  = new Vector2(mx + hw + ts * 0.10f, my - ts * 0.16f);
+			DrawLine(fuseBase, fuseTip, new Color(0.75f, 0.65f, 0.35f, 0.95f), 1.5f);
+			// Fuse spark: small orange dot at tip.
+			DrawCircle(fuseTip, 2f, new Color(1f, 0.70f, 0.1f, 0.95f));
+		}
+
 		foreach (var it in _client.Items)
 		{
 			if (it.Placement == ItemPlacement.Buried) continue;
