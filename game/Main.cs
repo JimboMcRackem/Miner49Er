@@ -408,7 +408,7 @@ public partial class Main : Node2D
 			if (heldKind == ItemKind.Detonator)
 			{
 				if (m.Activity == (int)ActivityKind.PlantingDetonator)
-					return $"Planting detonator… {m.ActivitySecondsRemaining:0.0}s";
+					return $"Planting detonator… {m.ActivityRemaining:0.0}s";
 				foreach (var rc in _client.ReelCharges)
 					if (rc.OwnerId == _client.LocalMinerId)
 						return "Detonator planted — detonate it first!";
