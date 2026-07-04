@@ -15,6 +15,7 @@ public static class MapGenerator
         RandomFill(grid, rng, config.InitialFloorChance);
         for (int i = 0; i < config.SmoothingSteps; i++) Smooth(grid);
 
+        ConnectRegions(grid);
         KeepLargestRegion(grid);
         PlaceWater(grid, rng, config);
         if (config.Pits)
@@ -130,6 +131,60 @@ public static class MapGenerator
                 if (!g.InBounds(n) || g.Get(n) != TileType.Floor) count++;
             }
         return count;
+    }
+
+    // Joins every secondary floor island ≥10 tiles to the main (largest) region
+    // with an L-shaped 1-tile corridor, maximising usable floor coverage.
+    // Runs before KeepLargestRegion so the connected graph is kept as one piece.
+    private static void ConnectRegions(TileGrid g)
+    {
+        var visited = new HashSet<GridPos>();
+        var regions = new List<List<GridPos>>();
+        foreach (var p in g.Positions())
+        {
+            if (g.Get(p) != TileType.Floor || visited.Contains(p)) continue;
+            regions.Add(Flood(g, p, visited));
+        }
+        if (regions.Count <= 1) return;
+        regions.Sort((a, b) => b.Count - a.Count);
+
+        // Connect each significant secondary region to the main one.
+        for (int i = 1; i < regions.Count; i++)
+        {
+            if (regions[i].Count < 10) continue;
+            GridPos fromPt = regions[i][0], toPt = regions[0][0];
+            long bestDist = long.MaxValue;
+            var mainSample = regions[0].Count <= 300 ? regions[0] : regions[0].GetRange(0, 300);
+            foreach (var a in regions[i])
+                foreach (var b in mainSample)
+                {
+                    long dx = a.X - b.X, dy = a.Y - b.Y;
+                    long d = dx * dx + dy * dy;
+                    if (d < bestDist) { bestDist = d; fromPt = a; toPt = b; }
+                }
+            CarveL(g, fromPt, toPt);
+        }
+    }
+
+    // L-shaped corridor: horizontal leg then vertical leg. Skips ImpermeableRock borders.
+    private static void CarveL(TileGrid g, GridPos from, GridPos to)
+    {
+        int x = from.X, y = from.Y;
+        int xDir = Math.Sign(to.X - x);
+        while (x != to.X)
+        {
+            var p = new GridPos(x, y);
+            if (!IsBorder(g, p)) g.Set(p, TileType.Floor);
+            x += xDir;
+        }
+        int yDir = Math.Sign(to.Y - y);
+        while (y != to.Y)
+        {
+            var p = new GridPos(x, y);
+            if (!IsBorder(g, p)) g.Set(p, TileType.Floor);
+            y += yDir;
+        }
+        if (!IsBorder(g, to)) g.Set(to, TileType.Floor);
     }
 
     private static void KeepLargestRegion(TileGrid g)
