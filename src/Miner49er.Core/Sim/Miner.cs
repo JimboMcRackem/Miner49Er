@@ -1,6 +1,6 @@
 namespace Miner49er.Core;
 
-public enum ActivityKind { None, Mining, Planting, PlantingDetonator }
+public enum ActivityKind { None, Mining, Planting, PlantingDetonator, FloorCracking }
 
 public sealed class Miner
 {

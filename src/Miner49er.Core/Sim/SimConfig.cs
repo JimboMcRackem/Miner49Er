@@ -64,6 +64,9 @@ public sealed class SimConfig
     // Floor traps — plant dynamite on floor tiles; triggers when a miner steps on it.
     public bool TripMinesEnabled { get; set; } = false;
 
+    // LMS/Derby: players may pickaxe floor tiles to create cracks.
+    public bool UnstableFloorEnabled { get; set; } = false;
+
     // Ceiling rock falls — drops Rock tiles when gold drops to ≤ 5%.
     public bool RockFallsEnabled { get; set; } = false;
     public double RockFallMinDelay { get; set; } = 2.0;

@@ -716,7 +716,18 @@ public sealed class Simulation
             }
         }
 
-        if (!Grid.Get(target).IsMinable()) return false;
+        if (!Grid.Get(target).IsMinable())
+        {
+            if (Config.UnstableFloorEnabled && Grid.Get(target) == TileType.Floor)
+            {
+                m.Activity = ActivityKind.FloorCracking;
+                m.ActivityTarget = target;
+                m.ActivitySecondsRemaining = Config.PickaxeSeconds;
+                _events.Add(new ActivityStarted(id, ActivityKind.FloorCracking, target));
+                return true;
+            }
+            return false;
+        }
 
         m.Activity = ActivityKind.Mining;
         m.ActivityTarget = target;
@@ -1260,6 +1271,14 @@ public sealed class Simulation
             _reelCharges.Add(new ReelCharge(m.Id, target, EffectiveBlastBonus(m.Id)));
             m.Held = ItemKind.Reel;
             _events.Add(new DetonatorPlanted(m.Id, target));
+        }
+        else if (kind == ActivityKind.FloorCracking)
+        {
+            if (Grid.InBounds(target) && Grid.Get(target) == TileType.Floor)
+            {
+                Grid.Set(target, TileType.Cracked);
+                _events.Add(new CrackWeakened(target));
+            }
         }
     }
 
