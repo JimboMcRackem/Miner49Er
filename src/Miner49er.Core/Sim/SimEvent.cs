@@ -39,3 +39,4 @@ public sealed record MinerStunned(int AttackerId, int TargetId) : SimEvent;
 public sealed record MonsterStunned(int AttackerId, int MonsterId) : SimEvent;
 public sealed record RockFallWarned(GridPos Pos) : SimEvent;
 public sealed record RockFell(GridPos Pos) : SimEvent;
+public sealed record SkeletonAroused(int MonsterId) : SimEvent;

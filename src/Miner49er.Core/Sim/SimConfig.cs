@@ -43,7 +43,14 @@ public sealed class SimConfig
     public double MonsterGhostMoveSeconds { get; set; } = 1.0;
     public double MonsterGoatMoveSeconds { get; set; } = 0.15;
     public double MonsterZombieMoveSeconds { get; set; } = 0.6;  // slower than slime; relentless
+    public double MonsterSkeletonMoveSeconds     { get; set; } = 0.7;
+    public double MonsterSkeletonDinoMoveSeconds { get; set; } = 1.2;
     public int MonsterSenseRadius { get; set; } = 6;   // Manhattan range at which a monster locks on
+
+    // Manhattan radii within which each noise kind wakes a dormant skeleton.
+    public int SkeletonExplosionWakeRadius { get; set; } = 12;
+    public int SkeletonPickaxeWakeRadius   { get; set; } = 3;
+    public int SkeletonStoneWakeRadius     { get; set; } = 8;
 
     public int LanternRadius { get; set; } = 3;   // Chebyshev radius — ghosts inside are killed; ghosts won't enter
     public int LanternVisionBonus { get; set; } = 2;   // +tiles of fog radius while holding a lantern

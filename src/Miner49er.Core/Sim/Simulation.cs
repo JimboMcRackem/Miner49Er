@@ -28,10 +28,12 @@ public sealed class Simulation
     private readonly Random _rng;
     private Octopus? _octopus;
 
+    private enum NoiseKind { Stone, Explosion, Pickaxe }
     private sealed class NoiseSource
     {
         public GridPos Pos;
         public double LifetimeRemaining;
+        public NoiseKind Kind;
     }
 
     public sealed class PendingFall
@@ -129,10 +131,12 @@ public sealed class Simulation
 
     private double MonsterCadence(MonsterKind kind) => kind switch
     {
-        MonsterKind.Slime       => Config.MonsterSlimeMoveSeconds,
-        MonsterKind.Ghost       => Config.MonsterGhostMoveSeconds,
-        MonsterKind.Goat        => Config.MonsterGoatMoveSeconds,
-        MonsterKind.ZombieMiner => Config.MonsterZombieMoveSeconds,
+        MonsterKind.Slime          => Config.MonsterSlimeMoveSeconds,
+        MonsterKind.Ghost          => Config.MonsterGhostMoveSeconds,
+        MonsterKind.Goat           => Config.MonsterGoatMoveSeconds,
+        MonsterKind.ZombieMiner    => Config.MonsterZombieMoveSeconds,
+        MonsterKind.SkeletonHuman  => Config.MonsterSkeletonMoveSeconds,
+        MonsterKind.SkeletonDino   => Config.MonsterSkeletonDinoMoveSeconds,
         _ => Config.MonsterSlimeMoveSeconds,
     };
 
@@ -283,7 +287,7 @@ public sealed class Simulation
         }
 
         m.StoneCount--;
-        _noiseSources.Add(new NoiseSource { Pos = land, LifetimeRemaining = 4.0 });
+        _noiseSources.Add(new NoiseSource { Pos = land, LifetimeRemaining = 4.0, Kind = NoiseKind.Stone });
         _events.Add(new StoneThrown(minerId, land));
     }
 
@@ -442,6 +446,31 @@ public sealed class Simulation
         vent.Frontier = nextFrontier;
     }
 
+    private void AdvanceDormantMonsters()
+    {
+        foreach (var mo in _monsters)
+        {
+            if (!mo.Alive || !mo.Dormant) continue;
+            if (SkeletonWakeCheck(mo.Pos))
+            {
+                mo.Dormant = false;
+                _events.Add(new SkeletonAroused(mo.Id));
+            }
+        }
+    }
+
+    private bool SkeletonWakeCheck(GridPos pos)
+    {
+        foreach (var ns in _noiseSources)
+        {
+            int d = pos.ManhattanTo(ns.Pos);
+            if (ns.Kind == NoiseKind.Explosion && d <= Config.SkeletonExplosionWakeRadius) return true;
+            if (ns.Kind == NoiseKind.Pickaxe   && d <= Config.SkeletonPickaxeWakeRadius)   return true;
+            if (ns.Kind == NoiseKind.Stone      && d <= Config.SkeletonStoneWakeRadius)     return true;
+        }
+        return false;
+    }
+
     private void AdvanceMonsters(double dt)
     {
         if (_monsters.Count == 0) return;
@@ -451,6 +480,8 @@ public sealed class Simulation
         foreach (var mo in _monsters.OrderBy(x => x.Id))
         {
             if (!mo.Alive) continue;
+
+            if (mo.Dormant) continue;
 
             if (mo.SlowTimer > 0)
             {
@@ -787,6 +818,7 @@ public sealed class Simulation
         PickUpItems();
         AdvanceCharges(chargesThisTick, dt);
         AdvanceFlood();
+        AdvanceDormantMonsters();
     }
 
     private void AdvanceActivities(double dt)
@@ -1226,6 +1258,7 @@ public sealed class Simulation
             DetonateAt(reel.WallPos, reel.BlastBonus, reel.OwnerId);
         }
 
+        _noiseSources.Add(new NoiseSource { Pos = wallPos, LifetimeRemaining = 8.0, Kind = NoiseKind.Explosion });
         _events.Add(new Explosion(wallPos, destroyed));
     }
 
@@ -1245,6 +1278,7 @@ public sealed class Simulation
             UnburyItemsAt(target);
             ActivateVentsAround(target);
             _events.Add(new RockMined(m.Id, target, wasGold));
+            _noiseSources.Add(new NoiseSource { Pos = target, LifetimeRemaining = 2.0, Kind = NoiseKind.Pickaxe });
         }
         else if (kind == ActivityKind.Planting)
         {
