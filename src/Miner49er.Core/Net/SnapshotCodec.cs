@@ -48,6 +48,7 @@ public static class SnapshotCodec
         {
             w.Write(mo.Id); w.Write(mo.X); w.Write(mo.Y);
             w.Write(mo.Facing); w.Write((int)mo.Kind); w.Write(mo.Alive);
+            w.Write(mo.Dormant);
         }
 
         w.Write(snap.EscapeOpen);
@@ -119,7 +120,8 @@ public static class SnapshotCodec
         for (int i = 0; i < monsterCount; i++)
             monsters.Add(new MonsterSnapshot(
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
-                r.ReadInt32(), (MonsterKind)r.ReadInt32(), r.ReadBoolean()));
+                r.ReadInt32(), (MonsterKind)r.ReadInt32(), r.ReadBoolean(),
+                Dormant: r.ReadBoolean()));
 
         bool escapeOpen = r.ReadBoolean();
         int lives = r.ReadInt32();

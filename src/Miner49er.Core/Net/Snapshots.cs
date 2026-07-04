@@ -15,7 +15,8 @@ public readonly record struct ItemSnapshot(int X, int Y, ItemKind Kind, ItemPlac
 public readonly record struct MoldSnapshot(int X, int Y, double RemainingSeconds);
 
 public readonly record struct MonsterSnapshot(
-    int Id, int X, int Y, int Facing, MonsterKind Kind, bool Alive, float StunRemaining = 0f);
+    int Id, int X, int Y, int Facing, MonsterKind Kind, bool Alive,
+    float StunRemaining = 0f, bool Dormant = false);
 
 public readonly record struct ReelChargeSnapshot(int OwnerId, int WallX, int WallY);
 

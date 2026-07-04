@@ -169,4 +169,18 @@ public class SnapshotCodecTests
         Assert.Equal(0f,   back.Snapshot.Miners[1].InvulRemaining, 3);
         Assert.Equal(2,    back.Snapshot.Lives);
     }
+
+    [Fact]
+    public void Dormant_field_round_trips_through_codec()
+    {
+        var grid = new TileGrid(10, 10, TileType.Floor);
+        var sim = new Simulation(grid, new SimConfig());
+        sim.AddMonster(1, new GridPos(5, 5), MonsterKind.SkeletonHuman);   // starts dormant
+        var snap = SnapshotFactory.Capture(sim, tick: 0);
+        Assert.True(snap.Monsters[0].Dormant);
+
+        var bytes = SnapshotCodec.Write(new TickUpdate(snap, System.Array.Empty<TileChange>()));
+        var decoded = SnapshotCodec.Read(bytes).Snapshot;
+        Assert.True(decoded.Monsters[0].Dormant);
+    }
 }
