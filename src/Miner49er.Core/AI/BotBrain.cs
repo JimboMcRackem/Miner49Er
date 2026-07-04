@@ -12,6 +12,7 @@ public sealed class BotBrain
     private GridPos? _goal;
     private int _ticksUntilReeval;
     private readonly Random _rng;
+    private readonly HashSet<GridPos> _knownMines = new();
 
     private static readonly Direction[] AllDirs =
         { Direction.North, Direction.East, Direction.South, Direction.West };
@@ -102,6 +103,50 @@ public sealed class BotBrain
             break; // only react to the nearest fall
         }
 
+        // Trip mine detection: skill-gated chance to notice and avoid planted mines.
+        // Greenhorn is oblivious; higher skills detect at increasing ranges and rates.
+        double mineDetectChance = Skill switch
+        {
+            BotSkill.Miner       => 0.008,   // ~25% chance per second at 30 Hz
+            BotSkill.Foreman     => 0.025,   // ~55% per second
+            BotSkill.DynamiteDan => 1.0,     // instant detection
+            _ => 0.0,
+        };
+        int mineDetectRange = Skill switch
+        {
+            BotSkill.Miner       => 4,
+            BotSkill.Foreman     => 5,
+            BotSkill.DynamiteDan => 6,
+            _ => 0,
+        };
+        if (mineDetectChance > 0)
+        {
+            // Discard triggered mines from our known set
+            if (_knownMines.Count > 0)
+            {
+                var active = new HashSet<GridPos>();
+                foreach (var tc in sim.TripCharges) active.Add(tc.Pos);
+                _knownMines.IntersectWith(active);
+            }
+            // Detection attempt for each undiscovered mine in range
+            foreach (var tc in sim.TripCharges)
+            {
+                if (!_knownMines.Contains(tc.Pos)
+                    && miner.Pos.ManhattanTo(tc.Pos) <= mineDetectRange
+                    && _rng.NextDouble() < mineDetectChance)
+                    _knownMines.Add(tc.Pos);
+            }
+            // Flee any known mine that's adjacent (don't step on it)
+            foreach (var minePos in _knownMines)
+            {
+                if (miner.Pos.ManhattanTo(minePos) > 1) continue;
+                var fleeTarget = FleeFrom(sim.Grid, miner.Pos, minePos);
+                if (fleeTarget == null) continue;
+                int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false);
+                if (fleeDir != -1) { _ticksUntilReeval = 0; return new BotAction(fleeDir); }
+            }
+        }
+
         // Rival proximity (PvP, defensive): Miner+ flees when a rival is adjacent,
         // unless in a mode where this bot is already chasing rivals (handled by attack swing instead).
         if (isPvP && Skill >= BotSkill.Miner && !derby && !(lms && Skill >= BotSkill.Foreman))
@@ -153,6 +198,19 @@ public sealed class BotBrain
         var nextPos  = new GridPos(miner.Pos.X + off.X, miner.Pos.Y + off.Y);
         var nextTile = sim.Grid.InBounds(nextPos) ? sim.Grid.Get(nextPos) : TileType.Rock;
         bool mine = nextTile.IsMinable();
+
+        // Greenhorn: occasionally swing pickaxe at an adjacent minable tile even when not
+        // routing through rock (the pathfinder avoids rock, so mine=false most of the time).
+        if (Skill == BotSkill.Greenhorn && !mine && _rng.NextDouble() < 0.10)
+        {
+            foreach (var d2 in AllDirs)
+            {
+                var off2 = d2.ToOffset();
+                var nb = new GridPos(miner.Pos.X + off2.X, miner.Pos.Y + off2.Y);
+                if (sim.Grid.InBounds(nb) && sim.Grid.Get(nb).IsMinable())
+                    return new BotAction((int)d2, mine: true);
+            }
+        }
 
         // Aggressive swing: Derby/LMS-pursuing bots swing (pickaxe stun) at a rival in the step direction.
         bool aggressiveTowardRivals = isPvP && (derby || (lms && Skill >= BotSkill.Foreman));

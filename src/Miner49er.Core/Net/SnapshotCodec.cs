@@ -69,6 +69,10 @@ public static class SnapshotCodec
         foreach (var pc in snap.PlacedChests ?? System.Array.Empty<PlacedChestSnapshot>())
         { w.Write(pc.MinerId); w.Write(pc.X); w.Write(pc.Y); }
 
+        w.Write(snap.TripCharges?.Count ?? 0);
+        foreach (var tc in snap.TripCharges ?? System.Array.Empty<TripChargeSnapshot>())
+        { w.Write(tc.OwnerId); w.Write(tc.X); w.Write(tc.Y); }
+
         w.Write(update.TileChanges.Count);
         foreach (var t in update.TileChanges)
         {
@@ -144,6 +148,12 @@ public static class SnapshotCodec
         for (int i = 0; i < pcCount; i++)
             placedChests!.Add(new PlacedChestSnapshot(r.ReadInt32(), r.ReadInt32(), r.ReadInt32()));
 
+        int tcCount = r.ReadInt32();
+        List<TripChargeSnapshot>? tripCharges = tcCount > 0
+            ? new List<TripChargeSnapshot>(tcCount) : null;
+        for (int i = 0; i < tcCount; i++)
+            tripCharges!.Add(new TripChargeSnapshot(r.ReadInt32(), r.ReadInt32(), r.ReadInt32()));
+
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
@@ -151,6 +161,6 @@ public static class SnapshotCodec
 
         return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds,
             monsters, secondsRemaining, escapeOpen, octopus, lives, reelCharges,
-            treasureProgress, placedChests), changes);
+            treasureProgress, placedChests, tripCharges), changes);
     }
 }
