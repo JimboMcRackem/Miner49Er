@@ -41,3 +41,43 @@ public class MonsterSpawnerTests
         Assert.Empty(MonsterSpawner.Place(grid, new GridPos(1, 1), 0));
     }
 }
+
+public class MonsterSpawnerFloorTests
+{
+    private static TileGrid BigGrid()
+    {
+        return new TileGrid(30, 30, TileType.Floor);
+    }
+
+    [Fact]
+    public void Floor_below_8_contains_no_skeletons()
+    {
+        var result = MonsterSpawner.Place(BigGrid(), new GridPos(1, 1), 6, floor: 7);
+        Assert.DoesNotContain(result, r =>
+            r.Kind == MonsterKind.SkeletonHuman || r.Kind == MonsterKind.SkeletonDino);
+    }
+
+    [Fact]
+    public void Floor_8_to_11_includes_SkeletonHuman_but_not_Dino()
+    {
+        var result = MonsterSpawner.Place(BigGrid(), new GridPos(1, 1), 8, floor: 9);
+        Assert.Contains(result, r => r.Kind == MonsterKind.SkeletonHuman);
+        Assert.DoesNotContain(result, r => r.Kind == MonsterKind.SkeletonDino);
+    }
+
+    [Fact]
+    public void Floor_12_plus_includes_both_skeleton_kinds()
+    {
+        var result = MonsterSpawner.Place(BigGrid(), new GridPos(1, 1), 10, floor: 12);
+        Assert.Contains(result, r => r.Kind == MonsterKind.SkeletonHuman);
+        Assert.Contains(result, r => r.Kind == MonsterKind.SkeletonDino);
+    }
+
+    [Fact]
+    public void Floor_0_default_contains_no_skeletons()
+    {
+        var result = MonsterSpawner.Place(BigGrid(), new GridPos(1, 1), 6);
+        Assert.DoesNotContain(result, r =>
+            r.Kind == MonsterKind.SkeletonHuman || r.Kind == MonsterKind.SkeletonDino);
+    }
+}

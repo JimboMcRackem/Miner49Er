@@ -9,9 +9,16 @@ namespace Miner49er.Core;
 /// deterministic from the grid + start, so host and any future client agree.</summary>
 public static class MonsterSpawner
 {
-    private static readonly MonsterKind[] Kinds = { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner };
+    private static MonsterKind[] KindsForFloor(int floor)
+    {
+        if (floor >= 12)
+            return new[] { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner, MonsterKind.SkeletonHuman, MonsterKind.SkeletonDino };
+        if (floor >= 8)
+            return new[] { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner, MonsterKind.SkeletonHuman };
+        return new[] { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner };
+    }
 
-    public static List<(GridPos Pos, MonsterKind Kind)> Place(TileGrid grid, GridPos start, int count)
+    public static List<(GridPos Pos, MonsterKind Kind)> Place(TileGrid grid, GridPos start, int count, int floor = 0)
     {
         var result = new List<(GridPos, MonsterKind)>();
         if (count <= 0) return result;
@@ -48,8 +55,9 @@ public static class MonsterSpawner
             taken.Add(best);
         }
 
+        var kinds = KindsForFloor(floor);
         for (int i = 0; i < chosen.Count; i++)
-            result.Add((chosen[i], Kinds[i % Kinds.Length]));
+            result.Add((chosen[i], kinds[i % kinds.Length]));
         return result;
     }
 }

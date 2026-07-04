@@ -143,7 +143,14 @@ public partial class Main : Node2D
 			if (nm.MatchMode == GameMode.Expedition)
 			{
 				int monsterCount = MonsterRoster.CountFor(hostMap.Grid.Width, hostMap.Grid.Height);
-				var roster = MonsterSpawner.Place(hostMap.Grid, soloSpawn, monsterCount);
+				var roster = MonsterSpawner.Place(hostMap.Grid, soloSpawn, monsterCount, floor: 1);
+				for (int i = 0; i < roster.Count; i++)
+					sim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
+			}
+			else if (nm.MatchMode == GameMode.ReachCenter && hostMap.Spawns.Count > 0)
+			{
+				int monsterCount = MonsterRoster.CountFor(hostMap.Grid.Width, hostMap.Grid.Height);
+				var roster = MonsterSpawner.Place(hostMap.Grid, hostMap.Spawns[0], monsterCount, floor: 10);
 				for (int i = 0; i < roster.Count; i++)
 					sim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
 			}
