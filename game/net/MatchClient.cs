@@ -140,6 +140,14 @@ public partial class MatchClient : Node2D
 		{
 			var c = new Vector2(bx / blastCount * TileSize + TileSize / 2f,
 								 by / blastCount * TileSize + TileSize / 2f);
+			float maxR = 0f;
+			foreach (var t in update.TileChanges)
+				if (t.FromBlast)
+				{
+					float d = c.DistanceTo(new Vector2(t.X * TileSize + TileSize / 2f, t.Y * TileSize + TileSize / 2f));
+					if (d > maxR) maxR = d;
+				}
+			_world?.AddExplosionRing(c, maxR + TileSize * 0.7f);
 			Exploded?.Invoke(c);
 		}
 

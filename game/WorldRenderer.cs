@@ -12,6 +12,7 @@ public partial class WorldRenderer : Node2D
 {
 	private MatchClient _client = null!;
 	private readonly List<(GridPos pos, float life)> _flashes = new();
+	private readonly List<(Vector2 center, float maxR, float life)> _rings = new();
 
 	private static readonly Color CrackColor     = new Color(0.15f, 0.08f, 0.0f, 0.70f);
 	private static readonly Color LavaVentColor  = new("ff7a2a");
@@ -253,6 +254,7 @@ public partial class WorldRenderer : Node2D
 	}
 
 	public void AddExplosionFlash(GridPos pos) => _flashes.Add((pos, 0.4f));
+	public void AddExplosionRing(Vector2 center, float maxR) => _rings.Add((center, maxR, 0.5f));
 
 	public override void _Process(double delta)
 	{
@@ -262,6 +264,13 @@ public partial class WorldRenderer : Node2D
 			f.life -= (float)delta;
 			if (f.life <= 0) _flashes.RemoveAt(i);
 			else _flashes[i] = f;
+		}
+		for (int i = _rings.Count - 1; i >= 0; i--)
+		{
+			var r = _rings[i];
+			r.life -= (float)delta;
+			if (r.life <= 0) _rings.RemoveAt(i);
+			else _rings[i] = r;
 		}
 		QueueRedraw();
 	}
@@ -669,6 +678,21 @@ public partial class WorldRenderer : Node2D
 		{
 			var col = FlashColor with { A = Mathf.Clamp(life / 0.4f, 0f, 1f) };
 			DrawRect(new Rect2(pos.X * ts, pos.Y * ts, ts, ts), col);
+		}
+
+		// Expanding shockwave ring — grows from 0 to maxR over 0.5 s, fading as it goes.
+		const float RingDuration = 0.5f;
+		foreach (var (center, maxR, life) in _rings)
+		{
+			float progress = 1f - life / RingDuration;           // 0 → 1
+			float radius   = progress * maxR;
+			float alpha    = Mathf.Pow(1f - progress, 0.6f);     // fast fade at edge
+			// Outer bright ring
+			DrawArc(center, radius, 0f, Mathf.Tau, 64,
+				new Color(1f, 0.80f, 0.25f, alpha * 0.85f), 5f);
+			// Inner softer halo — slightly smaller, whiter, thinner
+			DrawArc(center, radius * 0.75f, 0f, Mathf.Tau, 48,
+				new Color(1f, 1f, 0.70f, alpha * 0.40f), 3f);
 		}
 
 		// Lantern light: radial amber glow centered on each active lantern source
