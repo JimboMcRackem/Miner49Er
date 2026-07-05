@@ -21,6 +21,7 @@ public partial class Lobby : Control
 	private OptionButton _explosivePicker = null!;
 	private OptionButton _speedPicker = null!;
 	private OptionButton _mapSizePicker = null!;
+	private OptionButton _startFloorPicker = null!;
 	private Label _codeLabel = null!;
 	private Button _copyBtn = null!;
 	private OptionButton _botSkillPicker = null!;
@@ -44,7 +45,7 @@ public partial class Lobby : Control
 		leftCol.AddThemeConstantOverride("separation", 8);
 		columns.AddChild(leftCol);
 
-		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive) = SettingsStore.LoadLobby();
+		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor) = SettingsStore.LoadLobby();
 
 		_modePicker = new OptionButton();
 		_modePicker.AddItem("Last Man Standing",  (int)GameMode.LastManStanding);
@@ -89,6 +90,17 @@ public partial class Lobby : Control
 		_mapSizePicker.Select(sizeIdx);
 		_mapSizePicker.ItemSelected += _ => SuggestTimerForMapSize();
 		leftCol.AddChild(_mapSizePicker);
+
+		_startFloorPicker = new OptionButton();
+		_startFloorPicker.AddItem("Floor 1  (Normal)",   1);
+		_startFloorPicker.AddItem("Floor 5  (Deeper)",   5);
+		_startFloorPicker.AddItem("Floor 8  (Hard)",     8);
+		_startFloorPicker.AddItem("Floor 12 (Very Hard)", 12);
+		_startFloorPicker.AddItem("Floor 16 (Lava)",    16);
+		int startFloorIdx = Enumerable.Range(0, _startFloorPicker.ItemCount)
+			.FirstOrDefault(i => _startFloorPicker.GetItemId(i) == savedStartFloor, 0);
+		_startFloorPicker.Select(startFloorIdx);
+		leftCol.AddChild(_startFloorPicker);
 
 		_modePicker.ItemSelected += _ =>
 		{
@@ -188,12 +200,13 @@ public partial class Lobby : Control
 			bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
 			bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
 			bool derby      = _modePicker.GetSelectedId() == (int)GameMode.DemolitionDerby;
-			int mapScale  = _mapSizePicker.GetSelectedId();
-			int explosive = (expedition || treasure || derby) ? 0 : _explosivePicker.GetSelectedId();
-			int timeLimit = (expedition || treasure || derby) ? 0 : _timePicker.GetSelectedId();
+			int mapScale   = _mapSizePicker.GetSelectedId();
+			int explosive  = (expedition || treasure || derby) ? 0 : _explosivePicker.GetSelectedId();
+			int timeLimit  = (expedition || treasure || derby) ? 0 : _timePicker.GetSelectedId();
+			int startFloor = expedition ? _startFloorPicker.GetSelectedId() : 1;
 			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), timeLimit,
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
-				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive);
+				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive, startFloor);
 			NetworkManager.Instance.StartMatch(
 				(GameMode)_modePicker.GetSelectedId(),
 				timeLimit,
@@ -203,7 +216,8 @@ public partial class Lobby : Control
 				_lavaCheck.ButtonPressed,
 				new[] { 0.20f, 0.12f, 0.07f }[_speedPicker.Selected],
 				mapScale,
-				(ExplosiveMode)explosive);
+				(ExplosiveMode)explosive,
+				startFloor);
 		};
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		rightCol.AddChild(_startBtn);
@@ -237,9 +251,10 @@ public partial class Lobby : Control
 		bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
 		bool derby      = _modePicker.GetSelectedId() == (int)GameMode.DemolitionDerby;
 		bool normalMode = !expedition && !treasure && !derby;
-		_timePicker.Visible      = isHost && normalMode;
-		_mapSizePicker.Visible   = isHost;
-		_explosivePicker.Visible = isHost && normalMode;
+		_timePicker.Visible        = isHost && normalMode;
+		_mapSizePicker.Visible     = isHost;
+		_startFloorPicker.Visible  = isHost && expedition;
+		_explosivePicker.Visible   = isHost && normalMode;
 		_modeDesc.Text = ModeDescription(_modePicker.GetSelectedId());
 	}
 

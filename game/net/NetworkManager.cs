@@ -321,6 +321,7 @@ public partial class NetworkManager : Node
 	public int MatchMapScale { get; set; } = 1;
 	public long[] PeerOrder { get; private set; } = System.Array.Empty<long>();
 	public int MatchFloor { get; set; } = 1;
+	public int MatchStartFloor { get; private set; } = 1;
 
 	public event System.Action<int>? NewFloor;
 
@@ -347,18 +348,18 @@ public partial class NetworkManager : Node
 		_matchClient = client;
 	}
 
-	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite)
+	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1)
 	{
 		if (!IsHost) return;
 		if (flooding && timeLimitSeconds <= 0) timeLimitSeconds = 60; // a flooded match needs a clock
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
 		int seed = System.Random.Shared.Next();
-		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order);
-		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order); // host applies locally too
+		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order, startFloor);
+		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order, startFloor); // host applies locally too
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority)]
-	public void BeginMatch(int seed, int playerCount, int mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale, int explosive, long[] peerOrder)
+	public void BeginMatch(int seed, int playerCount, int mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale, int explosive, long[] peerOrder, int startFloor = 1)
 	{
 		MatchSeed = seed;
 		MatchPlayerCount = playerCount;
@@ -372,6 +373,8 @@ public partial class NetworkManager : Node
 		MatchMapScale = mapScale;
 		MatchExplosive = (ExplosiveMode)explosive;
 		PeerOrder = peerOrder;
+		MatchStartFloor = startFloor;
+		MatchFloor = startFloor;
 		MatchStarting?.Invoke();
 	}
 

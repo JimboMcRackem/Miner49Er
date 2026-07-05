@@ -51,10 +51,20 @@ public partial class Main : Node2D
 
 		int seed = nm.MatchSeed;
 		int playerCount = nm.MatchPlayerCount;
-		var f1Modifier = nm.MatchMode == GameMode.Expedition ? FloorModifiers.Pick(seed, 1) : FloorModifier.None;
-		var clientMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale, nm.MatchExplosive);
-		clientMapCfg.Flooding = nm.MatchFlooding;
-		FloorModifiers.Apply(f1Modifier, clientMapCfg, new SimConfig());
+		int startFloor = nm.MatchStartFloor;
+		int floorSeed = startFloor > 1 ? seed + startFloor * 1000 : seed;
+		var floorModifier = nm.MatchMode == GameMode.Expedition ? FloorModifiers.Pick(seed, startFloor) : FloorModifier.None;
+		MapConfig clientMapCfg;
+		if (nm.MatchMode == GameMode.Expedition && startFloor > 1)
+		{
+			clientMapCfg = MapConfig.FloorConfig(startFloor, floorSeed, playerCount);
+		}
+		else
+		{
+			clientMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale, nm.MatchExplosive);
+			clientMapCfg.Flooding = nm.MatchFlooding;
+		}
+		FloorModifiers.Apply(floorModifier, clientMapCfg, new SimConfig());
 		var map = MapGenerator.Generate(clientMapCfg);
 
 		int localMinerId = nm.LocalMinerId();
@@ -76,13 +86,21 @@ public partial class Main : Node2D
 
 		if (nm.IsHost)
 		{
-			var hostMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale, nm.MatchExplosive);
-			hostMapCfg.Flooding = nm.MatchFlooding;
+			MapConfig hostMapCfg;
+			if (nm.MatchMode == GameMode.Expedition && startFloor > 1)
+			{
+				hostMapCfg = MapConfig.FloorConfig(startFloor, floorSeed, playerCount);
+			}
+			else
+			{
+				hostMapCfg = MapConfig.For(nm.MatchMode, seed, playerCount, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchMapScale, nm.MatchExplosive);
+				hostMapCfg.Flooding = nm.MatchFlooding;
+			}
 			bool isPvP = nm.MatchMode != GameMode.Expedition;
 			var f1SimCfg = new SimConfig
 			{
 				BaseMoveSeconds  = nm.MatchBaseMoveSeconds,
-				Seed             = seed,
+				Seed             = floorSeed,
 				DynamiteEnabled  = nm.MatchExplosive != ExplosiveMode.DetonatorsOnly,
 				TreasureHuntMode = nm.MatchMode == GameMode.TreasureHunt,
 				TripMinesEnabled = nm.MatchMode == GameMode.LastManStanding || nm.MatchMode == GameMode.DemolitionDerby,
@@ -95,7 +113,7 @@ public partial class Main : Node2D
 				f1SimCfg.DynamiteEnabled = true;
 				f1SimCfg.FuseSeconds     = 2.0;
 			}
-			FloorModifiers.Apply(f1Modifier, hostMapCfg, f1SimCfg);
+			FloorModifiers.Apply(floorModifier, hostMapCfg, f1SimCfg);
 			var hostMap = MapGenerator.Generate(hostMapCfg);
 			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.EscapeTile : null;
 			var sim = new Simulation(
@@ -143,8 +161,8 @@ public partial class Main : Node2D
 			}
 			if (nm.MatchMode == GameMode.Expedition)
 			{
-				int monsterCount = MonsterRoster.CountFor(hostMap.Grid.Width, hostMap.Grid.Height);
-				var roster = MonsterSpawner.Place(hostMap.Grid, soloSpawn, monsterCount, floor: 1);
+				int monsterCount = MonsterRoster.CountFor(hostMap.Grid.Width, hostMap.Grid.Height, startFloor);
+				var roster = MonsterSpawner.Place(hostMap.Grid, soloSpawn, monsterCount, floor: startFloor);
 				for (int i = 0; i < roster.Count; i++)
 					sim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
 			}
@@ -597,7 +615,7 @@ public partial class Main : Node2D
 				{
 					nm.StartMatch(nm.MatchMode, nm.MatchTimeLimitSeconds, nm.MatchFlooding,
 						nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchBaseMoveSeconds,
-						nm.MatchMapScale, nm.MatchExplosive);
+						nm.MatchMapScale, nm.MatchExplosive, nm.MatchStartFloor);
 					GetTree().ChangeSceneToFile("res://game/Main.tscn");
 				};
 			}
