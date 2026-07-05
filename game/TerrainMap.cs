@@ -69,6 +69,7 @@ public partial class TerrainMap : Node2D
 			Position = new Vector2(-half, -half),
 			ZIndex   = 1,
 			Material = waterMat,
+			Visible  = false, // water appearance handled by WorldRenderer (flat colour + wave marks)
 		};
 		AddChild(_waterLayer);
 

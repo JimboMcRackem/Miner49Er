@@ -281,6 +281,36 @@ public partial class WorldRenderer : Node2D
 		var grid = _client.Grid;
 		int ts = MatchClient.TileSize;
 
+		// Water tiles: flat colour base + small seeded inverted-V wave marks.
+		// Deep water is dark navy; shallow water is medium blue.
+		// The shader-animated water layer is disabled so WorldRenderer owns all water appearance.
+		foreach (var p in grid.Positions())
+		{
+			var wt = grid.Get(p);
+			if (!wt.IsWater()) continue;
+			float wx0 = p.X * ts, wy0 = p.Y * ts;
+			bool deep = wt == TileType.DeepWater;
+			DrawRect(new Rect2(wx0, wy0, ts, ts),
+				deep ? new Color(0.02f, 0.07f, 0.24f)   // dark navy
+				     : new Color(0.06f, 0.17f, 0.46f));  // medium blue
+
+			// 3–4 small ∧ wave marks per tile, position-seeded so they never move.
+			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
+			int waveCount = 3 + (int)(wh & 1u);
+			var waveCol = deep
+				? new Color(0.14f, 0.28f, 0.58f, 0.70f)
+				: new Color(0.22f, 0.44f, 0.76f, 0.70f);
+			for (int wv = 0; wv < waveCount; wv++)
+			{
+				uint wh2 = wh ^ (uint)(wv * 1013904223u);
+				float px = wx0 + 4f + (wh2 & 0x1Fu) * (ts - 8) / 31f;
+				float py = wy0 + 5f + ((wh2 >> 8) & 0x1Fu) * (ts - 10) / 31f;
+				// Inverted V: peak at (px, py), legs spread 3px each side, drop 3px
+				DrawLine(new Vector2(px - 3f, py + 3f), new Vector2(px, py), waveCol, 1f);
+				DrawLine(new Vector2(px, py), new Vector2(px + 3f, py + 3f), waveCol, 1f);
+			}
+		}
+
 		// Procedural rough-stone floor — covers the PixelLab floor texture with per-tile brightness
 		// variation and small grain marks, making the floor look like unworked natural stone.
 		foreach (var p in grid.Positions())
