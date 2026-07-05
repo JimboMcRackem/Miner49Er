@@ -242,7 +242,8 @@ public partial class MainMenu : Control
 	{
 		// Rebuild the solo panel each time it's shown so the Continue button
 		// reflects the current save state (e.g., after returning from a run).
-		if (target == _soloPanel)
+		bool showSolo = target == _soloPanel;
+		if (showSolo)
 		{
 			var root = _modePanel.GetParent<VBoxContainer>()!;
 			root.RemoveChild(_soloPanel);
@@ -252,7 +253,7 @@ public partial class MainMenu : Control
 			root.MoveChild(_soloPanel, 1); // order: modePanel(0), soloPanel(1), multiPanel(2)
 		}
 		_modePanel.Visible  = target == _modePanel;
-		_soloPanel.Visible  = target == _soloPanel;
+		_soloPanel.Visible  = showSolo;
 		_multiPanel.Visible = target == _multiPanel;
 	}
 
