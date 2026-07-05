@@ -44,6 +44,9 @@ public partial class MatchHost : Node
 	private readonly HashSet<int> _deadMiners = new();
 	private readonly Dictionary<int, double> _coopRespawnTimers = new();
 
+	// Human miner IDs (excludes bots); used for bot-aware game-over logic.
+	private readonly HashSet<int> _humanMinerIds = new();
+
 	public void Begin(Simulation sim, Dictionary<long, int> peerToMiner,
 		List<(int minerId, BotSkill skill)>? bots = null,
 		Dictionary<int, long>? botMinerToPeer = null)
@@ -51,10 +54,12 @@ public partial class MatchHost : Node
 		_sim = sim;
 		_botBrains.Clear();
 		_botMinerToPeer.Clear();
+		_humanMinerIds.Clear();
 		foreach (var (peer, miner) in peerToMiner)
 		{
 			_peerToMiner[peer] = miner;
 			_pendingDir[miner] = -1;
+			_humanMinerIds.Add(miner);
 		}
 		var nm       = NetworkManager.Instance;
 		_livesMax       = nm.MatchMode == GameMode.Expedition
@@ -251,6 +256,20 @@ public partial class MatchHost : Node
 		if (nm.MatchMode == GameMode.Expedition && nm.MatchPlayerCount > 1)
 			HandleCoopDeaths();
 
+		// With bots: end when all human miners are dead and no human respawns are pending.
+		// Prevents bots-only fights continuing after every human is eliminated.
+		if (_botBrains.Count > 0 && _humanMinerIds.Count > 0)
+		{
+			bool anyHumanAlive         = _humanMinerIds.Any(mid => _sim.GetMiner(mid).Alive);
+			bool anyHumanRespawnPending = _humanMinerIds.Any(mid => _coopRespawnTimers.ContainsKey(mid));
+			if (!anyHumanAlive && !anyHumanRespawnPending)
+			{
+				_running = false;
+				nm.BroadcastResult(-1);
+				return;
+			}
+		}
+
 		var result = RoundResolver.Resolve(_sim, nm.MatchMode);
 
 		if (result.FloorCleared)
@@ -320,9 +339,10 @@ public partial class MatchHost : Node
 			if (!m.Alive && !_deadMiners.Contains(m.Id) && !_coopRespawnTimers.ContainsKey(m.Id))
 			{
 				_deadMiners.Add(m.Id);
-				if (_livesRemaining > 0)
+				bool isBot = _botBrains.ContainsKey(m.Id);
+				if (isBot || _livesRemaining > 0)
 				{
-					_livesRemaining--;
+					if (!isBot) _livesRemaining--;
 					_coopRespawnTimers[m.Id] = RespawnDelay;
 				}
 			}

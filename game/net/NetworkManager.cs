@@ -46,7 +46,9 @@ public partial class NetworkManager : Node
 	private readonly Dictionary<long, BotSkill> _botSkills = new();
 
 	private static readonly string[] BotNamePool =
-		{ "Dusty", "Rocky", "Gravel", "Nugget", "Pickaxe", "Blaster", "Shafty", "Copperhead" };
+		{ "Dusty", "Rocky", "Gravel", "Nugget", "Pickaxe", "Blaster", "Shafty", "Copperhead",
+		  "Shale", "Flint", "Chip", "Pebble", "Cobalt", "Granite", "Quartz", "Pyrite",
+		  "Tunnel", "Digger", "Chisel", "Hammer", "Drill", "Slaggy", "Goldie", "Craggy" };
 
 	public override void _EnterTree() => Instance = this;
 
