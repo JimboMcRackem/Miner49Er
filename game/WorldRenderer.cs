@@ -295,23 +295,22 @@ public partial class WorldRenderer : Node2D
 				     : new Color(0.06f, 0.17f, 0.46f));  // medium blue
 
 			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
-			int waveCount = 1 + (int)(wh & 1u); // 1–2 per tile
-			var waveBase = deep
-				? new Color(0.14f, 0.28f, 0.58f, 0.55f)
-				: new Color(0.22f, 0.44f, 0.76f, 0.55f);
-			var waveWhite = new Color(1f, 1f, 1f, 0.95f);
-			for (int wv = 0; wv < waveCount; wv++)
+			// 4–5 sparkle dots per tile: seeded positions, each flashes briefly to
+			// near-white via a power-sharpened sine so the surface glints like
+			// light reflecting off water viewed from above.
+			int sparkCount = 4 + (int)(wh & 1u);
+			for (int wv = 0; wv < sparkCount; wv++)
 			{
 				uint wh2 = wh ^ (uint)(wv * 1013904223u);
-				float px = wx0 + 4f + (wh2 & 0x1Fu) * (ts - 8) / 31f;
-				float py = wy0 + 5f + ((wh2 >> 8) & 0x1Fu) * (ts - 10) / 31f;
+				float px = wx0 + 2f + (wh2 & 0x1Fu) * (ts - 4) / 31f;
+				float py = wy0 + 2f + ((wh2 >> 8) & 0x1Fu) * (ts - 4) / 31f;
 				float phase = ((wh2 >> 16) & 0xFFu) * (Mathf.Tau / 255f);
-				// Power-sharpened positive half of sine: brief bright flash, dark the rest of the time
 				float t = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(wTime * 2.5f + phase)), 3f);
-				var waveCol = waveBase.Lerp(waveWhite, t);
-				// Shallow V: 5px half-width, 2px drop
-				DrawLine(new Vector2(px - 5f, py + 2f), new Vector2(px, py), waveCol, 1f);
-				DrawLine(new Vector2(px, py), new Vector2(px + 5f, py + 2f), waveCol, 1f);
+				if (t < 0.02f) continue; // skip when invisible
+				float alpha = t * 0.90f;
+				DrawCircle(new Vector2(px, py), 1.2f,
+					deep ? new Color(0.55f, 0.75f, 1f, alpha)
+					     : new Color(0.70f, 0.88f, 1f, alpha));
 			}
 		}
 
