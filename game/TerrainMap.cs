@@ -15,6 +15,7 @@ public partial class TerrainMap : Node2D
 {
 	private TileMapLayer _layer = null!;
 	private TileMapLayer _waterLayer = null!;
+	private TileMapLayer _deepLayer  = null!;
 	private MatchClient _client = null!;
 	private bool _ready;
 	private int _sourceId;
@@ -71,6 +72,19 @@ public partial class TerrainMap : Node2D
 		};
 		AddChild(_waterLayer);
 
+		// Dark semi-transparent overlay on interior deep-water cells to show depth.
+		// Deep and shallow share the same terrain ID for edge rendering (smooth borders);
+		// this layer re-adds the visual distinction without needing authored transition tiles.
+		_deepLayer = new TileMapLayer
+		{
+			Name     = "DeepWaterLayer",
+			TileSet  = ts,
+			Position = new Vector2(-half, -half),
+			ZIndex   = 2,
+			Modulate = new Color(0.40f, 0.55f, 0.82f, 0.55f),
+		};
+		AddChild(_deepLayer);
+
 		_ready = true;
 		PaintFullGrid();
 	}
@@ -124,12 +138,26 @@ public partial class TerrainMap : Node2D
 		var cell = new Vector2I(i, j);
 		var resolved = Resolve(tl, tr, bl, br);
 		_layer.SetCell(cell, _sourceId, resolved);
-		if (tl == tr && tr == bl && bl == br
-			&& (tl == Water || tl == DeepWater)
-			&& _solid.TryGetValue(tl, out var wc))
+
+		// Water animation: paint wherever all four corners are water.
+		if (tl == tr && tr == bl && bl == br && tl == Water && _solid.TryGetValue(Water, out var wc))
 			_waterLayer.SetCell(cell, _sourceId, wc);
 		else
 			_waterLayer.EraseCell(cell);
+
+		// Deep-water overlay: paint a dark tinted tile over cells whose four world corners are all DeepWater.
+		bool deep = IsDeepWaterAt(i - 1, j - 1) && IsDeepWaterAt(i, j - 1)
+		         && IsDeepWaterAt(i - 1, j)     && IsDeepWaterAt(i, j);
+		if (deep && _solid.TryGetValue(Water, out var dc))
+			_deepLayer.SetCell(cell, _sourceId, dc);
+		else
+			_deepLayer.EraseCell(cell);
+	}
+
+	private bool IsDeepWaterAt(int x, int y)
+	{
+		var p = new GridPos(x, y);
+		return _client.Grid.InBounds(p) && _client.Grid.Get(p) == TileType.DeepWater;
 	}
 
 	private Vector2I Resolve(int tl, int tr, int bl, int br)
@@ -172,7 +200,7 @@ public partial class TerrainMap : Node2D
 		TileType.Floor or TileType.Cracked or TileType.Crumbling or TileType.Plank => Floor,
 		TileType.Lava => Lava,
 		TileType.ShallowWater => Water,
-		TileType.DeepWater    => DeepWater,
+		TileType.DeepWater    => Water, // same terrain as shallow — avoids missing edge tiles at the border
 		TileType.Pit => Pit,
 		_ => Wall, // LavaVent — wall underneath; WorldRenderer overlays the vent glow
 	};
