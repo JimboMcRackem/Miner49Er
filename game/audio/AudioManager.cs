@@ -32,6 +32,9 @@ public partial class AudioManager : Node
 	private Tween? _listenTween;
 	private bool _muted;
 
+	private float _deafenOffset;  // extra dB applied to all buses; tweens 0→-60→0 on deafen
+	private Tween? _deafenTween;
+
 	public float MusicVolume => _musicVolume;
 	public float SfxVolume => _sfxVolume;
 	public bool MusicEnabled => _musicEnabled;
@@ -76,8 +79,8 @@ public partial class AudioManager : Node
 	private static float ToDb(float frac) =>
 		frac <= VolumeEpsilon ? SilentDb : Mathf.LinearToDb(frac);
 
-	private float MusicTargetDb => ToDb(_musicVolume) + (_listening ? MusicDuckOffsetDb : 0f);
-	private float SfxTargetDb => ToDb(_sfxVolume) + (_listening ? SfxLiftOffsetDb : 0f);
+	private float MusicTargetDb => ToDb(_musicVolume) + (_listening ? MusicDuckOffsetDb : 0f) + _deafenOffset;
+	private float SfxTargetDb   => ToDb(_sfxVolume)   + (_listening ? SfxLiftOffsetDb   : 0f) + _deafenOffset;
 
 	// Snap both buses to the current target dB + music mute. Used on load and on
 	// every settings change (the listen tween animates toward the same targets).
@@ -134,6 +137,26 @@ public partial class AudioManager : Node
 			CurrentDb(BusMusic), MusicTargetDb, 0.2);
 		_listenTween.Parallel().TweenMethod(Callable.From<float>(db => SetBusDb(BusSfx, db)),
 			CurrentDb(BusSfx), SfxTargetDb, 0.2);
+	}
+
+	public void TriggerDeafen()
+	{
+		_listenTween?.Kill();
+		_deafenTween?.Kill();
+		_deafenOffset = -60f;
+		ApplyBuses(); // snap to near-silent immediately
+
+		// Tinnitus plays on Master bus directly so it isn't muted by the SFX/Music cutoff
+		var p = new AudioStreamPlayer { Stream = SfxLibrary.Tinnitus };
+		AddChild(p);
+		p.Play();
+		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
+
+		// Restore both buses over 5 seconds
+		_deafenTween = CreateTween();
+		_deafenTween.TweenMethod(
+			Callable.From<float>(v => { _deafenOffset = v; ApplyBuses(); }),
+			-60f, 0f, 5.0);
 	}
 
 	public void ToggleMute()

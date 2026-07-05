@@ -31,8 +31,8 @@ public partial class Compass : CanvasLayer
 		var (listenAngle, kind) = ComputeListenAngle();
 		_arc.TargetAngle  = listenAngle;
 		_arc.TargetKind   = kind;
-		_arc.ExitAngle    = ListenTime >= 1.0f ? ComputeExitAngle() : null;
-		_arc.ExitSettle   = Mathf.Clamp(ListenTime - 1.0f, 0f, 1.0f); // 0→1 over stage 2
+		_arc.ExitAngle    = ComputeExitAngle();
+		_arc.ExitSettle   = Mathf.Clamp(ListenTime, 0f, 1.0f); // 0→1 over first second
 		_arc.QueueRedraw();
 	}
 

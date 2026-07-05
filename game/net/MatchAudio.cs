@@ -238,6 +238,13 @@ public partial class MatchAudio : Node2D
 	{
 		OneShot(SfxLibrary.Explosion, worldPos);
 		_hadExplosionThisFrame = true;
+
+		if (_listening && LocalPos() is { } lp)
+		{
+			var localWorld = WorldOf(lp.X, lp.Y);
+			if (localWorld.DistanceTo(worldPos) <= 10 * MatchClient.TileSize)
+				AudioManager.Instance.TriggerDeafen();
+		}
 	}
 
 	private void SpawnDrips()
