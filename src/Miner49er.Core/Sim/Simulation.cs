@@ -525,10 +525,11 @@ public sealed class Simulation
     {
         Direction? dir = mo.Kind switch
         {
-            MonsterKind.Slime       => SlimeDir(mo, target),
-            MonsterKind.Ghost       => GhostDir(mo, target),
-            MonsterKind.Goat        => GoatDir(mo, target),
-            MonsterKind.ZombieMiner => ZombieDir(mo, target),
+            MonsterKind.Slime                                     => SlimeDir(mo, target),
+            MonsterKind.Ghost                                     => GhostDir(mo, target),
+            MonsterKind.Goat                                      => GoatDir(mo, target),
+            MonsterKind.ZombieMiner                               => ZombieDir(mo, target),
+            MonsterKind.SkeletonHuman or MonsterKind.SkeletonDino => ZombieDir(mo, target),
             _ => null,
         };
         if (dir is not { } d) return;
@@ -550,6 +551,28 @@ public sealed class Simulation
 
         if (target is { Alive: true } && mo.Pos == target.Pos)
             MaulMiner(target, mo.Kind);
+
+        if (mo.Kind == MonsterKind.SkeletonDino && mo.Alive)
+            DinoFloorDamage(mo, from);
+    }
+
+    private void DinoFloorDamage(Monster dino, GridPos from)
+    {
+        if (Grid.InBounds(from) && Grid.Get(from) == TileType.Floor)
+        {
+            Grid.Set(from, TileType.Cracked);
+            _events.Add(new CrackWeakened(from));
+        }
+
+        var landed = Grid.Get(dino.Pos);
+        if (landed != TileType.Cracked && landed != TileType.Crumbling) return;
+
+        Grid.Set(dino.Pos, TileType.Pit);
+        _events.Add(new CrackCollapsed(dino.Pos));
+        dino.Alive = false;
+        _events.Add(new MonsterKilled(dino.Id));
+        foreach (var m in _miners.Values)
+            if (m.Alive && m.Pos == dino.Pos) CollapseKill(m);
     }
 
     // Rock blocks terrain-bound monsters; ghosts phase rock but are stopped by deep water.
@@ -807,6 +830,7 @@ public sealed class Simulation
         AdvanceCooldowns(dt);
         AdvanceCracks(dt);
         AdvanceLava(dt);
+        AdvanceDormantMonsters(); // pre-existing noise (stone/pickaxe) wakes skeletons before they step
         AdvanceMonsters(dt);
         AdvanceOctopus(dt);
         AdvanceReels();
@@ -818,7 +842,7 @@ public sealed class Simulation
         PickUpItems();
         AdvanceCharges(chargesThisTick, dt);
         AdvanceFlood();
-        AdvanceDormantMonsters();
+        AdvanceDormantMonsters(); // explosion noise (from AdvanceCharges) wakes skeletons same tick
     }
 
     private void AdvanceActivities(double dt)

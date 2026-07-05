@@ -117,4 +117,77 @@ public class SimulationSkeletonTests
         var events = sim.DrainEvents();
         Assert.Contains(events, e => e is SkeletonAroused a && a.MonsterId == 1);
     }
+
+    // ── Movement ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Awake_skeleton_moves_toward_miner()
+    {
+        var grid = MakeGrid();
+        var sim = new Simulation(grid, SkeletonCfg());
+        sim.AddMiner(1, new GridPos(2, 7));
+        sim.AddMonster(1, new GridPos(12, 7), MonsterKind.SkeletonHuman);
+        // Wake via stone throw
+        sim.AddStones(1, 1);
+        sim.TryMove(1, Direction.East);
+        sim.TryThrowStone(1);
+        sim.Tick(2.0);
+        Assert.NotEqual(new GridPos(12, 7), sim.Monsters.First().Pos);
+        Assert.True(sim.Monsters.First().Pos.X < 12);
+    }
+
+    // ── SkeletonDino floor damage ─────────────────────────────────────────
+
+    [Fact]
+    public void SkeletonDino_cracks_floor_tile_it_exits()
+    {
+        var grid = MakeGrid();
+        var sim = new Simulation(grid, SkeletonCfg());
+        sim.AddMiner(1, new GridPos(2, 7));
+        sim.AddStones(1, 1);
+        sim.TryMove(1, Direction.East);
+        sim.TryThrowStone(1);
+        var startPos = new GridPos(12, 7);
+        sim.AddMonster(1, startPos, MonsterKind.SkeletonDino);
+        sim.Tick(0.1);   // wake tick
+        sim.Tick(2.0);   // movement ticks
+        var dinoPos = sim.Monsters.First().Pos;
+        if (dinoPos != startPos)
+            Assert.Equal(TileType.Cracked, grid.Get(startPos));
+    }
+
+    [Fact]
+    public void SkeletonDino_collapses_cracked_tile_on_entry_and_dies()
+    {
+        var grid = MakeGrid();
+        grid.Set(new GridPos(11, 7), TileType.Cracked);
+        var sim = new Simulation(grid, SkeletonCfg());
+        sim.AddMiner(1, new GridPos(2, 7));
+        sim.AddStones(1, 1);
+        sim.TryMove(1, Direction.East);
+        sim.TryThrowStone(1);
+        sim.AddMonster(1, new GridPos(12, 7), MonsterKind.SkeletonDino);
+        sim.Tick(2.0); // stone lifetime=4s; 2s tick keeps noise alive for wake check
+        var mo = sim.Monsters.First();
+        Assert.False(mo.Alive);
+        Assert.Equal(TileType.Pit, grid.Get(new GridPos(11, 7)));
+    }
+
+    [Fact]
+    public void SkeletonDino_collapse_kills_miner_on_same_tile()
+    {
+        var grid = MakeGrid();
+        grid.Set(new GridPos(7, 7), TileType.Cracked);
+        var sim = new Simulation(grid, SkeletonCfg());
+        // Miner 2 stands on the cracked tile and does not move — it will be caught by the collapse.
+        sim.AddMiner(2, new GridPos(7, 7));
+        // Miner 1 throws a stone east to wake the dino; the dino will then target miner 2 (nearest).
+        sim.AddMiner(1, new GridPos(3, 7));
+        sim.AddStones(1, 1);
+        sim.TryMove(1, Direction.East);
+        sim.TryThrowStone(1);
+        sim.AddMonster(1, new GridPos(8, 7), MonsterKind.SkeletonDino);
+        sim.Tick(3.0);
+        Assert.False(sim.Miners.First(m => m.Id == 2).Alive);
+    }
 }
