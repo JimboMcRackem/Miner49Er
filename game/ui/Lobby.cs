@@ -67,10 +67,12 @@ public partial class Lobby : Control
 
 		_timePicker = new OptionButton();
 		_timePicker.AddItem("No Time Limit", 0);
-		_timePicker.AddItem("1 min", 60);
-		_timePicker.AddItem("2 min", 120);
-		_timePicker.AddItem("3 min", 180);
-		_timePicker.AddItem("5 min", 300);
+		_timePicker.AddItem("1 min",  60);
+		_timePicker.AddItem("2 min",  120);
+		_timePicker.AddItem("3 min",  180);
+		_timePicker.AddItem("5 min",  300);
+		_timePicker.AddItem("7 min",  420);
+		_timePicker.AddItem("10 min", 600);
 		int timeIdx = Enumerable.Range(0, _timePicker.ItemCount)
 			.FirstOrDefault(i => _timePicker.GetItemId(i) == savedTime, 1);
 		_timePicker.Select(timeIdx);
@@ -85,6 +87,7 @@ public partial class Lobby : Control
 		int sizeIdx = Enumerable.Range(0, _mapSizePicker.ItemCount)
 			.FirstOrDefault(i => _mapSizePicker.GetItemId(i) == savedMapScale, 0);
 		_mapSizePicker.Select(sizeIdx);
+		_mapSizePicker.ItemSelected += _ => SuggestTimerForMapSize();
 		leftCol.AddChild(_mapSizePicker);
 
 		_modePicker.ItemSelected += _ =>
@@ -185,7 +188,7 @@ public partial class Lobby : Control
 			bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
 			bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
 			bool derby      = _modePicker.GetSelectedId() == (int)GameMode.DemolitionDerby;
-			int mapScale  = expedition ? _mapSizePicker.GetSelectedId() : 1;
+			int mapScale  = _mapSizePicker.GetSelectedId();
 			int explosive = (expedition || treasure || derby) ? 0 : _explosivePicker.GetSelectedId();
 			int timeLimit = (expedition || treasure || derby) ? 0 : _timePicker.GetSelectedId();
 			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), timeLimit,
@@ -235,9 +238,19 @@ public partial class Lobby : Control
 		bool derby      = _modePicker.GetSelectedId() == (int)GameMode.DemolitionDerby;
 		bool normalMode = !expedition && !treasure && !derby;
 		_timePicker.Visible      = isHost && normalMode;
-		_mapSizePicker.Visible   = isHost && expedition;
+		_mapSizePicker.Visible   = isHost;
 		_explosivePicker.Visible = isHost && normalMode;
 		_modeDesc.Text = ModeDescription(_modePicker.GetSelectedId());
+	}
+
+	private void SuggestTimerForMapSize()
+	{
+		if (_timePicker.GetSelectedId() == 0) return; // "No Time Limit" — don't override user's choice
+		int mapScale = _mapSizePicker.GetSelectedId();
+		int suggested = mapScale switch { 1 => 120, 2 => 180, 3 => 300, _ => 420 };
+		int idx = Enumerable.Range(0, _timePicker.ItemCount)
+			.FirstOrDefault(i => _timePicker.GetItemId(i) == suggested, -1);
+		if (idx >= 0) _timePicker.Select(idx);
 	}
 
 	private static string ModeDescription(int modeId) => (GameMode)modeId switch

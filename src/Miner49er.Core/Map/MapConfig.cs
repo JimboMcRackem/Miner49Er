@@ -77,7 +77,11 @@ public sealed class MapConfig
             cfg.BaseWidth  = 32 + (mapScale - 1) * 16;
             cfg.BaseHeight = 32 + (mapScale - 1) * 16;
             float areaFactor = (float)(cfg.BaseWidth * cfg.BaseHeight) / (32f * 32f);
-            cfg.GoldVeinCount = (int)System.Math.Round(cfg.GoldVeinCount * areaFactor);
+            cfg.GoldVeinCount   = (int)System.Math.Round(cfg.GoldVeinCount * areaFactor);
+            cfg.BaseItemCount   = (int)System.Math.Round(cfg.BaseItemCount * areaFactor);
+            cfg.ItemsPerPlayer  = (int)System.Math.Max(1, System.Math.Round(cfg.ItemsPerPlayer * areaFactor));
+            cfg.WaterPlankCount = (int)System.Math.Round(cfg.WaterPlankCount * areaFactor);
+            cfg.SlowMoldCount   = (int)System.Math.Round(cfg.SlowMoldCount * areaFactor);
         }
         if (mode == GameMode.TreasureHunt)
         {

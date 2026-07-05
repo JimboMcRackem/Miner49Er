@@ -10,7 +10,7 @@ public class MonsterRosterTests
     }
 
     [Fact]
-    public void Large_map_is_capped_at_five()
+    public void Large_map_returns_area_scaled_count()
     {
         Assert.Equal(5, MonsterRoster.CountFor(40, 40));
     }
@@ -42,9 +42,9 @@ public class MonsterRosterTests
     }
 
     [Fact]
-    public void Floor_bonus_is_capped_at_seven()
+    public void Floor_bonus_is_capped_at_floor_max()
     {
-        Assert.Equal(7, MonsterRoster.CountFor(48, 48, 20));
-        Assert.Equal(7, MonsterRoster.CountFor(200, 200, 20));
+        Assert.Equal(9, MonsterRoster.CountFor(48, 48, 20));
+        Assert.Equal(10, MonsterRoster.CountFor(200, 200, 20));
     }
 }
