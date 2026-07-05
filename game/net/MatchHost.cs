@@ -86,6 +86,18 @@ public partial class MatchHost : Node
 
 		_deadMiners.Clear();
 		_coopRespawnTimers.Clear();
+
+		// Restore state when continuing a saved solo expedition.
+		var resume = nm.ExpeditionResume;
+		if (resume != null && _peerToMiner.Count == 1 && _botBrains.Count == 0)
+		{
+			_cumulativeGold = resume.CumulativeGold;
+			_livesRemaining = Math.Min(resume.Lives, _livesMax);
+			int mid = _peerToMiner.Values.First();
+			_sim.SetPermLevels(mid, resume.PermSpeed, resume.PermVision, resume.PermBlast);
+			_permLevels[mid] = (resume.PermSpeed, resume.PermVision, resume.PermBlast);
+			nm.ExpeditionResume = null;
+		}
 	}
 
 	private long FindWinnerPeer(int minerId)
@@ -312,6 +324,7 @@ public partial class MatchHost : Node
 				int score = 100 * nm.MatchFloor + _cumulativeGold;
 				string name = nm.Players.TryGetValue(nm.LocalId, out var info) ? info.Name : "Player";
 				ScoreStore.Submit(name, score, nm.MatchFloor, _cumulativeGold);
+				SettingsStore.ClearExpeditionSave();
 			}
 			long winnerPeer = result.WinnerId == -1 ? -1 : FindWinnerPeer(result.WinnerId);
 			nm.BroadcastResult(winnerPeer);
@@ -366,9 +379,19 @@ public partial class MatchHost : Node
 			int score = 100 * nm.MatchFloor + _cumulativeGold;
 			string name = nm.Players.TryGetValue(nm.LocalId, out var winfo) ? winfo.Name : "Player";
 			ScoreStore.Submit(name, score, nm.MatchFloor, _cumulativeGold);
+			SettingsStore.ClearExpeditionSave();
 			_running = false;
 			nm.BroadcastResult(FindWinnerPeer(minerId));
 			return;
+		}
+
+		// Checkpoint: save progress so the player can continue from this floor.
+		if (nm.MatchMode == GameMode.Expedition && _peerToMiner.Count == 1 && _botBrains.Count == 0)
+		{
+			var (spd, vis, bst) = _permLevels.TryGetValue(1, out var lvl) ? lvl : (0, 0, 0);
+			SettingsStore.SaveExpedition(nm.MatchSeed, newFloor, _cumulativeGold, _livesRemaining,
+				nm.MatchMapScale, nm.MatchFlooding, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava,
+				spd, vis, bst);
 		}
 
 		var modifier = FloorModifiers.Pick(nm.MatchSeed, newFloor);

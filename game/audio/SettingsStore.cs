@@ -188,4 +188,68 @@ public static class SettingsStore
 		cfg.SetValue(LobbySection, "start_floor",  (long)startFloor);
 		cfg.Save(Path);
 	}
+
+	// ── Solo Expedition save / load (floor checkpoint) ────────────────────────
+
+	private const string ExpeditionSection = "expedition_save";
+
+	public record ExpeditionSaveData(
+		long Seed, int Floor, int CumulativeGold, int Lives,
+		int MapScale, bool Flood, bool Pits, bool CaveIns, bool Lava,
+		int PermSpeed, int PermVision, int PermBlast);
+
+	public static bool HasExpeditionSave()
+	{
+		var cfg = new ConfigFile();
+		return cfg.Load(Path) == Error.Ok && cfg.HasSection(ExpeditionSection);
+	}
+
+	public static ExpeditionSaveData? LoadExpeditionSave()
+	{
+		var cfg = new ConfigFile();
+		if (cfg.Load(Path) != Error.Ok || !cfg.HasSection(ExpeditionSection))
+			return null;
+		return new ExpeditionSaveData(
+			Seed:          (long)cfg.GetValue(ExpeditionSection, "seed",           0L),
+			Floor:         (int)(long)cfg.GetValue(ExpeditionSection, "floor",     2L),
+			CumulativeGold:(int)(long)cfg.GetValue(ExpeditionSection, "cumulative_gold", 0L),
+			Lives:         (int)(long)cfg.GetValue(ExpeditionSection, "lives",     3L),
+			MapScale:      (int)(long)cfg.GetValue(ExpeditionSection, "map_scale", 1L),
+			Flood:         (bool)cfg.GetValue(ExpeditionSection, "flood",   false),
+			Pits:          (bool)cfg.GetValue(ExpeditionSection, "pits",    false),
+			CaveIns:       (bool)cfg.GetValue(ExpeditionSection, "caveins", false),
+			Lava:          (bool)cfg.GetValue(ExpeditionSection, "lava",    false),
+			PermSpeed:     (int)(long)cfg.GetValue(ExpeditionSection, "perm_speed",  0L),
+			PermVision:    (int)(long)cfg.GetValue(ExpeditionSection, "perm_vision", 0L),
+			PermBlast:     (int)(long)cfg.GetValue(ExpeditionSection, "perm_blast",  0L));
+	}
+
+	public static void SaveExpedition(long seed, int floor, int cumulativeGold, int lives,
+		int mapScale, bool flood, bool pits, bool caveIns, bool lava,
+		int permSpeed, int permVision, int permBlast)
+	{
+		var cfg = new ConfigFile();
+		cfg.Load(Path);
+		cfg.SetValue(ExpeditionSection, "seed",           seed);
+		cfg.SetValue(ExpeditionSection, "floor",          (long)floor);
+		cfg.SetValue(ExpeditionSection, "cumulative_gold",(long)cumulativeGold);
+		cfg.SetValue(ExpeditionSection, "lives",          (long)lives);
+		cfg.SetValue(ExpeditionSection, "map_scale",      (long)mapScale);
+		cfg.SetValue(ExpeditionSection, "flood",          flood);
+		cfg.SetValue(ExpeditionSection, "pits",           pits);
+		cfg.SetValue(ExpeditionSection, "caveins",        caveIns);
+		cfg.SetValue(ExpeditionSection, "lava",           lava);
+		cfg.SetValue(ExpeditionSection, "perm_speed",     (long)permSpeed);
+		cfg.SetValue(ExpeditionSection, "perm_vision",    (long)permVision);
+		cfg.SetValue(ExpeditionSection, "perm_blast",     (long)permBlast);
+		cfg.Save(Path);
+	}
+
+	public static void ClearExpeditionSave()
+	{
+		var cfg = new ConfigFile();
+		if (cfg.Load(Path) != Error.Ok || !cfg.HasSection(ExpeditionSection)) return;
+		cfg.EraseSection(ExpeditionSection);
+		cfg.Save(Path);
+	}
 }

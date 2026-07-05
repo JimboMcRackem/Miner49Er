@@ -323,6 +323,10 @@ public partial class NetworkManager : Node
 	public int MatchFloor { get; set; } = 1;
 	public int MatchStartFloor { get; private set; } = 1;
 
+	// Set before StartMatch when continuing a saved solo expedition.
+	public record ExpeditionResumeData(int CumulativeGold, int Lives, int PermSpeed, int PermVision, int PermBlast);
+	public ExpeditionResumeData? ExpeditionResume { get; set; }
+
 	public event System.Action<int>? NewFloor;
 
 	public void BroadcastNewFloor(int floor)

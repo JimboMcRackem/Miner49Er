@@ -171,7 +171,16 @@ public partial class MainMenu : Control
 
 		box.AddChild(new HSeparator());
 
-		var startBtn = new Button { Text = "Start" };
+		// "Continue" — only shown when a floor-checkpoint save exists.
+		if (SettingsStore.HasExpeditionSave())
+		{
+			var save = SettingsStore.LoadExpeditionSave()!;
+			var continueBtn = new Button { Text = $"Continue  (Floor {save.Floor})" };
+			continueBtn.Pressed += () => OnContinueExpedition(save);
+			box.AddChild(continueBtn);
+		}
+
+		var startBtn = new Button { Text = "New Expedition" };
 		startBtn.Pressed += OnSoloExpedition;
 		box.AddChild(startBtn);
 
@@ -231,6 +240,17 @@ public partial class MainMenu : Control
 
 	private void ShowPanel(Control target)
 	{
+		// Rebuild the solo panel each time it's shown so the Continue button
+		// reflects the current save state (e.g., after returning from a run).
+		if (target == _soloPanel)
+		{
+			var root = _modePanel.GetParent<VBoxContainer>()!;
+			root.RemoveChild(_soloPanel);
+			_soloPanel.QueueFree();
+			_soloPanel = BuildSoloPanel();
+			root.AddChild(_soloPanel);
+			root.MoveChild(_soloPanel, 1); // order: modePanel(0), soloPanel(1), multiPanel(2)
+		}
 		_modePanel.Visible  = target == _modePanel;
 		_soloPanel.Visible  = target == _soloPanel;
 		_multiPanel.Visible = target == _multiPanel;
@@ -294,11 +314,25 @@ public partial class MainMenu : Control
 		SettingsStore.SavePlayerIdentity(_soloName.Text, _soloColor.Selected);
 		SettingsStore.SaveSolo((int)_sizeSlider.Value, _soloFlood.ButtonPressed, _soloPits.ButtonPressed,
 			_soloCaveIn.ButtonPressed, _soloLava.ButtonPressed);
+		SettingsStore.ClearExpeditionSave(); // discard any old save — this is a fresh run
 		var err = NetworkManager.Instance.HostGame(_soloName.Text, _soloColor.Selected, overInternet: false);
 		if (err != Error.Ok) return;
 		NetworkManager.Instance.StartMatch(GameMode.Expedition, 0,
 			_soloFlood.ButtonPressed, _soloPits.ButtonPressed, _soloCaveIn.ButtonPressed, _soloLava.ButtonPressed, 0.12f,
 			(int)_sizeSlider.Value);
+	}
+
+	private void OnContinueExpedition(SettingsStore.ExpeditionSaveData save)
+	{
+		SettingsStore.SavePlayerIdentity(_soloName.Text, _soloColor.Selected);
+		var nm = NetworkManager.Instance;
+		nm.ExpeditionResume = new NetworkManager.ExpeditionResumeData(
+			save.CumulativeGold, save.Lives, save.PermSpeed, save.PermVision, save.PermBlast);
+		var err = nm.HostGame(_soloName.Text, _soloColor.Selected, overInternet: false);
+		if (err != Error.Ok) { nm.ExpeditionResume = null; return; }
+		nm.StartMatch(GameMode.Expedition, 0,
+			save.Flood, save.Pits, save.CaveIns, save.Lava, 0.12f,
+			save.MapScale, startFloor: save.Floor);
 	}
 
 	private void OnMatchStarting() => GetTree().ChangeSceneToFile("res://game/Main.tscn");
