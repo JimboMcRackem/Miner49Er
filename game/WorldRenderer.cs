@@ -281,9 +281,9 @@ public partial class WorldRenderer : Node2D
 		var grid = _client.Grid;
 		int ts = MatchClient.TileSize;
 
-		// Water tiles: flat colour base + small seeded inverted-V wave marks.
-		// Deep water is dark navy; shallow water is medium blue.
-		// The shader-animated water layer is disabled so WorldRenderer owns all water appearance.
+		// Water tiles: flat colour base + animated shallow-V wave marks.
+		// Each mark cycles between water colour and white at a tile-seeded phase offset.
+		float wTime = (float)Time.GetTicksMsec() / 1000f;
 		foreach (var p in grid.Positions())
 		{
 			var wt = grid.Get(p);
@@ -294,20 +294,24 @@ public partial class WorldRenderer : Node2D
 				deep ? new Color(0.02f, 0.07f, 0.24f)   // dark navy
 				     : new Color(0.06f, 0.17f, 0.46f));  // medium blue
 
-			// 3–4 small ∧ wave marks per tile, position-seeded so they never move.
 			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
 			int waveCount = 3 + (int)(wh & 1u);
-			var waveCol = deep
-				? new Color(0.14f, 0.28f, 0.58f, 0.70f)
-				: new Color(0.22f, 0.44f, 0.76f, 0.70f);
+			var waveBase = deep
+				? new Color(0.14f, 0.28f, 0.58f, 0.75f)
+				: new Color(0.22f, 0.44f, 0.76f, 0.75f);
+			var waveWhite = new Color(1f, 1f, 1f, 0.75f);
 			for (int wv = 0; wv < waveCount; wv++)
 			{
 				uint wh2 = wh ^ (uint)(wv * 1013904223u);
 				float px = wx0 + 4f + (wh2 & 0x1Fu) * (ts - 8) / 31f;
 				float py = wy0 + 5f + ((wh2 >> 8) & 0x1Fu) * (ts - 10) / 31f;
-				// Inverted V: peak at (px, py), legs spread 3px each side, drop 3px
-				DrawLine(new Vector2(px - 3f, py + 3f), new Vector2(px, py), waveCol, 1f);
-				DrawLine(new Vector2(px, py), new Vector2(px + 3f, py + 3f), waveCol, 1f);
+				// Per-wave phase derived from hash so neighbours don't sync
+				float phase = ((wh2 >> 16) & 0xFFu) * (Mathf.Tau / 255f);
+				float t = 0.5f + 0.5f * Mathf.Sin(wTime * 2.2f + phase);
+				var waveCol = waveBase.Lerp(waveWhite, t);
+				// Shallow V: 5px half-width, 2px drop
+				DrawLine(new Vector2(px - 5f, py + 2f), new Vector2(px, py), waveCol, 1f);
+				DrawLine(new Vector2(px, py), new Vector2(px + 5f, py + 2f), waveCol, 1f);
 			}
 		}
 
