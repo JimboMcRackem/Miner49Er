@@ -281,8 +281,9 @@ public partial class WorldRenderer : Node2D
 		var grid = _client.Grid;
 		int ts = MatchClient.TileSize;
 
-		// Water tiles: flat colour base + animated shallow-V wave marks.
-		// Each mark cycles between water colour and white at a tile-seeded phase offset.
+		// Water tiles: flat colour on interior tiles only (all 4 orthogonal neighbours
+		// also water), leaving border tiles uncovered so Wang edge art shows through.
+		// Sparkle dots run on every water tile.
 		float wTime = (float)Time.GetTicksMsec() / 1000f;
 		foreach (var p in grid.Positions())
 		{
@@ -290,14 +291,14 @@ public partial class WorldRenderer : Node2D
 			if (!wt.IsWater()) continue;
 			float wx0 = p.X * ts, wy0 = p.Y * ts;
 			bool deep = wt == TileType.DeepWater;
-			DrawRect(new Rect2(wx0, wy0, ts, ts),
-				deep ? new Color(0.02f, 0.07f, 0.24f)   // dark navy
-				     : new Color(0.06f, 0.17f, 0.46f));  // medium blue
+
+			if (WaterOrOob(grid, p.X - 1, p.Y) && WaterOrOob(grid, p.X + 1, p.Y) &&
+			    WaterOrOob(grid, p.X, p.Y - 1) && WaterOrOob(grid, p.X, p.Y + 1))
+				DrawRect(new Rect2(wx0, wy0, ts, ts),
+					deep ? new Color(0.02f, 0.07f, 0.24f)
+					     : new Color(0.06f, 0.17f, 0.46f));
 
 			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
-			// 4–5 sparkle dots per tile: seeded positions, each flashes briefly to
-			// near-white via a power-sharpened sine so the surface glints like
-			// light reflecting off water viewed from above.
 			int sparkCount = 4 + (int)(wh & 1u);
 			for (int wv = 0; wv < sparkCount; wv++)
 			{
@@ -306,7 +307,7 @@ public partial class WorldRenderer : Node2D
 				float py = wy0 + 2f + ((wh2 >> 8) & 0x1Fu) * (ts - 4) / 31f;
 				float phase = ((wh2 >> 16) & 0xFFu) * (Mathf.Tau / 255f);
 				float t = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(wTime * 2.5f + phase)), 3f);
-				if (t < 0.02f) continue; // skip when invisible
+				if (t < 0.02f) continue;
 				float alpha = t * 0.90f;
 				DrawCircle(new Vector2(px, py), 1.2f,
 					deep ? new Color(0.55f, 0.75f, 1f, alpha)
@@ -1058,6 +1059,12 @@ public partial class WorldRenderer : Node2D
 		_ when kind.IsIdol()  => IdolColor,
 		_                     => SpeedItemColor,
 	};
+
+	private static bool WaterOrOob(TileGrid grid, int x, int y)
+	{
+		var p = new GridPos(x, y);
+		return !grid.InBounds(p) || grid.Get(p).IsWater();
+	}
 
 	private bool TryLocalTile(out GridPos tile)
 	{
