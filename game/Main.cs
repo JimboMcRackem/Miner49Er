@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 using Miner49er.Core;
 using Miner49er.Core.AI;
@@ -397,8 +398,27 @@ public partial class Main : Node2D
 
 		if (nm.MatchMode == GameMode.Expedition)
 		{
-			if (_client.EscapeOpen && _client.EscapeTile == localPos)
-				return "[Space]  ESCAPE!";
+			if (_client.EscapeOpen && _client.EscapeTile is GridPos exitTile && exitTile == localPos)
+			{
+				var aliveMiners = _client.Miners.Where(x => x.Alive).ToList();
+				var atExit      = aliveMiners.Where(x => new GridPos(x.X, x.Y) == exitTile).ToList();
+				if (atExit.Count >= aliveMiners.Count)
+					return "[Space]  ESCAPE!";
+				var missing = aliveMiners.First(x => new GridPos(x.X, x.Y) != exitTile);
+				int dx = missing.X - exitTile.X, dy = missing.Y - exitTile.Y;
+				string dir = (dx, dy) switch
+				{
+					( > 0,  0) => "E",
+					( < 0,  0) => "W",
+					(  0, > 0) => "S",
+					(  0, < 0) => "N",
+					( > 0, > 0) => "SE",
+					( > 0, < 0) => "NE",
+					( < 0, > 0) => "SW",
+					_          => "NW",
+				};
+				return $"{atExit.Count}/{aliveMiners.Count} miners at exit — teammate {dir}";
+			}
 			if (_client.ShopPos == localPos && !_shopPanel.IsOpen)
 				return "[Space]  Open Shop";
 		}
