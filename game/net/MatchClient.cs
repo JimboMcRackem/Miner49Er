@@ -62,7 +62,8 @@ public partial class MatchClient : Node2D
 	private FogRenderer _fogRenderer = null!;
 	private Node2D _camera = null!;
 	private Camera2D _cam = null!;
-	private Texture2D[,]?  _minerTex;      // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
+	private Texture2D[,]?  _minerTex;       // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
+	private Texture2D[,]?  _minerListenTex; // [colorIndex, facing] — null if sprites not yet placed
 	private Texture2D[,,]? _minerWalkTex;  // [colorIndex, facing, frame 0-3]
 	private Texture2D[,,]? _minerMineTex;  // [colorIndex, facing, frame 0-6]
 	private Texture2D[,,]? _minerPlantTex; // [colorIndex, facing, frame 0-4]
@@ -95,10 +96,11 @@ public partial class MatchClient : Node2D
 		_fogRenderer.Init(this);
 		FogRenderer = _fogRenderer;
 
-		_minerTex      = BuildMinerTextures();
-		_minerWalkTex  = BuildMinerWalkTextures();
-		_minerMineTex  = BuildMinerActivityTextures("mine",  7);
-		_minerPlantTex = BuildMinerActivityTextures("plant", 5);
+		_minerTex       = BuildMinerTextures();
+		_minerListenTex = BuildMinerListenTextures();
+		_minerWalkTex   = BuildMinerWalkTextures();
+		_minerMineTex   = BuildMinerActivityTextures("mine",  7);
+		_minerPlantTex  = BuildMinerActivityTextures("plant", 5);
 
 		_camera = new Node2D { Name = "CameraRig" };
 		sceneRoot.AddChild(_camera);
@@ -324,6 +326,10 @@ public partial class MatchClient : Node2D
 					int frame = (int)(elapsed / m.MoveSeconds * 4) % 4;
 					tex = _minerWalkTex[colorIdx, facing, frame];
 				}
+				else if (Listening && m.Id == LocalMinerId && _minerListenTex != null)
+				{
+					tex = _minerListenTex[colorIdx, facing];
+				}
 				else
 				{
 					tex = _minerTex?[colorIdx, facing];
@@ -366,6 +372,26 @@ public partial class MatchClient : Node2D
 			var img = GD.Load<CompressedTexture2D>(paths[d])?.GetImage();
 			if (img != null) { img.Convert(Image.Format.Rgba8); srcs[d] = img; }
 		}
+		var tex = new Texture2D[PlayerColors.Palette.Length, 4];
+		for (int c = 0; c < PlayerColors.Palette.Length; c++)
+			for (int d = 0; d < 4; d++)
+				if (srcs[d] != null)
+					tex[c, d] = ImageTexture.CreateFromImage(TintMiner(srcs[d]!, PlayerColors.At(c)));
+		return tex;
+	}
+
+	private static Texture2D[,]? BuildMinerListenTextures()
+	{
+		var dirLetter = new[] { "n", "e", "s", "w" };
+		var srcs = new Image?[4];
+		bool anyLoaded = false;
+		for (int d = 0; d < 4; d++)
+		{
+			string path = $"res://assets/miners/listen/{dirLetter[d]}.png";
+			var img = GD.Load<CompressedTexture2D>(path)?.GetImage();
+			if (img != null) { img.Convert(Image.Format.Rgba8); srcs[d] = img; anyLoaded = true; }
+		}
+		if (!anyLoaded) return null;
 		var tex = new Texture2D[PlayerColors.Palette.Length, 4];
 		for (int c = 0; c < PlayerColors.Palette.Length; c++)
 			for (int d = 0; d < 4; d++)
