@@ -162,6 +162,7 @@ public sealed class Simulation
     {
         if (!_miners.TryGetValue(id, out var m)) return;
         m.Alive = true;
+        m.DeathCause = DeathCause.None;
         m.Pos = pos;
         m.Activity = ActivityKind.None;
         m.ActivitySecondsRemaining = 0;
@@ -1106,11 +1107,13 @@ public sealed class Simulation
         m.Activity = ActivityKind.None;
         m.DeathCause = kind switch
         {
-            MonsterKind.Slime       => DeathCause.Slimed,
-            MonsterKind.Ghost       => DeathCause.Terrified,
-            MonsterKind.Goat        => DeathCause.Headbutted,
-            MonsterKind.ZombieMiner => DeathCause.Mauled,
-            _ => DeathCause.Slimed,
+            MonsterKind.Slime          => DeathCause.Slimed,
+            MonsterKind.Ghost          => DeathCause.Terrified,
+            MonsterKind.Goat           => DeathCause.Headbutted,
+            MonsterKind.ZombieMiner    => DeathCause.Mauled,
+            MonsterKind.SkeletonHuman  => DeathCause.Boned,
+            MonsterKind.SkeletonDino   => DeathCause.Boned,
+            _ => DeathCause.Mauled,
         };
         _events.Add(new MinerMauled(m.Id));
     }

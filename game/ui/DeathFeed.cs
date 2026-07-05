@@ -61,7 +61,13 @@ public partial class DeathFeed : CanvasLayer
 	{
 		foreach (var m in _client.Miners)
 		{
-			bool prev = !_prevAlive.TryGetValue(m.Id, out var a) || a; // assume alive until first seen
+			if (!_prevAlive.TryGetValue(m.Id, out var prev))
+			{
+				// First sight: just record state — don't fire an event (avoids stale
+				// snapshots from a previous session triggering spurious death messages).
+				_prevAlive[m.Id] = m.Alive;
+				continue;
+			}
 			if (prev && !m.Alive && m.Cause != DeathCause.None)
 			{
 				if (m.Id == _client.LocalMinerId) ShowBanner(m.Cause);
@@ -84,6 +90,7 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Terrified => "YOU WERE SCARED TO DEATH!",
 			DeathCause.Headbutted => "YOU WERE HEADBUTTED TO DEATH!",
 			DeathCause.Mauled => "YOU WERE MAULED!",
+			DeathCause.Boned => "YOU WERE SKELETONISED!",
 			_ => "YOU DIED",
 		};
 		_bannerLife = BannerSeconds;
@@ -111,6 +118,7 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Terrified => $"{name} was terrified to death",
 			DeathCause.Headbutted => $"{name} was headbutted to death",
 			DeathCause.Mauled => $"{name} was mauled",
+			DeathCause.Boned => $"{name} was skeletonised",
 			_ => $"{name} died",
 		};
 		var label = new Label

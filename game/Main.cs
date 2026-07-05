@@ -627,6 +627,7 @@ public partial class Main : Node2D
 		DeathCause.Terrified  => "Scared to death",
 		DeathCause.Headbutted => "Headbutted by a goat",
 		DeathCause.Mauled     => "Mauled by a zombie",
+		DeathCause.Boned      => "Skeletonised",
 		_                     => cause.ToString(),
 	};
 
