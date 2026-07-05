@@ -639,17 +639,30 @@ public partial class WorldRenderer : Node2D
 				DrawRect(r, MoldColor with { A = alpha });
 		}
 
-		if (_client.Listening && TryLocalTile(out var lt))
+		if (_client.Listening && _client.ListenTime >= 2.0f && TryLocalTile(out var lt))
 		{
 			float t = (float)Time.GetTicksMsec() / 1000f;
-			float a = 0.18f + 0.22f * (0.5f + 0.5f * Mathf.Sin(t * Mathf.Pi * 2f / 0.8f));
-			var shimmer = ShimmerColor with { A = a };
+			float baseA = 0.18f + 0.22f * (0.5f + 0.5f * Mathf.Sin(t * Mathf.Pi * 2f / 0.8f));
+			// Wave expands from closest tile outward over 1 second (stage 3: 2–3s).
+			float wavePos = Mathf.Clamp(_client.ListenTime - 2.0f, 0f, 1.0f) * ListenItemRevealRadius;
 			foreach (var it in _client.Items)
-				if (it.Placement == ItemPlacement.Buried && WithinReveal(lt, it.X, it.Y))
-					DrawShimmer(it.X, it.Y, shimmer, ts);
+			{
+				if (it.Placement != ItemPlacement.Buried) continue;
+				int dist = Mathf.Max(Mathf.Abs(lt.X - it.X), Mathf.Abs(lt.Y - it.Y));
+				if (dist > ListenItemRevealRadius) continue;
+				float fade = Mathf.Clamp(wavePos - dist + 1f, 0f, 1f);
+				if (fade <= 0f) continue;
+				DrawShimmer(it.X, it.Y, ShimmerColor with { A = baseA * fade }, ts);
+			}
 			foreach (var d in _client.Decoys)
-				if (_client.Grid.Get(d) == TileType.Rock && WithinReveal(lt, d.X, d.Y))
-					DrawShimmer(d.X, d.Y, shimmer, ts);
+			{
+				if (_client.Grid.Get(d) != TileType.Rock) continue;
+				int dist = Mathf.Max(Mathf.Abs(lt.X - d.X), Mathf.Abs(lt.Y - d.Y));
+				if (dist > ListenItemRevealRadius) continue;
+				float fade = Mathf.Clamp(wavePos - dist + 1f, 0f, 1f);
+				if (fade <= 0f) continue;
+				DrawShimmer(d.X, d.Y, ShimmerColor with { A = baseA * fade }, ts);
+			}
 		}
 
 		foreach (var (pos, life) in _flashes)

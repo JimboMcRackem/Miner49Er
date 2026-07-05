@@ -9,6 +9,7 @@ namespace Miner49er;
 public partial class Compass : CanvasLayer
 {
 	public bool Active;
+	public float ListenTime;
 	private MatchClient _client = null!;
 	private ArcCanvas _arc = null!;
 
@@ -28,9 +29,10 @@ public partial class Compass : CanvasLayer
 		Visible = Active;
 		if (!Active) return;
 		var (listenAngle, kind) = ComputeListenAngle();
-		_arc.TargetAngle = listenAngle;
-		_arc.TargetKind  = kind;
-		_arc.ExitAngle   = ComputeExitAngle();
+		_arc.TargetAngle  = listenAngle;
+		_arc.TargetKind   = kind;
+		_arc.ExitAngle    = ListenTime >= 1.0f ? ComputeExitAngle() : null;
+		_arc.ExitSettle   = Mathf.Clamp(ListenTime - 1.0f, 0f, 1.0f); // 0→1 over stage 2
 		_arc.QueueRedraw();
 	}
 
@@ -86,6 +88,7 @@ public partial class Compass : CanvasLayer
 		public float? TargetAngle;
 		public Compass.TargetKind TargetKind;
 		public float? ExitAngle;
+		public float ExitSettle; // 0=just started stage 2, 1=fully settled
 
 		// Compass rose geometry
 		private const float BezelR   = 100f;
@@ -99,12 +102,21 @@ public partial class Compass : CanvasLayer
 			var center = Size / 2f;
 			float tMs = (float)Time.GetTicksMsec();
 
-			// ── Exit compass rose ──────────────────────────────────────────────
+			// ── Exit compass rose (stage 2: appears after 1s, needle spins in) ──
 			if (ExitAngle is { } exitA)
 			{
+				// Ease: slow start, fast deceleration into final angle
+				float ease = 1f - Mathf.Pow(1f - ExitSettle, 3f);
+				// Spin offset: starts 2 full rotations ahead, decelerates to zero
+				float spinOffset = Mathf.Tau * 2f * (1f - ease);
+				float displayA   = exitA + spinOffset;
+
+				// Fade the whole rose in during the first half of settle
+				float roseAlpha = Mathf.Clamp(ExitSettle * 2f, 0f, 1f);
+
 				// Bezel ring
 				DrawArc(center, BezelR, 0f, Mathf.Tau, 64,
-					new Color(0.85f, 0.85f, 0.85f, 0.30f), 1.5f);
+					new Color(0.85f, 0.85f, 0.85f, 0.30f * roseAlpha), 1.5f);
 
 				// Cardinal tick marks
 				for (int i = 0; i < 8; i++)
@@ -113,28 +125,24 @@ public partial class Compass : CanvasLayer
 					float inner = i % 2 == 0 ? BezelR - 9f : BezelR - 5f;
 					var from = center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * inner;
 					var to   = center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (BezelR + 2f);
-					DrawLine(from, to, new Color(0.85f, 0.85f, 0.85f, 0.35f), 1.5f);
+					DrawLine(from, to, new Color(0.85f, 0.85f, 0.85f, 0.35f * roseAlpha), 1.5f);
 				}
 
-				// Needle tip and tail
-				var dir   = new Vector2(Mathf.Cos(exitA), Mathf.Sin(exitA));
-				var tip   = center + dir * NeedleR;
-				var tail  = center - dir * TailR;
+				// Needle tip and tail (spinning)
+				var dir  = new Vector2(Mathf.Cos(displayA), Mathf.Sin(displayA));
+				var tip  = center + dir * NeedleR;
+				var tail = center - dir * TailR;
 
-				// Tail (dim)
-				DrawLine(center, tail, new Color(0.6f, 0.6f, 0.6f, 0.40f), 2f);
+				DrawLine(center, tail, new Color(0.6f, 0.6f, 0.6f, 0.40f * roseAlpha), 2f);
 
-				// Needle shaft (bright green)
-				var needleCol = new Color(0.20f, 0.92f, 0.42f, 0.88f);
+				var needleCol = new Color(0.20f, 0.92f, 0.42f, 0.88f * roseAlpha);
 				DrawLine(center, tip, needleCol, 3f);
 
-				// Arrowhead
 				float ha = Mathf.DegToRad(HeadHalf);
 				DrawLine(tip, tip - dir.Rotated( ha) * HeadLen, needleCol, 3f);
 				DrawLine(tip, tip - dir.Rotated(-ha) * HeadLen, needleCol, 3f);
 
-				// Centre dot
-				DrawCircle(center, 4f, new Color(0.85f, 0.85f, 0.85f, 0.55f));
+				DrawCircle(center, 4f, new Color(0.85f, 0.85f, 0.85f, 0.55f * roseAlpha));
 			}
 
 			// ── Listen arcs toward nearest entity ─────────────────────────────

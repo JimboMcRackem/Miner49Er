@@ -32,7 +32,8 @@ public partial class MatchClient : Node2D
 		_visualPos.TryGetValue(id, out var v)
 			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f);
 	public int LocalMinerId { get; private set; }
-	public bool Listening; // set by Main each frame; gates the buried-item shimmer
+	public bool Listening;  // set by Main each frame; gates the buried-item shimmer
+	public float ListenTime; // seconds held this press; reset to 0 when not listening
 	public IReadOnlyList<GridPos> Decoys { get; private set; } = System.Array.Empty<GridPos>();
 	public float SecondsRemaining { get; private set; } = -1f;
 	public int Lives { get; private set; } = 3;

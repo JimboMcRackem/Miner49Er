@@ -22,6 +22,7 @@ public partial class Main : Node2D
 	private SettingsPanel _audioPanel = null!;
 	private ShopPanel _shopPanel = null!;
 	private bool _wasListening;
+	private float _listenTime;
 	private bool _wasAtShop = true; // suppresses auto-open on frame 1; prevents spawn-on-shop lock
 	private ColorRect _fadeOverlay = null!;
 	private float _fadeAlpha;
@@ -383,9 +384,12 @@ public partial class Main : Node2D
 		if (_input != null) _input.Enabled = (!sawLocal || localAlive) && !panelOpen && !_shopPanel.IsOpen && !_pauseShown;
 
 		bool listening = localAlive && !panelOpen && Input.IsActionPressed(InputBindings.Listen);
+		_listenTime = listening ? _listenTime + (float)delta : 0f;
 		if (_input != null) _input.Listening = listening;
-		_compass.Active = listening;
-		_client.Listening = listening;
+		_compass.Active    = listening;
+		_compass.ListenTime = _listenTime;
+		_client.Listening  = listening;
+		_client.ListenTime = _listenTime;
 		if (listening != _wasListening)
 		{
 			AudioManager.Instance.SetListening(listening);
