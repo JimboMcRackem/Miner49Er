@@ -295,19 +295,19 @@ public partial class WorldRenderer : Node2D
 				     : new Color(0.06f, 0.17f, 0.46f));  // medium blue
 
 			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
-			int waveCount = 3 + (int)(wh & 1u);
+			int waveCount = 1 + (int)(wh & 1u); // 1–2 per tile
 			var waveBase = deep
-				? new Color(0.14f, 0.28f, 0.58f, 0.75f)
-				: new Color(0.22f, 0.44f, 0.76f, 0.75f);
-			var waveWhite = new Color(1f, 1f, 1f, 0.75f);
+				? new Color(0.14f, 0.28f, 0.58f, 0.55f)
+				: new Color(0.22f, 0.44f, 0.76f, 0.55f);
+			var waveWhite = new Color(1f, 1f, 1f, 0.95f);
 			for (int wv = 0; wv < waveCount; wv++)
 			{
 				uint wh2 = wh ^ (uint)(wv * 1013904223u);
 				float px = wx0 + 4f + (wh2 & 0x1Fu) * (ts - 8) / 31f;
 				float py = wy0 + 5f + ((wh2 >> 8) & 0x1Fu) * (ts - 10) / 31f;
-				// Per-wave phase derived from hash so neighbours don't sync
 				float phase = ((wh2 >> 16) & 0xFFu) * (Mathf.Tau / 255f);
-				float t = 0.5f + 0.5f * Mathf.Sin(wTime * 2.2f + phase);
+				// Power-sharpened positive half of sine: brief bright flash, dark the rest of the time
+				float t = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(wTime * 2.5f + phase)), 3f);
 				var waveCol = waveBase.Lerp(waveWhite, t);
 				// Shallow V: 5px half-width, 2px drop
 				DrawLine(new Vector2(px - 5f, py + 2f), new Vector2(px, py), waveCol, 1f);
