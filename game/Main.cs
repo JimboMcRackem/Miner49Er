@@ -86,7 +86,7 @@ public partial class Main : Node2D
 				TreasureHuntMode = nm.MatchMode == GameMode.TreasureHunt,
 				TripMinesEnabled = nm.MatchMode == GameMode.LastManStanding || nm.MatchMode == GameMode.DemolitionDerby,
 				UnstableFloorEnabled = nm.MatchMode == GameMode.LastManStanding
-                    || nm.MatchMode == GameMode.DemolitionDerby,
+					|| nm.MatchMode == GameMode.DemolitionDerby,
 				RockFallsEnabled = isPvP,
 			};
 			if (nm.MatchMode == GameMode.DemolitionDerby)
@@ -121,7 +121,7 @@ public partial class Main : Node2D
 				int minerId = i + 1;
 				long peer   = nm.PeerOrder[i];
 				GridPos sp  = (nm.MatchMode == GameMode.Expedition && i == 0) ? soloSpawn
-				              : (i < hostMap.Spawns.Count ? hostMap.Spawns[i] : hostMap.Spawns[0]);
+							  : (i < hostMap.Spawns.Count ? hostMap.Spawns[i] : hostMap.Spawns[0]);
 				sim.AddMiner(minerId, sp);
 				if (nm.IsBotPeer(peer))
 				{

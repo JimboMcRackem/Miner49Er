@@ -345,7 +345,7 @@ public partial class MatchClient : Node2D
 		var nm = NetworkManager.Instance;
 		int idx = minerId - 1;
 		if (idx >= 0 && idx < nm.PeerOrder.Length &&
-		    nm.Players.TryGetValue(nm.PeerOrder[idx], out var info))
+			nm.Players.TryGetValue(nm.PeerOrder[idx], out var info))
 			return info.ColorIndex;
 		return idx % PlayerColors.Palette.Length;
 	}

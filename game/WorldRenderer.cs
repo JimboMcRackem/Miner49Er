@@ -69,6 +69,13 @@ public partial class WorldRenderer : Node2D
 	private Texture2D?[]  _zombieIdleTex = new Texture2D?[4];          // [dir]
 	private Texture2D?[,] _zombieWalkTex = new Texture2D?[4, 4];       // [dir, frame]
 
+	// Skeletons
+	private Texture2D?   _bonesPileTex = null!;
+	private Texture2D?[] _skeletonHumanTex     = new Texture2D?[4];
+	private Texture2D?[] _skeletonDinoTex      = new Texture2D?[4];
+	private Texture2D?[,] _skeletonHumanWalkTex = new Texture2D?[4, 4]; // [dir, frame 0-3]
+	private Texture2D?[,] _skeletonDinoWalkTex  = new Texture2D?[4, 4]; // [dir, frame 0-3]
+
 	public void Init(MatchClient client)
 	{
 		_client = client;
@@ -116,6 +123,11 @@ public partial class WorldRenderer : Node2D
 		BuildGhostWalkTextures();
 		BuildGoatWalkTextures();
 		BuildSlimeWalkTextures();
+		_bonesPileTex = GD.Load<Texture2D>("res://assets/monsters/skeleton_bones_pile.png");
+		LoadMonsterTex(_skeletonHumanTex, "skeleton_human");
+		LoadMonsterTex(_skeletonDinoTex,  "skeleton_dino");
+		BuildSkeletonWalkTextures(_skeletonHumanWalkTex, "skeleton_human");
+		BuildSkeletonWalkTextures(_skeletonDinoWalkTex,  "skeleton_dino");
 		for (int f = 0; f <= 8; f++)
 		{
 			string p = $"res://assets/monsters/octopus/idle_{f}.png";
@@ -185,6 +197,18 @@ public partial class WorldRenderer : Node2D
 				string path = $"res://assets/monsters/slime/walk/{dirName[d]}_{f}.png";
 				if (ResourceLoader.Exists(path))
 					_slimeWalkTex[d, f] = GD.Load<Texture2D>(path);
+			}
+	}
+
+	private void BuildSkeletonWalkTextures(Texture2D?[,] arr, string folder)
+	{
+		string[] dirName = { "north", "east", "south", "west" };
+		for (int d = 0; d < 4; d++)
+			for (int f = 0; f < 4; f++)
+			{
+				string path = $"res://assets/monsters/{folder}/walk/{dirName[d]}_{f}.png";
+				if (ResourceLoader.Exists(path))
+					arr[d, f] = GD.Load<Texture2D>(path);
 			}
 	}
 
@@ -728,6 +752,54 @@ public partial class WorldRenderer : Node2D
 						DrawTextureRect(tex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
 					else
 						DrawCircle(c, ts * 0.28f, ZombieColor);
+					break;
+				}
+				case MonsterKind.SkeletonHuman:
+				{
+					if (mo.Dormant)
+					{
+						if (_bonesPileTex != null)
+							DrawTextureRect(_bonesPileTex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+						else
+							DrawCircle(c, ts * 0.20f, Colors.White);
+					}
+					else
+					{
+						int dir   = mo.Facing;
+						int frame = (int)(Time.GetTicksMsec() / 175u) % 4;
+						var tex   = _skeletonHumanWalkTex[dir, frame] ?? _skeletonHumanTex[dir];
+						if (tex != null)
+						{
+							float ss = ts * 1.2f;
+							DrawTextureRect(tex, new Rect2(c.X - ss / 2f, c.Y - ss / 2f, ss, ss), false);
+						}
+						else
+							DrawCircle(c, ts * 0.28f, Colors.White);
+					}
+					break;
+				}
+				case MonsterKind.SkeletonDino:
+				{
+					if (mo.Dormant)
+					{
+						if (_bonesPileTex != null)
+							DrawTextureRect(_bonesPileTex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+						else
+							DrawCircle(c, ts * 0.24f, Colors.White);
+					}
+					else
+					{
+						int dir   = mo.Facing;
+						int frame = (int)(Time.GetTicksMsec() / 175u) % 4;
+						var tex   = _skeletonDinoWalkTex[dir, frame] ?? _skeletonDinoTex[dir];
+						if (tex != null)
+						{
+							float ss = ts * 1.5f;
+							DrawTextureRect(tex, new Rect2(c.X - ss / 2f, c.Y - ss / 2f, ss, ss), false);
+						}
+						else
+							DrawCircle(c, ts * 0.32f, Colors.White);
+					}
 					break;
 				}
 			}
