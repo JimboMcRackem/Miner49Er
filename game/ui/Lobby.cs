@@ -41,8 +41,8 @@ public partial class Lobby : Control
 		screen.AddChild(columns);
 
 		// ── Left column: mode settings ────────────────────────────────────────
-		var leftCol = new VBoxContainer { CustomMinimumSize = new Vector2(220, 0) };
-		leftCol.AddThemeConstantOverride("separation", 8);
+		var leftCol = new VBoxContainer { CustomMinimumSize = new Vector2(240, 0) };
+		leftCol.AddThemeConstantOverride("separation", 14);
 		columns.AddChild(leftCol);
 
 		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor) = SettingsStore.LoadLobby();
@@ -142,8 +142,8 @@ public partial class Lobby : Control
 		leftCol.AddChild(_speedPicker);
 
 		// ── Center column: player list ─────────────────────────────────────────
-		var centerCol = new VBoxContainer { CustomMinimumSize = new Vector2(280, 0) };
-		centerCol.AddThemeConstantOverride("separation", 8);
+		var centerCol = new VBoxContainer { CustomMinimumSize = new Vector2(300, 0) };
+		centerCol.AddThemeConstantOverride("separation", 12);
 		columns.AddChild(centerCol);
 
 		var title = new Label { Text = "LOBBY" };
@@ -161,8 +161,8 @@ public partial class Lobby : Control
 		centerCol.AddChild(_list);
 
 		// ── Right column: options ──────────────────────────────────────────────
-		var rightCol = new VBoxContainer { CustomMinimumSize = new Vector2(220, 0) };
-		rightCol.AddThemeConstantOverride("separation", 8);
+		var rightCol = new VBoxContainer { CustomMinimumSize = new Vector2(240, 0) };
+		rightCol.AddThemeConstantOverride("separation", 14);
 		columns.AddChild(rightCol);
 
 		_codeLabel = new Label { Text = "", Visible = false };
