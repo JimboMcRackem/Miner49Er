@@ -64,11 +64,23 @@ public partial class MatchClient : Node2D
 	private Camera2D _cam = null!;
 	private Texture2D[,]?  _minerTex;       // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
 	private Texture2D[,]?  _minerListenTex; // [colorIndex, facing] — null if sprites not yet placed
+	private Texture2D[,]?  _minerIdleTex;   // [colorIndex, idleIdx] south-facing only; null until art placed
 	private Texture2D[,,]? _minerWalkTex;  // [colorIndex, facing, frame 0-3]
 	private Texture2D[,,]? _minerMineTex;  // [colorIndex, facing, frame 0-6]
 	private Texture2D[,,]? _minerPlantTex; // [colorIndex, facing, frame 0-4]
 	private readonly Dictionary<int, (int X, int Y)> _lastMinerPos = new();
 	private readonly Dictionary<int, double> _walkUntil = new();
+
+	// Random idle fidget state (local miner only)
+	private const int   IdleVariantCount  = 3;
+	private const float IdleMinWait       = 5f;
+	private const float IdleMaxWait       = 12f;
+	private const float IdleShowDuration  = 2.0f;
+	private float _idleTime;       // seconds of continuous true-idle
+	private float _idleCountdown  = 6f;
+	private float _idleShowTimer;  // counts down while pose is displayed
+	private int   _currentIdleIdx = -1;
+	private readonly System.Random _idleRng = new();
 
 	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null, GridPos? shopPos = null, GridPos? centerTile = null)
 	{
@@ -98,6 +110,7 @@ public partial class MatchClient : Node2D
 
 		_minerTex       = BuildMinerTextures();
 		_minerListenTex = BuildMinerListenTextures();
+		_minerIdleTex   = BuildMinerIdleTextures();
 		_minerWalkTex   = BuildMinerWalkTextures();
 		_minerMineTex   = BuildMinerActivityTextures("mine",  7);
 		_minerPlantTex  = BuildMinerActivityTextures("plant", 5);
@@ -231,6 +244,34 @@ public partial class MatchClient : Node2D
 				foundLocal = true;
 				localAlive = m.Alive;
 				localVisualPos = _visualPos[m.Id];
+
+				// Random idle fidgets: only when truly standing still
+				bool trulyIdle = m.Alive && m.Activity == 0
+					&& !(_walkUntil.TryGetValue(m.Id, out double wu) && now < wu)
+					&& !Listening && _minerIdleTex != null;
+
+				if (_idleShowTimer > 0)
+				{
+					_idleShowTimer -= (float)delta;
+					if (_idleShowTimer <= 0) _currentIdleIdx = -1;
+				}
+
+				if (trulyIdle)
+				{
+					_idleTime += (float)delta;
+					if (_idleTime >= _idleCountdown && _currentIdleIdx < 0)
+					{
+						_currentIdleIdx = _idleRng.Next(IdleVariantCount);
+						_idleShowTimer  = IdleShowDuration;
+						_idleTime       = 0f;
+						_idleCountdown  = IdleMinWait + (float)_idleRng.NextDouble() * (IdleMaxWait - IdleMinWait);
+					}
+				}
+				else
+				{
+					_idleTime = 0f;
+					if (_idleShowTimer <= 0) _currentIdleIdx = -1;
+				}
 			}
 		}
 		foreach (var mo in _monsters)
@@ -330,6 +371,10 @@ public partial class MatchClient : Node2D
 				{
 					tex = _minerListenTex[colorIdx, facing];
 				}
+				else if (_currentIdleIdx >= 0 && m.Id == LocalMinerId && _minerIdleTex != null)
+				{
+					tex = _minerIdleTex[colorIdx, _currentIdleIdx]; // south-facing fidget pose
+				}
 				else
 				{
 					tex = _minerTex?[colorIdx, facing];
@@ -397,6 +442,25 @@ public partial class MatchClient : Node2D
 			for (int d = 0; d < 4; d++)
 				if (srcs[d] != null)
 					tex[c, d] = ImageTexture.CreateFromImage(TintMiner(srcs[d]!, PlayerColors.At(c)));
+		return tex;
+	}
+
+	private static Texture2D[,]? BuildMinerIdleTextures()
+	{
+		var srcs = new Image?[IdleVariantCount];
+		bool anyLoaded = false;
+		for (int i = 0; i < IdleVariantCount; i++)
+		{
+			string path = $"res://assets/miners/idle/idle{i}.png";
+			var img = GD.Load<CompressedTexture2D>(path)?.GetImage();
+			if (img != null) { img.Convert(Image.Format.Rgba8); srcs[i] = img; anyLoaded = true; }
+		}
+		if (!anyLoaded) return null;
+		var tex = new Texture2D[PlayerColors.Palette.Length, IdleVariantCount];
+		for (int c = 0; c < PlayerColors.Palette.Length; c++)
+			for (int i = 0; i < IdleVariantCount; i++)
+				if (srcs[i] != null)
+					tex[c, i] = ImageTexture.CreateFromImage(TintMiner(srcs[i]!, PlayerColors.At(c)));
 		return tex;
 	}
 
