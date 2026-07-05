@@ -148,11 +148,16 @@ public partial class AudioManager : Node
 		_deafenOffset = -60f;
 		ApplyBuses(); // snap to near-silent immediately
 
-		// Tinnitus plays on Master bus directly so it isn't muted by the SFX/Music cutoff
+		// Both tinnitus layers play on Master bus so they aren't muted by the SFX/Music cutoff
 		var p = new AudioStreamPlayer { Stream = SfxLibrary.Tinnitus };
 		AddChild(p);
 		p.Play();
 		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
+
+		var w = new AudioStreamPlayer { Stream = SfxLibrary.TinnitusWhine, VolumeDb = -10f };
+		AddChild(w);
+		w.Play();
+		w.Finished += () => { if (IsInstanceValid(w)) w.QueueFree(); };
 
 		// Restore both buses over 5 seconds
 		_deafenTween = CreateTween();
