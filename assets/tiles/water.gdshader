@@ -1,7 +1,7 @@
 shader_type canvas_item;
 
 uniform float wave_speed     : hint_range(0.3, 3.0)  = 1.2;
-uniform float wave_amplitude : hint_range(0.0, 0.05) = 0.012;
+uniform float wave_amplitude : hint_range(0.0, 0.05) = 0.005;
 uniform float glint_speed    : hint_range(0.5, 4.0)  = 2.0;
 uniform float glint_strength : hint_range(0.0, 0.5)  = 0.20;
 

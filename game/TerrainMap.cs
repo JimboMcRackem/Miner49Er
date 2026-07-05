@@ -81,7 +81,7 @@ public partial class TerrainMap : Node2D
 			TileSet  = ts,
 			Position = new Vector2(-half, -half),
 			ZIndex   = 2,
-			Modulate = new Color(0.40f, 0.55f, 0.82f, 0.55f),
+			Modulate = new Color(1f, 1f, 1f, 0f), // deep overlay off; shader white glints show depth
 		};
 		AddChild(_deepLayer);
 
