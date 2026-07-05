@@ -35,6 +35,8 @@ public partial class AudioManager : Node
 	private float _deafenOffset;  // extra dB applied to all buses; tweens 0→-60→0 on deafen
 	private Tween? _deafenTween;
 
+	public bool IsDeafened => _deafenOffset < -0.5f;
+
 	public float MusicVolume => _musicVolume;
 	public float SfxVolume => _sfxVolume;
 	public bool MusicEnabled => _musicEnabled;

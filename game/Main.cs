@@ -383,7 +383,7 @@ public partial class Main : Node2D
 		bool panelOpen = _audioPanel.IsOpen;
 		if (_input != null) _input.Enabled = (!sawLocal || localAlive) && !panelOpen && !_shopPanel.IsOpen && !_pauseShown;
 
-		bool listening = localAlive && !panelOpen && Input.IsActionPressed(InputBindings.Listen);
+		bool listening = localAlive && !panelOpen && !AudioManager.Instance.IsDeafened && Input.IsActionPressed(InputBindings.Listen);
 		_listenTime = listening ? _listenTime + (float)delta : 0f;
 		if (_input != null) _input.Listening = listening;
 		_compass.Active    = listening;

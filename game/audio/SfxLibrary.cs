@@ -47,7 +47,7 @@ public static class SfxLibrary
 	public static AudioStream GhostScream => Get("ghost_scream", () => Tone(0.45f, 1800f, 300f));           // piercing wail
 	public static AudioStream ZombieGrunt => Get("zombie_grunt", () => Noise(0.18f, 140f, decay: true));    // guttural grunt
 	public static AudioStream Whistle     => Get("whistle",      () => Tone(0.30f, 1000f, 2200f));          // rising pea-whistle — call to exit
-	public static AudioStream Tinnitus   => Get("tinnitus",    () => Tone(5.0f,  4200f, 2600f));           // high-pitched ringing fade — deafen after nearby blast
+	public static AudioStream Tinnitus   => Get("tinnitus",    () => Noise(5.0f, 2800f, decay: true));     // high-frequency static hiss — deafen after nearby blast
 	public static AudioStream? Music => GetOptional("music_loop");
 
 	// Returns a track from the music pool. When seed is provided all callers with
