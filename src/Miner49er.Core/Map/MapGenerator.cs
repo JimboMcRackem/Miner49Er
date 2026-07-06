@@ -44,7 +44,7 @@ public static class MapGenerator
         if (config.SealCenter && center != default)
             SealCenterTile(grid, center);
         GridPos? shopPos = config.HasShop
-            ? PlaceShopkeeper(grid, spawns, spawns.Count > 0 ? spawns[0] : (GridPos?)null)
+            ? PlaceShopkeeper(grid, spawns, spawns.Count > 0 ? spawns[0] : (GridPos?)null, rng)
             : null;
         return new GeneratedMap
         {
@@ -66,27 +66,26 @@ public static class MapGenerator
             }
     }
 
-    private static GridPos? PlaceShopkeeper(TileGrid grid, IReadOnlyList<GridPos> spawns, GridPos? escapeTile)
+    private static GridPos? PlaceShopkeeper(TileGrid grid, IReadOnlyList<GridPos> spawns, GridPos? escapeTile, Random rng)
     {
         if (spawns.Count == 0) return null;
         var origin = spawns[0];
-        var queue = new Queue<GridPos>();
-        var seen  = new HashSet<GridPos> { origin };
-        queue.Enqueue(origin);
-        while (queue.Count > 0)
+
+        // Prefer floor tiles at least 8 Chebyshev-distance from the entrance so the
+        // shop feels like a discovery rather than a doorstep fixture.
+        const int MinDist = 8;
+        var far = new List<GridPos>();
+        var any = new List<GridPos>();
+        foreach (var p in grid.Positions())
         {
-            var p = queue.Dequeue();
-            foreach (var d in Card)
-            {
-                var n = p + d.ToOffset();
-                if (!grid.InBounds(n) || !seen.Add(n)) continue;
-                if (grid.Get(n) != TileType.Floor) continue;
-                if (n == origin || n == escapeTile) { queue.Enqueue(n); continue; }
-                return n;
-            }
-            if (seen.Count > 50) break;
+            if (grid.Get(p) != TileType.Floor) continue;
+            if (p == escapeTile || spawns.Contains(p)) continue;
+            int dist = Math.Max(Math.Abs(p.X - origin.X), Math.Abs(p.Y - origin.Y));
+            if (dist >= MinDist) far.Add(p);
+            else any.Add(p);
         }
-        return null;
+        var pool = far.Count > 0 ? far : any;
+        return pool.Count > 0 ? pool[rng.Next(pool.Count)] : null;
     }
 
     private static bool IsBorder(TileGrid g, GridPos p) =>

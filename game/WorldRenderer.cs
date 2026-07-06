@@ -44,6 +44,7 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color DetonatorItemColor = new("ff3355");
 	private const int ListenItemRevealRadius = 6;
 
+	private Texture2D? _shopLampTex;
 	private Texture2D? _chargeTex;
 	private Texture2D? _toolboxTex;
 	private Texture2D? _moldPatchTex;
@@ -80,6 +81,7 @@ public partial class WorldRenderer : Node2D
 	public void Init(MatchClient client)
 	{
 		_client = client;
+		_shopLampTex  = GD.Load<Texture2D>("res://assets/objects/idol_lamp.png");
 		_chargeTex    = GD.Load<Texture2D>("res://assets/objects/charge.png");
 		_toolboxTex   = GD.Load<Texture2D>("res://assets/objects/toolbox.png");
 		_moldPatchTex = GD.Load<Texture2D>("res://assets/objects/mold_patch.png");
@@ -988,13 +990,15 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
-		// Shopkeeper tile
+		// Shopkeeper tile — arabian oil lamp sprite
 		if (_client.ShopPos is GridPos sp && _client.Fog.IsVisible(sp))
 		{
-			var shopRect = new Rect2(sp.X * ts + 2, sp.Y * ts + 2, ts - 4, ts - 4);
-			DrawRect(shopRect, new Color(0.78f, 0.63f, 0.13f));
-			DrawString(ThemeDB.FallbackFont, new Vector2(sp.X * ts + 4, sp.Y * ts + ts - 6),
-				"$", HorizontalAlignment.Left, -1, 16, new Color(0.1f, 0.05f, 0f));
+			float glow = 0.5f + 0.5f * Mathf.Sin((float)Time.GetTicksMsec() * 0.003f);
+			DrawRect(new Rect2(sp.X * ts, sp.Y * ts, ts, ts),
+				new Color(0.55f, 0.42f, 0.05f, 0.20f + 0.12f * glow));
+			var shopRect = new Rect2(sp.X * ts, sp.Y * ts, ts, ts);
+			if (_shopLampTex != null)
+				DrawTextureRect(_shopLampTex, shopRect, false);
 		}
 
 		// Trip mines: pulsing red-orange ring on each trapped floor tile.
