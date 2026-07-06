@@ -292,12 +292,6 @@ public partial class WorldRenderer : Node2D
 			float wx0 = p.X * ts, wy0 = p.Y * ts;
 			bool deep = wt == TileType.DeepWater;
 
-			if (WaterOrOob(grid, p.X - 1, p.Y) && WaterOrOob(grid, p.X + 1, p.Y) &&
-			    WaterOrOob(grid, p.X, p.Y - 1) && WaterOrOob(grid, p.X, p.Y + 1))
-				DrawRect(new Rect2(wx0, wy0, ts, ts),
-					deep ? new Color(0.02f, 0.07f, 0.24f)
-					     : new Color(0.06f, 0.17f, 0.46f));
-
 			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
 			int sparkCount = 4 + (int)(wh & 1u);
 			for (int wv = 0; wv < sparkCount; wv++)
@@ -1060,13 +1054,7 @@ public partial class WorldRenderer : Node2D
 		_                     => SpeedItemColor,
 	};
 
-	private static bool WaterOrOob(TileGrid grid, int x, int y)
-	{
-		var p = new GridPos(x, y);
-		return !grid.InBounds(p) || grid.Get(p).IsWater();
-	}
-
-	private bool TryLocalTile(out GridPos tile)
+private bool TryLocalTile(out GridPos tile)
 	{
 		foreach (var m in _client.Miners)
 			if (m.Id == _client.LocalMinerId && m.Alive) { tile = new GridPos(m.X, m.Y); return true; }
