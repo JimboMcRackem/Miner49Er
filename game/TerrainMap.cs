@@ -58,33 +58,25 @@ public partial class TerrainMap : Node2D
 		_layer = new TileMapLayer { Name = "TileLayer", TileSet = ts, Position = new Vector2(-half, -half) };
 		AddChild(_layer);
 
-		var waterShader = GD.Load<Shader>("res://assets/tiles/water.gdshader");
-
-		// Shallow water: blue-tinted Wang tiles for every water display cell.
-		// Shader outputs white × tile-alpha so Modulate supplies the colour while
-		// the Wang tile's alpha mask preserves the rounded edge shape.
 		_waterLayer = new TileMapLayer
 		{
-			Name     = "WaterShallowLayer",
+			Name     = "WaterAnimLayer",
 			TileSet  = ts,
 			Position = new Vector2(-half, -half),
 			ZIndex   = 1,
-			Material = new ShaderMaterial { Shader = waterShader },
-			Modulate = new Color(0.06f, 0.17f, 0.46f),
+			Material = new ShaderMaterial { Shader = GD.Load<Shader>("res://assets/tiles/water.gdshader") },
+			Visible  = false, // water colour + shape handled by WorldRenderer draw calls
 		};
 		AddChild(_waterLayer);
 
-		// Deep water: darker blue painted over interior deep-water cells only.
-		// Same ZIndex as shallow so WorldRenderer sparkles (ZIndex -9, added after
-		// TerrainMap) composite on top of both layers.
+		// Invisible overlay kept for potential future use; WorldRenderer handles depth tint.
 		_deepLayer = new TileMapLayer
 		{
 			Name     = "DeepWaterLayer",
 			TileSet  = ts,
 			Position = new Vector2(-half, -half),
-			ZIndex   = 1,
-			Material = new ShaderMaterial { Shader = waterShader },
-			Modulate = new Color(0.02f, 0.07f, 0.24f),
+			ZIndex   = 2,
+			Modulate = new Color(1f, 1f, 1f, 0f),
 		};
 		AddChild(_deepLayer);
 
@@ -142,11 +134,9 @@ public partial class TerrainMap : Node2D
 		var resolved = Resolve(tl, tr, bl, br);
 		_layer.SetCell(cell, _sourceId, resolved);
 
-		// Shallow water layer: paint the SAME resolved Wang tile as _layer whenever
-		// any corner is water. The shader replaces the stone texture with pure white;
-		// Modulate on the layer tints it blue, so rounded edge shapes are preserved.
-		if (tl == Water || tr == Water || bl == Water || br == Water)
-			_waterLayer.SetCell(cell, _sourceId, resolved);
+		// _waterLayer is invisible; kept in sync so it can be re-enabled without a repaint.
+		if (tl == tr && tr == bl && bl == br && tl == Water && _solid.TryGetValue(Water, out var wc))
+			_waterLayer.SetCell(cell, _sourceId, wc);
 		else
 			_waterLayer.EraseCell(cell);
 

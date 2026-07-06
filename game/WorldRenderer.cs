@@ -283,16 +283,38 @@ public partial class WorldRenderer : Node2D
 		var grid = _client.Grid;
 		int ts = MatchClient.TileSize;
 
-		// Water tiles: flat colour on interior tiles only (all 4 orthogonal neighbours
-		// also water), leaving border tiles uncovered so Wang edge art shows through.
-		// Sparkle dots run on every water tile.
+		// Water: flat blue fill for every tile, then convex-corner biting to fake
+		// rounded edges, then sparkle dots on top.
+		// WorldRenderer (ZIndex -9) draws above TerrainMap._layer (ZIndex -10), so
+		// the fills cover the stone-textured Wang tiles completely.
 		float wTime = (float)Time.GetTicksMsec() / 1000f;
+		float biteR = ts * 0.40f; // radius of corner-rounding bite
+		// Bite colour approximates the surrounding rock/floor — dark stone.
+		// Floor tiles redraw their procedural colour after this loop, so any
+		// contamination of adjacent floor tiles is naturally overwritten.
+		var biteCol = new Color(0.17f, 0.15f, 0.13f);
 		foreach (var p in grid.Positions())
 		{
 			var wt = grid.Get(p);
 			if (!wt.IsWater()) continue;
 			float wx0 = p.X * ts, wy0 = p.Y * ts;
 			bool deep = wt == TileType.DeepWater;
+
+			DrawRect(new Rect2(wx0, wy0, ts, ts),
+				deep ? new Color(0.02f, 0.07f, 0.24f)
+				     : new Color(0.06f, 0.17f, 0.46f));
+
+			// At every convex corner (both orthogonal neighbours are non-water)
+			// draw a filled circle of terrain colour — this bites into the rectangle
+			// and makes the water boundary appear gently curved.
+			bool nW = IsWater(grid, p.X,     p.Y - 1);
+			bool sW = IsWater(grid, p.X,     p.Y + 1);
+			bool wW = IsWater(grid, p.X - 1, p.Y    );
+			bool eW = IsWater(grid, p.X + 1, p.Y    );
+			if (!nW && !wW) DrawCircle(new Vector2(wx0,      wy0     ), biteR, biteCol);
+			if (!nW && !eW) DrawCircle(new Vector2(wx0 + ts, wy0     ), biteR, biteCol);
+			if (!sW && !wW) DrawCircle(new Vector2(wx0,      wy0 + ts), biteR, biteCol);
+			if (!sW && !eW) DrawCircle(new Vector2(wx0 + ts, wy0 + ts), biteR, biteCol);
 
 			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
 			int sparkCount = 4 + (int)(wh & 1u);
@@ -1058,7 +1080,13 @@ public partial class WorldRenderer : Node2D
 		_                     => SpeedItemColor,
 	};
 
-private bool TryLocalTile(out GridPos tile)
+	private static bool IsWater(TileGrid grid, int x, int y)
+	{
+		var p = new GridPos(x, y);
+		return grid.InBounds(p) && grid.Get(p).IsWater();
+	}
+
+	private bool TryLocalTile(out GridPos tile)
 	{
 		foreach (var m in _client.Miners)
 			if (m.Id == _client.LocalMinerId && m.Alive) { tile = new GridPos(m.X, m.Y); return true; }
