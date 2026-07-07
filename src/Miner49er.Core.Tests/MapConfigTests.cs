@@ -55,4 +55,37 @@ public class MapConfigTests
             explosive: ExplosiveMode.DetonatorsOnly);
         Assert.Equal(2, cfg.DetonatorCount);
     }
+
+    [Theory]
+    [InlineData(4)]
+    [InlineData(8)]
+    [InlineData(12)]
+    [InlineData(48)]
+    public void FloorConfig_every_4th_floor_has_expedition_treasure(int floor)
+    {
+        var cfg = MapConfig.FloorConfig(floor, seed: 1, playerCount: 1);
+        Assert.NotNull(cfg.ExpeditionTreasureKind);
+        Assert.True(cfg.ExpeditionTreasureKind!.Value.IsIdol());
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(5)]
+    [InlineData(7)]
+    [InlineData(49)]
+    public void FloorConfig_non_4th_floor_has_no_expedition_treasure(int floor)
+    {
+        var cfg = MapConfig.FloorConfig(floor, seed: 1, playerCount: 1);
+        Assert.Null(cfg.ExpeditionTreasureKind);
+    }
+
+    [Fact]
+    public void FloorConfig_floor_4_treasure_is_deterministic()
+    {
+        var cfg1 = MapConfig.FloorConfig(4, seed: 42, playerCount: 1);
+        var cfg2 = MapConfig.FloorConfig(4, seed: 42, playerCount: 1);
+        Assert.Equal(cfg1.ExpeditionTreasureKind, cfg2.ExpeditionTreasureKind);
+        Assert.Equal(cfg1.ExpeditionTreasureInChest, cfg2.ExpeditionTreasureInChest);
+    }
 }

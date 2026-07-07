@@ -22,6 +22,10 @@ public sealed class MapConfig
     public bool HasShop { get; set; } = false;     // place a shopkeeper tile on this floor
     public ItemKind[]? BuriedIdolKinds { get; set; } = null; // TreasureHunt: idol kinds to bury in rock
 
+    // Expedition treasure gate — every 4th floor hides a mythical idol that opens the exit.
+    public ItemKind? ExpeditionTreasureKind    { get; set; } = null;
+    public bool      ExpeditionTreasureInChest { get; set; } = false;  // false = buried in wall, true = toolbox on floor
+
     // Flooding — when true, map generator places the escape tile (spawns[0]) in the
     // map interior so it floods last rather than at the corner where it floods first.
     public bool Flooding { get; set; } = false;
@@ -124,6 +128,13 @@ public sealed class MapConfig
         cfg.HasShop = floor % 4 == 0;
         cfg.DetonatorCount = floor >= 3 ? 1 : 0;
         cfg.FloodedCave = floor >= 10 && (uint)HashCode.Combine(seed, floor) % 5 == 0;
+        if (floor % 4 == 0)
+        {
+            var treasureRng = new System.Random(HashCode.Combine(seed, floor, 0xFEED));
+            var allIdols    = TreasureAssignment.AllIdols();
+            cfg.ExpeditionTreasureKind    = allIdols[treasureRng.Next(allIdols.Length)];
+            cfg.ExpeditionTreasureInChest = treasureRng.Next(2) == 0;
+        }
         return cfg;
     }
 }
