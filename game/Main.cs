@@ -301,16 +301,14 @@ public partial class Main : Node2D
 						{
 							objective = "BOSS FLOOR  Reach the chest!";
 						}
-						else if (_client.EscapeOpen)
-						{
-							objective = $"Floor {nm2.MatchFloor}/50  Gold ✓ — ESCAPE!{modTag}";
-						}
 						else
 						{
 							int pct = _client.StartingGoldCount > 0
 								? (int)(100.0 * (_client.StartingGoldCount - _client.GoldRemaining) / _client.StartingGoldCount)
 								: 0;
-							objective = $"Floor {nm2.MatchFloor}/50  Gold: {pct}%{modTag}";
+							objective = _client.EscapeOpen
+								? $"Floor {nm2.MatchFloor}/50  Gold: {pct}% — ESCAPE!{modTag}"
+								: $"Floor {nm2.MatchFloor}/50  Gold: {pct}%{modTag}";
 						}
 						_hud.SetHud(Math.Max(0, _client.Lives), objective, $"{status}{timeStr}{heldStr}{stonesStr}");
 					}
