@@ -98,8 +98,9 @@ public sealed class Simulation
             if (Grid.Get(p) == TileType.GoldRock) _goldRemaining++;
         }
         StartingGoldCount = _goldRemaining;
-        if (EscapeTile is not null && _goldRemaining == 0 && !Config.RequireChestForEscape)
-            EscapeOpen = true;   // gold-less map: open at once (unless boss floor)
+        if (EscapeTile is not null && _goldRemaining == 0 && !Config.RequireChestForEscape
+            && Config.ExpeditionTreasureKind is null)
+            EscapeOpen = true;   // gold-less map: open at once (unless boss/treasure floor)
     }
 
     public Miner AddMiner(int id, GridPos pos, double invulRemaining = 0.0)
@@ -932,6 +933,11 @@ public sealed class Simulation
             if (taken == ItemKind.TreasureChest) _chestPos[m.Id] = null;
             m.Held = taken;
             _events.Add(new ItemPickedUp(m.Id, m.Pos, taken));
+            if (Config.ExpeditionTreasureKind is { } tk && taken == tk && !EscapeOpen && EscapeTile is not null)
+            {
+                EscapeOpen = true;
+                _events.Add(new EscapeOpened());
+            }
             return true;
         }
 
@@ -1154,7 +1160,8 @@ public sealed class Simulation
     {
         if (_goldRemaining > 0) _goldRemaining--;
         if (!EscapeOpen && EscapeTile is not null
-            && StartingGoldCount > 0 && GoldCollectedFraction >= 0.5)
+            && StartingGoldCount > 0 && GoldCollectedFraction >= 0.5
+            && Config.ExpeditionTreasureKind is null)
         {
             EscapeOpen = true;
             _events.Add(new EscapeOpened());

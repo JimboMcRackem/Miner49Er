@@ -24,6 +24,7 @@ public partial class MatchClient : Node2D
 	public GridPos? EscapeTile { get; private set; }
 	public GridPos? ShopPos { get; private set; }
 	public GridPos? CenterTile { get; private set; }
+	public GridPos? ExpeditionTreasurePos { get; private set; }
 	public int GoldRemaining { get; private set; }
 	public Vector2 MonsterVisualPos(int id, int x, int y) =>
 		_monsterVisualPos.TryGetValue(id, out var v)
@@ -82,7 +83,7 @@ public partial class MatchClient : Node2D
 	private int   _currentIdleIdx = -1;
 	private readonly System.Random _idleRng = new();
 
-	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null, GridPos? shopPos = null, GridPos? centerTile = null)
+	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null, GridPos? shopPos = null, GridPos? centerTile = null, GridPos? expeditionTreasurePos = null)
 	{
 		_sceneRoot = sceneRoot;
 		Grid = grid;
@@ -91,6 +92,7 @@ public partial class MatchClient : Node2D
 		EscapeTile = escapeTile;
 		ShopPos = shopPos;
 		CenterTile = centerTile;
+		ExpeditionTreasurePos = expeditionTreasurePos;
 		GoldRemaining = CountGold(grid);
 		StartingGoldCount = GoldRemaining;
 
@@ -157,7 +159,9 @@ public partial class MatchClient : Node2D
 		_items = new List<ItemSnapshot>(update.Snapshot.Items);
 		_molds = new List<MoldSnapshot>(update.Snapshot.Molds);
 		_monsters = new List<MonsterSnapshot>(update.Snapshot.Monsters);
+		bool wasOpen = EscapeOpen;
 		EscapeOpen = update.Snapshot.EscapeOpen;
+		if (!wasOpen && EscapeOpen) ExpeditionTreasurePos = null;
 		GoldRemaining = CountGold(Grid);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;
 		Octopus          = update.Snapshot.Octopus;
@@ -190,8 +194,9 @@ public partial class MatchClient : Node2D
 			FloorModifiers.Apply(FloorModifiers.Pick(nm.MatchSeed, floor), mapCfg, new SimConfig());
 			newMap = MapGenerator.Generate(mapCfg);
 		}
-		EscapeTile = newMap.EscapeTile;
-		ShopPos    = newMap.ShopPos;
+		EscapeTile            = newMap.EscapeTile;
+		ShopPos               = newMap.ShopPos;
+		ExpeditionTreasurePos = newMap.ExpeditionTreasurePos;
 
 		Grid              = newMap.Grid;
 		Decoys            = newMap.Decoys;

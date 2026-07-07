@@ -53,4 +53,55 @@ public class SimulationExpeditionTests
 
         Assert.False(sim.EscapeOpen);
     }
+
+    [Fact]
+    public void Treasure_floor_gold_threshold_does_not_open_escape()
+    {
+        var (sim, miner) = Setup();
+        sim.Config.ExpeditionTreasureKind = ItemKind.IdolVishnu;
+
+        miner.Facing = Direction.East;
+        sim.TryStartMining(1);
+        sim.Tick(0.1);
+
+        // 50% gold collected but it's a treasure floor — escape stays shut
+        Assert.False(sim.EscapeOpen);
+    }
+
+    [Fact]
+    public void Treasure_floor_escape_opens_when_correct_idol_picked_up()
+    {
+        var grid = new TileGrid(5, 3, TileType.Floor);
+        var cfg  = new SimConfig { ExpeditionTreasureKind = ItemKind.IdolVishnu };
+        var sim  = new Simulation(grid, cfg, escapeTile: new GridPos(0, 1));
+        sim.AddMiner(1, new GridPos(1, 1));
+        sim.AddItem(new Item(new GridPos(2, 1), ItemKind.IdolVishnu, ItemPlacement.Loose));
+
+        Assert.False(sim.EscapeOpen);
+
+        sim.TryMove(1, Direction.East);
+        sim.Tick(0.0);
+        sim.TryUseItem(1);
+        sim.Tick(0.0);
+
+        Assert.True(sim.EscapeOpen);
+        Assert.Contains(sim.DrainEvents(), e => e is EscapeOpened);
+    }
+
+    [Fact]
+    public void Treasure_floor_wrong_idol_does_not_open_escape()
+    {
+        var grid = new TileGrid(5, 3, TileType.Floor);
+        var cfg  = new SimConfig { ExpeditionTreasureKind = ItemKind.IdolVishnu };
+        var sim  = new Simulation(grid, cfg, escapeTile: new GridPos(0, 1));
+        sim.AddMiner(1, new GridPos(1, 1));
+        sim.AddItem(new Item(new GridPos(2, 1), ItemKind.IdolSkull, ItemPlacement.Loose));
+
+        sim.TryMove(1, Direction.East);
+        sim.Tick(0.0);
+        sim.TryUseItem(1);
+        sim.Tick(0.0);
+
+        Assert.False(sim.EscapeOpen);
+    }
 }

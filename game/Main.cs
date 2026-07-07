@@ -86,7 +86,8 @@ public partial class Main : Node2D
 		GridPos? clientCenter = nm.MatchMode == GameMode.ReachCenter ? (GridPos?)map.Center : null;
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
-		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos, clientCenter);
+		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos, clientCenter,
+			expeditionTreasurePos: map.ExpeditionTreasurePos);
 
 		_audio = new MatchAudio { Name = "MatchAudio" };
 		AddChild(_audio);
@@ -126,6 +127,7 @@ public partial class Main : Node2D
 				f1SimCfg.FuseSeconds     = 2.0;
 			}
 			FloorModifiers.Apply(floorModifier, hostMapCfg, f1SimCfg);
+			f1SimCfg.ExpeditionTreasureKind = hostMapCfg.ExpeditionTreasureKind;
 			var hostMap = MapGenerator.Generate(hostMapCfg);
 			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.EscapeTile : null;
 			var sim = new Simulation(

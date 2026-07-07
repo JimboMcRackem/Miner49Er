@@ -429,6 +429,7 @@ public partial class MatchHost : Node
 		{
 			var mapCfg = MapConfig.FloorConfig(newFloor, floorSeed, nm.MatchPlayerCount);
 			FloorModifiers.Apply(modifier, mapCfg, simCfg);
+			simCfg.ExpeditionTreasureKind = mapCfg.ExpeditionTreasureKind;
 			newMap = MapGenerator.Generate(mapCfg);
 		}
 

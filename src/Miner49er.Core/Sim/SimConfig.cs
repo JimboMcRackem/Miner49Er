@@ -66,6 +66,9 @@ public sealed class SimConfig
     public int    MaxPermBlastLevel  { get; set; } = 3;
 
     public bool RequireChestForEscape { get; set; } = false;
+
+    // When set, the escape opens when this idol is picked up (not on 50% gold).
+    public ItemKind? ExpeditionTreasureKind { get; set; } = null;
     public bool DynamiteEnabled { get; set; } = true;
     public bool TreasureHuntMode { get; set; } = false;
 
