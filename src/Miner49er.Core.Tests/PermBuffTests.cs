@@ -86,4 +86,71 @@ public class PermBuffTests
         Assert.Equal(1, sim.GetMiner(1).PermBlastLevel);
         Assert.Equal(1, sim.EffectiveBlastBonus(1));
     }
+
+    [Fact]
+    public void SpeedPotion_blocked_when_at_max_speed()
+    {
+        var cfg = new SimConfig { MaxPermSpeedLevel = 2 };
+        var sim = new Simulation(new TileGrid(5, 5, TileType.Floor), cfg);
+        sim.AddMiner(1, new GridPos(1, 2));
+        sim.SetPermLevels(1, 2, 0, 0); // already maxed
+
+        sim.AddItem(new Item(new GridPos(2, 2), ItemKind.SpeedPotion));
+        sim.TryMove(1, Direction.East);
+        sim.Tick(0.0);
+
+        Assert.Single(sim.Items); // item still on floor
+        Assert.Equal(2, sim.GetMiner(1).PermSpeedLevel); // unchanged
+        Assert.Contains(sim.DrainEvents(), e => e is PickupBlocked pb && pb.Kind == ItemKind.SpeedPotion);
+    }
+
+    [Fact]
+    public void BiggerBlast_blocked_when_at_max_blast()
+    {
+        var cfg = new SimConfig { MaxPermBlastLevel = 1 };
+        var sim = new Simulation(new TileGrid(5, 5, TileType.Floor), cfg);
+        sim.AddMiner(1, new GridPos(1, 2));
+        sim.SetPermLevels(1, 0, 0, 1); // already maxed
+
+        sim.AddItem(new Item(new GridPos(2, 2), ItemKind.BiggerBlast));
+        sim.TryMove(1, Direction.East);
+        sim.Tick(0.0);
+
+        Assert.Single(sim.Items);
+        Assert.Equal(1, sim.GetMiner(1).PermBlastLevel);
+        Assert.Contains(sim.DrainEvents(), e => e is PickupBlocked pb && pb.Kind == ItemKind.BiggerBlast);
+    }
+
+    [Fact]
+    public void LongerVision_blocked_when_at_max_vision()
+    {
+        var cfg = new SimConfig { MaxPermVisionLevel = 3 };
+        var sim = new Simulation(new TileGrid(5, 5, TileType.Floor), cfg);
+        sim.AddMiner(1, new GridPos(1, 2));
+        sim.SetPermLevels(1, 0, 3, 0);
+
+        sim.AddItem(new Item(new GridPos(2, 2), ItemKind.LongerVision));
+        sim.TryMove(1, Direction.East);
+        sim.Tick(0.0);
+
+        Assert.Single(sim.Items);
+        Assert.Equal(3, sim.GetMiner(1).PermVisionLevel);
+        Assert.Contains(sim.DrainEvents(), e => e is PickupBlocked);
+    }
+
+    [Fact]
+    public void SpeedPotion_collected_normally_when_not_maxed()
+    {
+        var cfg = new SimConfig { MaxPermSpeedLevel = 2 };
+        var sim = new Simulation(new TileGrid(5, 5, TileType.Floor), cfg);
+        sim.AddMiner(1, new GridPos(1, 2));
+        sim.SetPermLevels(1, 1, 0, 0); // one below max
+
+        sim.AddItem(new Item(new GridPos(2, 2), ItemKind.SpeedPotion));
+        sim.TryMove(1, Direction.East);
+        sim.Tick(0.0);
+
+        Assert.Empty(sim.Items);
+        Assert.Equal(2, sim.GetMiner(1).PermSpeedLevel);
+    }
 }

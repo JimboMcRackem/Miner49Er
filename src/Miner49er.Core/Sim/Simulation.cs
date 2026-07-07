@@ -875,6 +875,14 @@ public sealed class Simulation
         }
     }
 
+    private bool IsPermBuffMaxed(Miner m, ItemKind kind) => kind switch
+    {
+        ItemKind.SpeedPotion  => m.PermSpeedLevel  >= Config.MaxPermSpeedLevel,
+        ItemKind.BiggerBlast  => m.PermBlastLevel  >= Config.MaxPermBlastLevel,
+        ItemKind.LongerVision => m.PermVisionLevel >= Config.MaxPermVisionLevel,
+        _ => false,
+    };
+
     private void PickUpItems()
     {
         for (int i = _items.Count - 1; i >= 0; i--)
@@ -885,6 +893,11 @@ public sealed class Simulation
             foreach (var m in _miners.Values)
             {
                 if (!m.Alive || m.Pos != item.Pos) continue;
+                if (IsPermBuffMaxed(m, item.Kind))
+                {
+                    _events.Add(new PickupBlocked(m.Id, item.Pos, item.Kind));
+                    break;
+                }
                 _items.RemoveAt(i);
                 ApplyBuff(m.Id, item.Kind);
                 _events.Add(new ItemPickedUp(m.Id, item.Pos, item.Kind));
