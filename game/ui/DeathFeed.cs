@@ -91,6 +91,7 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Headbutted => "YOU WERE HEADBUTTED TO DEATH!",
 			DeathCause.Mauled => "YOU WERE MAULED!",
 			DeathCause.Boned => "YOU WERE SKELETONISED!",
+			DeathCause.Bitten => "YOU WERE BITTEN BY A WATER SNAKE!",
 			_ => "YOU DIED",
 		};
 		_bannerLife = BannerSeconds;
@@ -119,6 +120,7 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Headbutted => $"{name} was headbutted to death",
 			DeathCause.Mauled => $"{name} was mauled",
 			DeathCause.Boned => $"{name} was skeletonised",
+			DeathCause.Bitten => $"{name} was bitten by a water snake",
 			_ => $"{name} died",
 		};
 		var label = new Label

@@ -650,6 +650,7 @@ public partial class Main : Node2D
 		DeathCause.Headbutted => "Headbutted by a goat",
 		DeathCause.Mauled     => "Mauled by a zombie",
 		DeathCause.Boned      => "Skeletonised",
+		DeathCause.Bitten     => "Bitten by a water snake",
 		_                     => cause.ToString(),
 	};
 
