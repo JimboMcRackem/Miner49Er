@@ -402,4 +402,24 @@ public class SimulationMonsterTests
         Assert.False(miner.Alive);
         Assert.Equal(DeathCause.Bitten, miner.DeathCause);
     }
+
+    [Theory]
+    [InlineData(5)] [InlineData(7)] [InlineData(12)] [InlineData(30)]
+    public void KindsForFloor_includes_WaterSnake_from_floor_5(int floor)
+    {
+        var grid = new TileGrid(20, 20, TileType.Floor);
+        var start = new GridPos(1, 1);
+        var spawns = MonsterSpawner.Place(grid, start, 7, floor);
+        Assert.Contains(spawns, s => s.Kind == MonsterKind.WaterSnake);
+    }
+
+    [Theory]
+    [InlineData(1)] [InlineData(3)] [InlineData(4)]
+    public void KindsForFloor_excludes_WaterSnake_below_floor_5(int floor)
+    {
+        var grid = new TileGrid(20, 20, TileType.Floor);
+        var start = new GridPos(1, 1);
+        var spawns = MonsterSpawner.Place(grid, start, 7, floor);
+        Assert.DoesNotContain(spawns, s => s.Kind == MonsterKind.WaterSnake);
+    }
 }

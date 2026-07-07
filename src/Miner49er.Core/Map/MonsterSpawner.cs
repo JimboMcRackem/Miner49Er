@@ -12,9 +12,14 @@ public static class MonsterSpawner
     private static MonsterKind[] KindsForFloor(int floor)
     {
         if (floor >= 12)
-            return new[] { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner, MonsterKind.SkeletonHuman, MonsterKind.SkeletonDino };
+            return new[] { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner,
+                           MonsterKind.WaterSnake, MonsterKind.SkeletonHuman, MonsterKind.SkeletonDino };
         if (floor >= 8)
-            return new[] { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner, MonsterKind.SkeletonHuman };
+            return new[] { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner,
+                           MonsterKind.WaterSnake, MonsterKind.SkeletonHuman };
+        if (floor >= 5)
+            return new[] { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner,
+                           MonsterKind.WaterSnake };
         return new[] { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner };
     }
 
