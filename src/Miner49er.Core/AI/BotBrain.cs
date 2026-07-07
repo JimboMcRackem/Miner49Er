@@ -30,6 +30,13 @@ public sealed class BotBrain
         var miner = sim.GetMiner(MinerId);
         if (!miner.Alive) return BotAction.Idle;
 
+        // In Expedition, snap goal to escape the moment it opens so bots react immediately.
+        if (mode == GameMode.Expedition && sim.EscapeOpen && sim.EscapeTile is { } escOpen && _goal != escOpen)
+        {
+            _goal = escOpen;
+            _ticksUntilReeval = 0;
+        }
+
         // Let any in-progress activity finish — sending a direction cancels mining.
         if (miner.Activity != ActivityKind.None) return BotAction.Idle;
 
@@ -201,7 +208,9 @@ public sealed class BotBrain
 
         // Greenhorn: occasionally swing pickaxe at an adjacent minable tile even when not
         // routing through rock (the pathfinder avoids rock, so mine=false most of the time).
-        if (Skill == BotSkill.Greenhorn && !mine && _rng.NextDouble() < 0.10)
+        // Skip when escape is open — bots must reach the exit.
+        bool escapeUrgent = mode == GameMode.Expedition && sim.EscapeOpen;
+        if (Skill == BotSkill.Greenhorn && !mine && !escapeUrgent && _rng.NextDouble() < 0.10)
         {
             foreach (var d2 in AllDirs)
             {

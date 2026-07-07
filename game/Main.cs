@@ -45,6 +45,9 @@ public partial class Main : Node2D
 	// Minimap
 	private MinimapOverlay _minimap = null!;
 
+	// Co-op Expedition floor-clear choice panel
+	private CanvasLayer? _floorChoicePanel;
+
 	public override void _Ready()
 	{
 		var nm = NetworkManager.Instance;
@@ -107,7 +110,7 @@ public partial class Main : Node2D
 				TripMinesEnabled = nm.MatchMode == GameMode.LastManStanding || nm.MatchMode == GameMode.DemolitionDerby,
 				UnstableFloorEnabled = nm.MatchMode == GameMode.LastManStanding
 					|| nm.MatchMode == GameMode.DemolitionDerby,
-				RockFallsEnabled = isPvP,
+				RockFallsEnabled = true,
 			};
 			if (nm.MatchMode == GameMode.DemolitionDerby)
 			{
@@ -218,6 +221,7 @@ public partial class Main : Node2D
 		nm.RegisterMatch(_host, _client);
 		nm.MatchEnded += OnMatchEnded;
 		nm.NewFloor += OnNewFloor;
+		nm.FloorComplete += OnFloorComplete;
 		nm.ReturnToLobbyRequested += OnReturnToLobby;
 		nm.Disconnected += OnDisconnected;
 	}
@@ -228,6 +232,7 @@ public partial class Main : Node2D
 		var nm = NetworkManager.Instance;
 		nm.MatchEnded -= OnMatchEnded;
 		nm.NewFloor -= OnNewFloor;
+		nm.FloorComplete -= OnFloorComplete;
 		nm.ReturnToLobbyRequested -= OnReturnToLobby;
 		nm.Disconnected -= OnDisconnected;
 		nm.RegisterMatch(null, null);
@@ -292,20 +297,20 @@ public partial class Main : Node2D
 						var hudMod = FloorModifiers.Pick(nm2.MatchSeed, nm2.MatchFloor);
 						string modTag = hudMod != FloorModifier.None ? $"  [{FloorModifiers.DisplayName(hudMod)}]" : "";
 						string objective;
-						if (nm2.MatchFloor == 21)
+						if (nm2.MatchFloor == 51)
 						{
 							objective = "BOSS FLOOR  Reach the chest!";
 						}
 						else if (_client.EscapeOpen)
 						{
-							objective = $"Floor {nm2.MatchFloor}/20  Gold ✓ — ESCAPE!{modTag}";
+							objective = $"Floor {nm2.MatchFloor}/50  Gold ✓ — ESCAPE!{modTag}";
 						}
 						else
 						{
 							int pct = _client.StartingGoldCount > 0
 								? (int)(100.0 * (_client.StartingGoldCount - _client.GoldRemaining) / _client.StartingGoldCount)
 								: 0;
-							objective = $"Floor {nm2.MatchFloor}/20  Gold: {pct}%{modTag}";
+							objective = $"Floor {nm2.MatchFloor}/50  Gold: {pct}%{modTag}";
 						}
 						_hud.SetHud(Math.Max(0, _client.Lives), objective, $"{status}{timeStr}{heldStr}{stonesStr}");
 					}
@@ -564,7 +569,9 @@ public partial class Main : Node2D
 		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed ^ floor));
 
 		var bannerMod = FloorModifiers.Pick(NetworkManager.Instance.MatchSeed, floor);
-		string bannerText = floor == 21 ? "BOSS FLOOR"
+		_floorChoicePanel?.QueueFree();
+		_floorChoicePanel = null;
+		string bannerText = floor == 51 ? "BOSS FLOOR"
 			: bannerMod != FloorModifier.None ? $"FLOOR {floor}: {FloorModifiers.DisplayName(bannerMod)}"
 			: $"FLOOR {floor}";
 		_floorBanner?.QueueFree();
@@ -580,6 +587,61 @@ public partial class Main : Node2D
 		_floorBanner.AddThemeFontSizeOverride("font_size", 64);
 		AddChild(_floorBanner);
 		_floorBannerTimer = BannerTotal;
+	}
+
+	private void OnFloorComplete(int floor)
+	{
+		_floorChoicePanel?.QueueFree();
+		var nm = NetworkManager.Instance;
+
+		var layer = new CanvasLayer { Layer = 10 };
+		var bg = new ColorRect
+		{
+			Color = new Color(0f, 0f, 0f, 0.75f),
+			AnchorLeft = 0f, AnchorRight = 1f,
+			AnchorTop = 0.3f, AnchorBottom = 0.7f,
+		};
+		layer.AddChild(bg);
+
+		var col = new VBoxContainer
+		{
+			AnchorLeft = 0.3f, AnchorRight = 0.7f,
+			AnchorTop = 0.35f, AnchorBottom = 0.65f,
+			GrowHorizontal = Control.GrowDirection.Both,
+			GrowVertical   = Control.GrowDirection.Both,
+		};
+
+		var title = new Label
+		{
+			Text = $"Floor {floor} Complete!",
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		title.AddThemeFontSizeOverride("font_size", 36);
+		col.AddChild(title);
+
+		if (nm.IsHost)
+		{
+			var btnContinue = new Button { Text = "Continue to next floor" };
+			btnContinue.Pressed += () => { _host!.ContinueToNextFloor(); };
+			col.AddChild(btnContinue);
+
+			var btnReturn = new Button { Text = "Return to Menu" };
+			btnReturn.Pressed += () => { _host!.ReturnToMenuFromFloorClear(); };
+			col.AddChild(btnReturn);
+		}
+		else
+		{
+			var wait = new Label
+			{
+				Text = "Waiting for host...",
+				HorizontalAlignment = HorizontalAlignment.Center,
+			};
+			col.AddChild(wait);
+		}
+
+		layer.AddChild(col);
+		AddChild(layer);
+		_floorChoicePanel = layer;
 	}
 
 	private void OnMatchEnded(long winnerPeerId)
@@ -598,7 +660,7 @@ public partial class Main : Node2D
 		{
 			bool won = winnerPeerId != -1;
 			label = won
-				? (nm.MatchFloor == 21 ? "You conquered the dungeon!" : "You escaped with the gold!")
+				? (nm.MatchFloor == 51 ? "You conquered the dungeon!" : "You escaped with the gold!")
 				: "You died in the mine.";
 
 			int gold = _host?.CumulativeGold ?? 0;

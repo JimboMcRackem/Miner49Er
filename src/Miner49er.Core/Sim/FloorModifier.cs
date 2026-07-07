@@ -15,7 +15,7 @@ public static class FloorModifiers
 
     public static FloorModifier Pick(int matchSeed, int floor)
     {
-        if (floor >= 21 || floor % 4 == 0) return FloorModifier.None;
+        if (floor >= 51 || floor % 4 == 0) return FloorModifier.None;
         var rng = new System.Random(matchSeed ^ (floor * 7919));
         return Pool[rng.Next(Pool.Length)];
     }

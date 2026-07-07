@@ -47,6 +47,11 @@ public partial class MatchHost : Node
 	// Human miner IDs (excludes bots); used for bot-aware game-over logic.
 	private readonly HashSet<int> _humanMinerIds = new();
 
+	// Co-op Expedition: floor-clear choice pending (host awaits "Continue" or "Return to Menu").
+	private bool _floorChoicePending;
+	private int  _floorChoiceWinnerId;
+	private Dictionary<int, int>? _floorChoiceCarryGold;
+
 	public void Begin(Simulation sim, Dictionary<long, int> peerToMiner,
 		List<(int minerId, BotSkill skill)>? bots = null,
 		Dictionary<int, long>? botMinerToPeer = null)
@@ -284,11 +289,23 @@ public partial class MatchHost : Node
 
 		var result = RoundResolver.Resolve(_sim, nm.MatchMode);
 
-		if (result.FloorCleared)
+		if (result.FloorCleared && !_floorChoicePending)
 		{
 			foreach (var m in _sim.Miners) _cumulativeGold += m.GoldCollected;
 			var carryGold = _sim.Miners.ToDictionary(m => m.Id, m => m.GoldCollected);
 			SavePermLevels();
+
+			// In co-op Expedition with multiple human players, pause for a Continue/Return choice.
+			bool coopExpedition = nm.MatchMode == GameMode.Expedition && _peerToMiner.Count > 1;
+			if (coopExpedition)
+			{
+				_floorChoicePending    = true;
+				_floorChoiceWinnerId  = result.WinnerId;
+				_floorChoiceCarryGold = carryGold;
+				nm.BroadcastFloorComplete(nm.MatchFloor);
+				return;
+			}
+
 			AdvanceFloor(result.WinnerId, carryGold);
 			return;
 		}
@@ -374,7 +391,7 @@ public partial class MatchHost : Node
 		int newFloor  = nm.MatchFloor + 1;
 		int floorSeed = nm.MatchSeed + newFloor * 1000;
 
-		if (newFloor > 21)
+		if (newFloor > 51)
 		{
 			int score = 100 * nm.MatchFloor + _cumulativeGold;
 			string name = nm.Players.TryGetValue(nm.LocalId, out var winfo) ? winfo.Name : "Player";
@@ -400,11 +417,11 @@ public partial class MatchHost : Node
 		{
 			BaseMoveSeconds       = nm.MatchBaseMoveSeconds,
 			Seed                  = floorSeed,
-			RequireChestForEscape = newFloor == 21,
+			RequireChestForEscape = newFloor == 51,
 		};
 
 		GeneratedMap newMap;
-		if (newFloor == 21)
+		if (newFloor == 51)
 		{
 			newMap = MapGenerator.GenerateBossFloor(floorSeed);
 		}
@@ -494,5 +511,30 @@ public partial class MatchHost : Node
 		if (_sim.EscapeTile is not GridPos esc) return;
 		foreach (var brain in _botBrains.Values)
 			brain.ForceEscape(esc);
+	}
+
+	// Co-op Expedition floor-clear choice: host pressed "Continue to next floor".
+	public void ContinueToNextFloor()
+	{
+		if (!_floorChoicePending) return;
+		var carryGold = _floorChoiceCarryGold;
+		int winnerId  = _floorChoiceWinnerId;
+		_floorChoicePending    = false;
+		_floorChoiceCarryGold  = null;
+		AdvanceFloor(winnerId, carryGold);
+	}
+
+	// Co-op Expedition floor-clear choice: host pressed "Return to Menu".
+	public void ReturnToMenuFromFloorClear()
+	{
+		if (!_floorChoicePending) return;
+		_floorChoicePending = false;
+		_running = false;
+		var nm = NetworkManager.Instance;
+		int score = 100 * nm.MatchFloor + _cumulativeGold;
+		string name = nm.Players.TryGetValue(nm.LocalId, out var winfo) ? winfo.Name : "Player";
+		ScoreStore.Submit(name, score, nm.MatchFloor, _cumulativeGold);
+		SettingsStore.ClearExpeditionSave();
+		nm.BroadcastResult(FindWinnerPeer(_floorChoiceWinnerId));
 	}
 }

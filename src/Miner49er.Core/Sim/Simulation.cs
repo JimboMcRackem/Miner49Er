@@ -479,6 +479,9 @@ public sealed class Simulation
             if (ns.Kind == NoiseKind.Pickaxe   && d <= Config.SkeletonPickaxeWakeRadius)   return true;
             if (ns.Kind == NoiseKind.Stone      && d <= Config.SkeletonStoneWakeRadius)     return true;
         }
+        // Wake on miner proximity — feels right that walking past bones disturbs them.
+        foreach (var m in _miners.Values)
+            if (m.Alive && pos.ManhattanTo(m.Pos) <= Config.SkeletonProximityWakeRadius) return true;
         return false;
     }
 

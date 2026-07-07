@@ -180,7 +180,7 @@ public partial class MatchClient : Node2D
 		int floorSeed = nm.MatchSeed + floor * 1000;
 
 		GeneratedMap newMap;
-		if (floor == 21)
+		if (floor == 51)
 		{
 			newMap = MapGenerator.GenerateBossFloor(floorSeed);
 		}

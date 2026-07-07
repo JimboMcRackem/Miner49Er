@@ -53,6 +53,7 @@ public sealed class SimConfig
     public int SkeletonExplosionWakeRadius { get; set; } = 12;
     public int SkeletonPickaxeWakeRadius   { get; set; } = 3;
     public int SkeletonStoneWakeRadius     { get; set; } = 8;
+    public int SkeletonProximityWakeRadius { get; set; } = 4; // miner steps within this many tiles
 
     public int LanternRadius { get; set; } = 3;   // Chebyshev radius — ghosts inside are killed; ghosts won't enter
     public int LanternVisionBonus { get; set; } = 2;   // +tiles of fog radius while holding a lantern

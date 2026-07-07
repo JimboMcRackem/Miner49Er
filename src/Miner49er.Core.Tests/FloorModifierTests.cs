@@ -12,7 +12,7 @@ public class FloorModifierTests
 
     [Fact]
     public void Pick_returns_None_for_boss_floor()
-        => Assert.Equal(FloorModifier.None, FloorModifiers.Pick(42, 21));
+        => Assert.Equal(FloorModifier.None, FloorModifiers.Pick(42, 51));
 
     [Theory]
     [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(5)] [InlineData(7)] [InlineData(19)]

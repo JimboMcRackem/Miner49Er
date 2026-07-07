@@ -328,6 +328,16 @@ public partial class NetworkManager : Node
 	public ExpeditionResumeData? ExpeditionResume { get; set; }
 
 	public event System.Action<int>? NewFloor;
+	public event System.Action<int>? FloorComplete; // co-op Expedition floor cleared — host awaits choice
+
+	public void BroadcastFloorComplete(int floor)
+	{
+		Rpc(nameof(ReceiveFloorComplete), floor);
+		ReceiveFloorComplete(floor);
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.Authority, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+	public void ReceiveFloorComplete(int floor) => FloorComplete?.Invoke(floor);
 
 	public void BroadcastNewFloor(int floor)
 	{
