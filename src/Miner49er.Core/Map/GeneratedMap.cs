@@ -9,4 +9,5 @@ public sealed class GeneratedMap
     public required IReadOnlyList<GridPos> Decoys { get; init; }
     public GridPos? EscapeTile { get; init; }
     public GridPos? ShopPos { get; init; }
+    public GridPos? ExpeditionTreasurePos { get; init; }
 }

@@ -34,6 +34,10 @@ public static class MapGenerator
         items.AddRange(PlaceCarriedItems(grid, rng, config.WaterPlankCount, config.SlowMoldCount, config.LanternCount, config.DetonatorCount, region, spawns, items));
         if (config.BuriedIdolKinds is { } idolKinds)
             items.AddRange(PlaceBuriedIdols(grid, rng, idolKinds, region, items));
+        GridPos? expeditionTreasurePos = null;
+        if (config.ExpeditionTreasureKind is { } ek)
+            expeditionTreasurePos = PlaceExpeditionTreasure(grid, rng, ek,
+                config.ExpeditionTreasureInChest, region, items);
         var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
         if (config.CaveIns)
             PlaceCracks(grid, rng, config.CrackSiteCount + (config.PlayerCount - 1),
@@ -53,6 +57,7 @@ public static class MapGenerator
             Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys,
             EscapeTile = spawns.Count > 0 ? spawns[0] : null,
             ShopPos = shopPos,
+            ExpeditionTreasurePos = expeditionTreasurePos,
         };
     }
 
@@ -652,6 +657,34 @@ public static class MapGenerator
         for (int i = 0; i < idolKinds.Length && i < rockCands.Count; i++)
             result.Add(new Item(rockCands[i], idolKinds[i], ItemPlacement.Buried));
         return result;
+    }
+
+    private static GridPos? PlaceExpeditionTreasure(TileGrid g, Random rng, ItemKind kind,
+        bool inChest, HashSet<GridPos> region, List<Item> items)
+    {
+        var taken = new HashSet<GridPos>(items.Select(it => it.Pos));
+        if (inChest)
+        {
+            var floorCands = g.Positions()
+                .Where(p => region.Contains(p) && g.Get(p) == TileType.Floor && !taken.Contains(p))
+                .ToList();
+            Shuffle(floorCands, rng);
+            if (floorCands.Count == 0) return null;
+            var pos = floorCands[0];
+            items.Add(new Item(pos, kind, ItemPlacement.Toolbox));
+            return pos;
+        }
+        else
+        {
+            var rockCands = g.Positions()
+                .Where(p => g.Get(p) == TileType.Rock && HasRegionNeighbor(g, p, region) && !taken.Contains(p))
+                .ToList();
+            Shuffle(rockCands, rng);
+            if (rockCands.Count == 0) return null;
+            var pos = rockCands[0];
+            items.Add(new Item(pos, kind, ItemPlacement.Buried));
+            return pos;
+        }
     }
 
     private static List<Item> PlaceChests(TileGrid g, Random rng, int count,

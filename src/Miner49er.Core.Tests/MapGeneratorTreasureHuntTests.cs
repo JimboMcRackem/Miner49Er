@@ -50,4 +50,26 @@ public class MapGeneratorTreasureHuntTests
         foreach (var it in map.Items.Where(it => it.Kind.IsIdol()))
             Assert.Equal(TileType.Rock, map.Grid.Get(it.Pos));
     }
+
+    [Fact]
+    public void Generate_places_idol_item_on_expedition_treasure_floor()
+    {
+        var cfg = MapConfig.FloorConfig(4, seed: 7, playerCount: 1);
+        Assert.NotNull(cfg.ExpeditionTreasureKind); // pre-condition
+
+        var map = MapGenerator.Generate(cfg);
+
+        Assert.NotNull(map.ExpeditionTreasurePos);
+        var treasureItem = map.Items.FirstOrDefault(it => it.Kind == cfg.ExpeditionTreasureKind!.Value);
+        Assert.NotEqual(default, treasureItem);
+        Assert.Equal(map.ExpeditionTreasurePos!.Value, treasureItem.Pos);
+    }
+
+    [Fact]
+    public void Generate_no_expedition_treasure_on_non_4th_floor()
+    {
+        var cfg = MapConfig.FloorConfig(3, seed: 7, playerCount: 1);
+        var map = MapGenerator.Generate(cfg);
+        Assert.Null(map.ExpeditionTreasurePos);
+    }
 }
