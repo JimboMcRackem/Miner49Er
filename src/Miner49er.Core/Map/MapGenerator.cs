@@ -223,8 +223,6 @@ public static class MapGenerator
         return region;
     }
 
-    private static bool IsTraversable(TileType t) => t is TileType.Floor or TileType.ShallowWater;
-
     /// <summary>Converts ~80% of non-protected floor tiles to shallow water, then re-promotes
     /// fully-surrounded shallow tiles to deep water. Runs after all item/spawn placement so
     /// protected positions are guaranteed to stay dry.</summary>
@@ -477,7 +475,7 @@ public static class MapGenerator
         HashSet<GridPos> largest = new();
         foreach (var p in g.Positions())
         {
-            if (!IsTraversable(g.Get(p)) || visited.Contains(p)) continue;
+            if (!g.Get(p).IsTraversable() || visited.Contains(p)) continue;
             var region = new HashSet<GridPos>();
             var stack = new Stack<GridPos>();
             stack.Push(p); visited.Add(p); region.Add(p);
@@ -487,7 +485,7 @@ public static class MapGenerator
                 foreach (var d in Card)
                 {
                     var n = cur + d.ToOffset();
-                    if (g.InBounds(n) && IsTraversable(g.Get(n)) && visited.Add(n))
+                    if (g.InBounds(n) && g.Get(n).IsTraversable() && visited.Add(n))
                     {
                         region.Add(n);
                         stack.Push(n);

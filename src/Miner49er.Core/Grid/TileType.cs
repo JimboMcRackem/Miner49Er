@@ -37,6 +37,9 @@ public static class TileTypeExtensions
     /// <summary>Shallow or deep water (used by water placement and the flood).</summary>
     public static bool IsWater(this TileType t) => t is TileType.ShallowWater or TileType.DeepWater;
 
+    /// <summary>Open traversable space — floor or shallow water. Used for region detection and monster spawning.</summary>
+    public static bool IsTraversable(this TileType t) => t is TileType.Floor or TileType.ShallowWater;
+
     /// <summary>A held water-plank can be laid here (water, a pit, or a crack) to form a safe Plank tile.</summary>
     public static bool IsBridgeable(this TileType t) =>
         t.IsWater() || t is TileType.Pit or TileType.Cracked or TileType.Crumbling;

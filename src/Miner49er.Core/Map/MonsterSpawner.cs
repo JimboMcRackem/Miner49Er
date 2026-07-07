@@ -24,7 +24,7 @@ public static class MonsterSpawner
         if (count <= 0) return result;
 
         var floors = grid.Positions()
-            .Where(p => grid.Get(p) == TileType.Floor && p != start)
+            .Where(p => grid.Get(p).IsTraversable() && p != start)
             .OrderBy(p => p.Y).ThenBy(p => p.X)
             .ToList();
         if (floors.Count == 0) return result;
