@@ -283,16 +283,10 @@ public partial class WorldRenderer : Node2D
 		var grid = _client.Grid;
 		int ts = MatchClient.TileSize;
 
-		// Water: flat blue fill for every tile, then convex-corner biting to fake
-		// rounded edges, then sparkle dots on top.
-		// WorldRenderer (ZIndex -9) draws above TerrainMap._layer (ZIndex -10), so
-		// the fills cover the stone-textured Wang tiles completely.
+		// Water: polygon-based tiles with procedurally rounded outer corners.
+		// Shallow rounds against non-water; deep rounds against non-deep (including shallow).
+		// WorldRenderer (ZIndex -9) draws above TerrainMap._layer (ZIndex -10), covering Wang tiles.
 		float wTime = (float)Time.GetTicksMsec() / 1000f;
-		float biteR = ts * 0.40f; // radius of corner-rounding bite
-		// Bite colour approximates the surrounding rock/floor — dark stone.
-		// Floor tiles redraw their procedural colour after this loop, so any
-		// contamination of adjacent floor tiles is naturally overwritten.
-		var biteCol = new Color(0.17f, 0.15f, 0.13f);
 		foreach (var p in grid.Positions())
 		{
 			var wt = grid.Get(p);
@@ -300,21 +294,13 @@ public partial class WorldRenderer : Node2D
 			float wx0 = p.X * ts, wy0 = p.Y * ts;
 			bool deep = wt == TileType.DeepWater;
 
-			DrawRect(new Rect2(wx0, wy0, ts, ts),
-				deep ? new Color(0.02f, 0.07f, 0.24f)
-				     : new Color(0.06f, 0.17f, 0.46f));
+			bool nAdj = deep ? IsDeepWater(grid, p.X, p.Y - 1) : IsWater(grid, p.X, p.Y - 1);
+			bool sAdj = deep ? IsDeepWater(grid, p.X, p.Y + 1) : IsWater(grid, p.X, p.Y + 1);
+			bool wAdj = deep ? IsDeepWater(grid, p.X - 1, p.Y) : IsWater(grid, p.X - 1, p.Y);
+			bool eAdj = deep ? IsDeepWater(grid, p.X + 1, p.Y) : IsWater(grid, p.X + 1, p.Y);
 
-			// At every convex corner (both orthogonal neighbours are non-water)
-			// draw a filled circle of terrain colour — this bites into the rectangle
-			// and makes the water boundary appear gently curved.
-			bool nW = IsWater(grid, p.X,     p.Y - 1);
-			bool sW = IsWater(grid, p.X,     p.Y + 1);
-			bool wW = IsWater(grid, p.X - 1, p.Y    );
-			bool eW = IsWater(grid, p.X + 1, p.Y    );
-			if (!nW && !wW) DrawCircle(new Vector2(wx0,      wy0     ), biteR, biteCol);
-			if (!nW && !eW) DrawCircle(new Vector2(wx0 + ts, wy0     ), biteR, biteCol);
-			if (!sW && !wW) DrawCircle(new Vector2(wx0,      wy0 + ts), biteR, biteCol);
-			if (!sW && !eW) DrawCircle(new Vector2(wx0 + ts, wy0 + ts), biteR, biteCol);
+			var col = deep ? new Color(0.02f, 0.07f, 0.24f) : new Color(0.06f, 0.17f, 0.46f);
+			DrawPolygon(WaterTilePoly(wx0, wy0, ts, nAdj, sAdj, wAdj, eAdj), new[] { col });
 
 			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
 			int sparkCount = 4 + (int)(wh & 1u);
@@ -1084,6 +1070,47 @@ public partial class WorldRenderer : Node2D
 	{
 		var p = new GridPos(x, y);
 		return grid.InBounds(p) && grid.Get(p).IsWater();
+	}
+
+	private static bool IsDeepWater(TileGrid grid, int x, int y)
+	{
+		var p = new GridPos(x, y);
+		return grid.InBounds(p) && grid.Get(p) == TileType.DeepWater;
+	}
+
+	// Builds a clockwise polygon for a water tile with rounded outer corners.
+	// Each outer corner (both orthogonal neighbours of the same water class absent) is replaced
+	// with a circular arc, giving smooth rounded edges instead of hard right angles.
+	private static Vector2[] WaterTilePoly(float wx0, float wy0, float ts,
+		bool nAdj, bool sAdj, bool wAdj, bool eAdj)
+	{
+		float r   = ts * 0.28f;
+		const int ArcN = 5;
+		var pts = new List<Vector2>(32);
+		bool nw = !nAdj && !wAdj, ne = !nAdj && !eAdj;
+		bool se = !sAdj && !eAdj, sw = !sAdj && !wAdj;
+		// Each corner either emits one sharp point or an arc of ArcN+1 points.
+		// Arc centres sit at the inset corner; arcs bow toward the actual corner,
+		// cutting water away to create the rounded boundary.
+		if (nw) WaterArc(pts, wx0 + r,      wy0 + r,      r, Mathf.Pi,          Mathf.Pi * 1.5f, ArcN);
+		else    pts.Add(new Vector2(wx0,      wy0));
+		if (ne) WaterArc(pts, wx0 + ts - r, wy0 + r,      r, -Mathf.Pi * 0.5f, 0f,              ArcN);
+		else    pts.Add(new Vector2(wx0 + ts, wy0));
+		if (se) WaterArc(pts, wx0 + ts - r, wy0 + ts - r, r, 0f,                Mathf.Pi * 0.5f, ArcN);
+		else    pts.Add(new Vector2(wx0 + ts, wy0 + ts));
+		if (sw) WaterArc(pts, wx0 + r,      wy0 + ts - r, r, Mathf.Pi * 0.5f,  Mathf.Pi,        ArcN);
+		else    pts.Add(new Vector2(wx0,      wy0 + ts));
+		return pts.ToArray();
+	}
+
+	private static void WaterArc(List<Vector2> pts, float cx, float cy, float r,
+		float fromA, float toA, int n)
+	{
+		for (int k = 0; k <= n; k++)
+		{
+			float a = fromA + (toA - fromA) * k / n;
+			pts.Add(new Vector2(cx + r * Mathf.Cos(a), cy + r * Mathf.Sin(a)));
+		}
 	}
 
 	private bool TryLocalTile(out GridPos tile)
