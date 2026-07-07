@@ -320,4 +320,86 @@ public class SimulationMonsterTests
         Assert.False(miner.Alive);
         Assert.Equal(DeathCause.Mauled, miner.DeathCause);
     }
+
+    [Fact]
+    public void WaterSnake_moves_fast_in_shallow_water()
+    {
+        var cfg = new SimConfig { MonsterWaterSnakeWaterMoveSeconds = 0.3, MonsterSenseRadius = 10 };
+        var grid = new TileGrid(9, 3, TileType.ShallowWater);
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(8, 1));
+        var snake = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.WaterSnake);
+
+        sim.Tick(0.3);
+
+        Assert.Equal(new GridPos(3, 1), snake.Pos);
+    }
+
+    [Fact]
+    public void WaterSnake_moves_slow_on_floor()
+    {
+        var cfg = new SimConfig
+        {
+            MonsterWaterSnakeLandMoveSeconds  = 0.7,
+            MonsterWaterSnakeWaterMoveSeconds = 0.35,
+            MonsterSenseRadius = 10
+        };
+        var grid = new TileGrid(9, 3, TileType.Floor);
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(8, 1));
+        var snake = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.WaterSnake);
+
+        sim.Tick(0.35);  // less than land cadence — should NOT have moved yet
+
+        Assert.Equal(new GridPos(2, 1), snake.Pos);
+
+        sim.Tick(0.35);  // total 0.70s — now it should have moved
+
+        Assert.Equal(new GridPos(3, 1), snake.Pos);
+    }
+
+    [Fact]
+    public void WaterSnake_survives_deep_water()
+    {
+        var cfg = new SimConfig { MonsterWaterSnakeWaterMoveSeconds = 0.1, MonsterSenseRadius = 0 };
+        var grid = new TileGrid(5, 3, TileType.DeepWater);
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(0, 0));
+        var snake = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.WaterSnake);
+
+        sim.Tick(0.1);
+        sim.Tick(0.1);
+
+        Assert.True(snake.Alive);
+    }
+
+    [Fact]
+    public void WaterSnake_dies_on_lava()
+    {
+        var cfg = new SimConfig { MonsterWaterSnakeLandMoveSeconds = 0.1, MonsterSenseRadius = 10 };
+        var grid = new TileGrid(5, 3, TileType.Floor);
+        grid.Set(new GridPos(3, 1), TileType.Lava);
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(4, 1));
+        var snake = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.WaterSnake);
+
+        sim.Tick(0.1);
+
+        Assert.False(snake.Alive);
+    }
+
+    [Fact]
+    public void WaterSnake_kills_miner_with_Bitten_cause()
+    {
+        var cfg = new SimConfig { MonsterWaterSnakeWaterMoveSeconds = 0.1, MonsterSenseRadius = 10 };
+        var grid = new TileGrid(5, 3, TileType.ShallowWater);
+        var sim = new Simulation(grid, cfg);
+        var miner = sim.AddMiner(1, new GridPos(3, 1));
+        sim.AddMonster(1, new GridPos(2, 1), MonsterKind.WaterSnake);
+
+        sim.Tick(0.1);
+
+        Assert.False(miner.Alive);
+        Assert.Equal(DeathCause.Bitten, miner.DeathCause);
+    }
 }

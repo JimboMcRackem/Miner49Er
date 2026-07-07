@@ -119,7 +119,8 @@ public sealed class Simulation
 
     public Monster AddMonster(int id, GridPos pos, MonsterKind kind)
     {
-        var mo = new Monster(id, pos, kind) { MoveCooldownRemaining = MonsterCadence(kind) };
+        var mo = new Monster(id, pos, kind);
+        mo.MoveCooldownRemaining = MonsterCadenceFor(mo);
         _monsters.Add(mo);
         return mo;
     }
@@ -137,8 +138,17 @@ public sealed class Simulation
         MonsterKind.ZombieMiner    => Config.MonsterZombieMoveSeconds,
         MonsterKind.SkeletonHuman  => Config.MonsterSkeletonMoveSeconds,
         MonsterKind.SkeletonDino   => Config.MonsterSkeletonDinoMoveSeconds,
+        MonsterKind.WaterSnake     => Config.MonsterWaterSnakeLandMoveSeconds,
         _ => Config.MonsterSlimeMoveSeconds,
     };
+
+    private double MonsterCadenceFor(Monster mo)
+    {
+        if (mo.Kind != MonsterKind.WaterSnake) return MonsterCadence(mo.Kind);
+        return Grid.Get(mo.Pos).IsWater()
+            ? Config.MonsterWaterSnakeWaterMoveSeconds
+            : Config.MonsterWaterSnakeLandMoveSeconds;
+    }
 
     public Miner GetMiner(int id) => _miners[id];
 
@@ -507,7 +517,7 @@ public sealed class Simulation
                 mo.SlowMultiplier = Config.MoldSlowFactor;
             }
 
-            mo.MoveCooldownRemaining += MonsterCadence(mo.Kind) * mo.SlowMultiplier;
+            mo.MoveCooldownRemaining += MonsterCadenceFor(mo) * mo.SlowMultiplier;
         }
 
         // Kill any ghost currently inside a lantern's AOE
@@ -531,6 +541,7 @@ public sealed class Simulation
             MonsterKind.Goat                                      => GoatDir(mo, target),
             MonsterKind.ZombieMiner                               => ZombieDir(mo, target),
             MonsterKind.SkeletonHuman or MonsterKind.SkeletonDino => ZombieDir(mo, target),
+            MonsterKind.WaterSnake                                => ZombieDir(mo, target),
             _ => null,
         };
         if (dir is not { } d) return;
@@ -543,7 +554,9 @@ public sealed class Simulation
         mo.Facing = d;
         _events.Add(new MonsterMoved(mo.Id, from, next));
 
-        if (mo.Kind != MonsterKind.Ghost && Grid.Get(mo.Pos).IsLethal())
+        bool immuneToTile = mo.Kind == MonsterKind.Ghost
+                         || (mo.Kind == MonsterKind.WaterSnake && Grid.Get(mo.Pos) == TileType.DeepWater);
+        if (!immuneToTile && Grid.Get(mo.Pos).IsLethal())
         {
             mo.Alive = false;
             _events.Add(new MonsterKilled(mo.Id));
@@ -1113,6 +1126,7 @@ public sealed class Simulation
             MonsterKind.ZombieMiner    => DeathCause.Mauled,
             MonsterKind.SkeletonHuman  => DeathCause.Boned,
             MonsterKind.SkeletonDino   => DeathCause.Boned,
+            MonsterKind.WaterSnake     => DeathCause.Bitten,
             _ => DeathCause.Mauled,
         };
         _events.Add(new MinerMauled(m.Id));
@@ -1195,10 +1209,13 @@ public sealed class Simulation
                 KillByTile(m);
         }
         // Terrain-bound monsters die when lava/flood creeps under them, mirroring miners.
-        // Ghosts float and stay immune.
+        // Ghosts float and stay immune. Water snakes are immune to deep water only.
         foreach (var mo in _monsters)
         {
-            if (mo.Alive && mo.Kind != MonsterKind.Ghost && Grid.Get(mo.Pos).IsLethal())
+            if (!mo.Alive) continue;
+            bool immuneToTile = mo.Kind == MonsterKind.Ghost
+                             || (mo.Kind == MonsterKind.WaterSnake && Grid.Get(mo.Pos) == TileType.DeepWater);
+            if (!immuneToTile && Grid.Get(mo.Pos).IsLethal())
             {
                 mo.Alive = false;
                 _events.Add(new MonsterKilled(mo.Id));
