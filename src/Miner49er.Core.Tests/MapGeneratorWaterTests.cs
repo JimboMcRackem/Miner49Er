@@ -94,4 +94,56 @@ public class MapGeneratorWaterTests
         var b = MapGenerator.Generate(Config(99)).Grid;
         Assert.True(a.Positions().All(p => a.Get(p) == b.Get(p)));
     }
+
+    [Fact]
+    public void FloodedCave_leaves_at_most_25_percent_dry_floor()
+    {
+        var cfg = new MapConfig { Seed = 42, PlayerCount = 1, FloodedCave = true, FloodedCaveDryRatio = 0.20f };
+        var map = MapGenerator.Generate(cfg);
+        var grid = map.Grid;
+
+        int totalTraversable = grid.Positions().Count(p =>
+            grid.Get(p) is TileType.Floor or TileType.ShallowWater or TileType.DeepWater);
+        int dryFloor = grid.Positions().Count(p => grid.Get(p) == TileType.Floor);
+
+        Assert.True(totalTraversable == 0 || (double)dryFloor / totalTraversable <= 0.25,
+            $"Expected ≤25% dry floor, got {dryFloor}/{totalTraversable}");
+    }
+
+    [Fact]
+    public void FloodedCave_keeps_spawns_on_dry_floor()
+    {
+        var cfg = new MapConfig { Seed = 99, PlayerCount = 2, FloodedCave = true, FloodedCaveDryRatio = 0.20f };
+        var map = MapGenerator.Generate(cfg);
+        foreach (var s in map.Spawns)
+            Assert.Equal(TileType.Floor, map.Grid.Get(s));
+    }
+
+    [Fact]
+    public void FloodedCave_keeps_floor_placed_items_on_dry_floor()
+    {
+        var cfg = new MapConfig { Seed = 7, PlayerCount = 1, FloodedCave = true, FloodedCaveDryRatio = 0.20f,
+                                  BaseItemCount = 4, VisibleItemCount = 2 };
+        var map = MapGenerator.Generate(cfg);
+        // Only toolbox/loose items sit on floor tiles; buried items live inside rock by design.
+        foreach (var it in map.Items.Where(i => i.Placement != ItemPlacement.Buried))
+            Assert.Equal(TileType.Floor, map.Grid.Get(it.Pos));
+    }
+
+    [Theory]
+    [InlineData(10, 42)] [InlineData(15, 7)] [InlineData(30, 99)]
+    public void FloorConfig_floor_10_plus_can_produce_flooded_cave(int floor, int seed)
+    {
+        bool anyFlooded = Enumerable.Range(seed, 20)
+            .Any(s => MapConfig.FloorConfig(floor, s).FloodedCave);
+        Assert.True(anyFlooded, $"No flooded floor found in 20 seeds for floor {floor}");
+    }
+
+    [Theory]
+    [InlineData(1)] [InlineData(5)] [InlineData(9)]
+    public void FloorConfig_floors_below_10_are_never_flooded(int floor)
+    {
+        for (int s = 0; s < 50; s++)
+            Assert.False(MapConfig.FloorConfig(floor, s).FloodedCave);
+    }
 }

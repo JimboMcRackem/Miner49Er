@@ -46,6 +46,8 @@ public static class MapGenerator
         GridPos? shopPos = config.HasShop
             ? PlaceShopkeeper(grid, spawns, spawns.Count > 0 ? spawns[0] : (GridPos?)null, rng)
             : null;
+        if (config.FloodedCave)
+            FloodCavePass(grid, rng, config, spawns, items, shopPos);
         return new GeneratedMap
         {
             Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys,
@@ -222,6 +224,29 @@ public static class MapGenerator
     }
 
     private static bool IsTraversable(TileType t) => t is TileType.Floor or TileType.ShallowWater;
+
+    /// <summary>Converts ~80% of non-protected floor tiles to shallow water, then re-promotes
+    /// fully-surrounded shallow tiles to deep water. Runs after all item/spawn placement so
+    /// protected positions are guaranteed to stay dry.</summary>
+    private static void FloodCavePass(TileGrid g, Random rng, MapConfig cfg,
+        IReadOnlyList<GridPos> spawns, IReadOnlyList<Item> items, GridPos? shopPos)
+    {
+        var protect = new HashSet<GridPos>(spawns);
+        foreach (var it in items) protect.Add(it.Pos);
+        if (shopPos is { } sp) protect.Add(sp);
+
+        var candidates = g.Positions()
+            .Where(p => g.Get(p) == TileType.Floor && !protect.Contains(p))
+            .ToList();
+        Shuffle(candidates, rng);
+
+        int keepCount = (int)Math.Ceiling(candidates.Count * cfg.FloodedCaveDryRatio);
+        for (int i = keepCount; i < candidates.Count; i++)
+            g.Set(candidates[i], TileType.ShallowWater);
+
+        // Re-run deep-water promotion on the newly flooded tiles.
+        PromoteDeep(g, rng, cfg);
+    }
 
     private static void PlaceWater(TileGrid g, Random rng, MapConfig cfg)
     {

@@ -26,6 +26,11 @@ public sealed class MapConfig
     // map interior so it floods last rather than at the corner where it floods first.
     public bool Flooding { get; set; } = false;
 
+    // Flooded cave — converts ~80% of floor tiles to shallow/deep water after item placement,
+    // leaving only small islands of dry land. Assigned by FloorConfig from floor 10 onward (~1/5).
+    public bool  FloodedCave         { get; set; } = false;
+    public float FloodedCaveDryRatio { get; set; } = 0.20f;
+
     public bool SealCenter { get; set; } = false; // ring center with Rock so ReachCenter requires digging
 
     // Bottomless pits (Phase 4d) — host lobby toggle, off by default.
@@ -118,6 +123,7 @@ public sealed class MapConfig
         cfg.ChestCount = floor <= 10 ? 1 : 2;
         cfg.HasShop = floor % 4 == 0;
         cfg.DetonatorCount = floor >= 3 ? 1 : 0;
+        cfg.FloodedCave = floor >= 10 && (uint)HashCode.Combine(seed, floor) % 5 == 0;
         return cfg;
     }
 }
