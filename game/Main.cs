@@ -55,6 +55,8 @@ public partial class Main : Node2D
 	private readonly HashSet<ItemKind> _tutorialShown = new();
 	private List<(int X, int Y, ItemKind Kind)> _prevAnnounceItems = new();
 	private GridPos? _prevLocalPos;
+	private bool _prevEscapeOpen;
+	private bool _hadTreasureFloor;
 
 	public override void _Ready()
 	{
@@ -275,6 +277,12 @@ public partial class Main : Node2D
 			else _floorBanner.Modulate = new Color(1, 1, 1, alpha);
 		}
 
+		// Treasure-floor escape-open announcement.
+		if (_client.ExpeditionTreasurePos != null) _hadTreasureFloor = true;
+		if (_client.EscapeOpen && !_prevEscapeOpen && _hadTreasureFloor)
+			SetAnnouncement("You found the treasure! Escape is open!", 3500);
+		_prevEscapeOpen = _client.EscapeOpen;
+
 		// Disable input + HUD activity once the local miner is dead (spectate).
 		ProcessPickupAnnouncements(_client.LocalMinerId);
 		bool sawLocal = false;
@@ -315,12 +323,22 @@ public partial class Main : Node2D
 						}
 						else
 						{
+							bool isTreasureFloor = _client.ExpeditionTreasurePos != null || (_hadTreasureFloor && _client.EscapeOpen);
+						if (isTreasureFloor)
+						{
+							objective = _client.EscapeOpen
+								? $"Floor {nm2.MatchFloor}/50  Treasure found — ESCAPE!{modTag}"
+								: $"Floor {nm2.MatchFloor}/50  Find the hidden treasure!{modTag}";
+						}
+						else
+						{
 							int pct = _client.StartingGoldCount > 0
 								? (int)(100.0 * (_client.StartingGoldCount - _client.GoldRemaining) / _client.StartingGoldCount)
 								: 0;
 							objective = _client.EscapeOpen
 								? $"Floor {nm2.MatchFloor}/50  Gold: {pct}% — ESCAPE!{modTag}"
 								: $"Floor {nm2.MatchFloor}/50  Gold: {pct}%{modTag}";
+						}
 						}
 						_hud.SetHud(Math.Max(0, _client.Lives), objective, $"{status}{timeStr}{heldStr}{stonesStr}");
 					}
@@ -656,6 +674,8 @@ public partial class Main : Node2D
 
 	private void OnNewFloor(int floor)
 	{
+		_prevEscapeOpen   = false;
+		_hadTreasureFloor = false;
 		_client.ResetFloor(floor);
 		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed ^ floor));
 
