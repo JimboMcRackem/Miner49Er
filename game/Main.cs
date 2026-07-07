@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Miner49er.Core;
@@ -47,6 +48,13 @@ public partial class Main : Node2D
 
 	// Co-op Expedition floor-clear choice panel
 	private CanvasLayer? _floorChoicePanel;
+
+	// Pickup announcements
+	private string? _announcement;
+	private double  _announcementExpiry;
+	private readonly HashSet<ItemKind> _tutorialShown = new();
+	private List<(int X, int Y, ItemKind Kind)> _prevAnnounceItems = new();
+	private GridPos? _prevLocalPos;
 
 	public override void _Ready()
 	{
@@ -266,6 +274,7 @@ public partial class Main : Node2D
 		}
 
 		// Disable input + HUD activity once the local miner is dead (spectate).
+		ProcessPickupAnnouncements(_client.LocalMinerId);
 		bool sawLocal = false;
 		bool localAlive = false;
 		string status = "Spectating";
@@ -274,12 +283,13 @@ public partial class Main : Node2D
 			{
 				sawLocal = true;
 				localAlive = m.Alive;
-				status = m.Alive
+				string rawStatus = m.Alive
 					? (m.Activity == (int)ActivityKind.Mining           ? $"Mining… {m.ActivityRemaining:0.0}s"
 						: m.Activity == (int)ActivityKind.Planting          ? $"Planting… {m.ActivityRemaining:0.0}s"
 						: m.Activity == (int)ActivityKind.PlantingDetonator ? $"Planting detonator… {m.ActivityRemaining:0.0}s"
 						: "Ready")
 					: "Dead — spectating";
+				status = IsAnnouncementActive() ? _announcement! : rawStatus;
 				string timeStr = _client.SecondsRemaining >= 0 ? $"    Time: {_client.SecondsRemaining:0}s" : "";
 				var heldKind = m.Held >= 0 ? (ItemKind?)((ItemKind)m.Held) : null;
 					string heldStr = heldKind switch
@@ -414,6 +424,87 @@ public partial class Main : Node2D
 		{
 			_scoreboard.Visible = false;
 		}
+	}
+
+	private void SetAnnouncement(string text, double durationMs = 2500)
+	{
+		_announcement       = text;
+		_announcementExpiry = Time.GetTicksMsec() + durationMs;
+	}
+
+	private bool IsAnnouncementActive() =>
+		_announcement != null && Time.GetTicksMsec() < _announcementExpiry;
+
+	private static bool IsPermBuff(ItemKind k) =>
+		k is ItemKind.SpeedPotion or ItemKind.BiggerBlast or ItemKind.LongerVision;
+
+	private static bool IsAnnounceKind(ItemKind k) =>
+		k is ItemKind.SpeedPotion or ItemKind.BiggerBlast or ItemKind.LongerVision
+		  or ItemKind.LifePotion or ItemKind.WaterPlank or ItemKind.Lantern;
+
+	private string PickupMessage(ItemKind kind, bool isBlocked) =>
+		(kind, isBlocked) switch
+		{
+			(ItemKind.SpeedPotion,  true)  => "Already maxed out — Speed Tonic!",
+			(ItemKind.BiggerBlast,  true)  => "Already maxed out — Bigger Blast!",
+			(ItemKind.LongerVision, true)  => "Already maxed out — Keen Eyes!",
+			(ItemKind.SpeedPotion,  false) => "Speed Tonic! Move faster.",
+			(ItemKind.BiggerBlast,  false) => "Bigger Blast! Larger explosion radius.",
+			(ItemKind.LongerVision, false) => "Keen Eyes! See further.",
+			(ItemKind.LifePotion,   false) => "Life Restored!",
+			(ItemKind.WaterPlank,   false) => "Water Plank — place it across deep water.",
+			(ItemKind.Lantern,      false) => "Lantern — drop it to light the area.",
+			_ => "",
+		};
+
+	private void ProcessPickupAnnouncements(int localMinerId)
+	{
+		GridPos? localPos = null;
+		foreach (var m in _client.Miners)
+			if (m.Id == localMinerId && m.Alive) { localPos = new GridPos(m.X, m.Y); break; }
+		if (localPos is not { } pos) { _prevLocalPos = null; return; }
+
+		bool movedThisTick = pos != _prevLocalPos;
+
+		var curItems = new List<(int X, int Y, ItemKind Kind)>();
+		foreach (var it in _client.Items)
+			if (IsAnnounceKind(it.Kind)) curItems.Add((it.X, it.Y, it.Kind));
+
+		// Detect disappeared items at miner pos → pickup
+		foreach (var prev in _prevAnnounceItems)
+		{
+			bool stillThere = false;
+			foreach (var cur in curItems)
+				if (cur.X == prev.X && cur.Y == prev.Y && cur.Kind == prev.Kind) { stillThere = true; break; }
+			if (!stillThere && pos.X == prev.X && pos.Y == prev.Y)
+			{
+				if (prev.Kind == ItemKind.WaterPlank && _tutorialShown.Add(ItemKind.WaterPlank))
+					SetAnnouncement(PickupMessage(ItemKind.WaterPlank, false));
+				else if (prev.Kind == ItemKind.Lantern && _tutorialShown.Add(ItemKind.Lantern))
+					SetAnnouncement(PickupMessage(ItemKind.Lantern, false));
+				else if (IsPermBuff(prev.Kind) || prev.Kind == ItemKind.LifePotion)
+					SetAnnouncement(PickupMessage(prev.Kind, false));
+			}
+		}
+
+		// Detect perm-buff item at miner pos that didn't disappear + miner just arrived → blocked
+		if (movedThisTick)
+		{
+			foreach (var cur in curItems)
+			{
+				if (cur.X == pos.X && cur.Y == pos.Y && IsPermBuff(cur.Kind))
+				{
+					bool wasHereLastFrame = false;
+					foreach (var prev in _prevAnnounceItems)
+						if (prev.X == cur.X && prev.Y == cur.Y && prev.Kind == cur.Kind) { wasHereLastFrame = true; break; }
+					if (wasHereLastFrame)
+						SetAnnouncement(PickupMessage(cur.Kind, true));
+				}
+			}
+		}
+
+		_prevLocalPos      = pos;
+		_prevAnnounceItems = curItems;
 	}
 
 	private string ComputeContextHint(Core.Net.MinerSnapshot m, GridPos localPos)
