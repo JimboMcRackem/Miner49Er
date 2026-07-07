@@ -91,7 +91,7 @@ public partial class Lobby : Control
 		_mapSizePicker.ItemSelected += _ => SuggestTimerForMapSize();
 		leftCol.AddChild(_mapSizePicker);
 
-		_startFloorPicker = new SpinBox { MinValue = 1, MaxValue = 20, Step = 1, Value = savedStartFloor };
+		_startFloorPicker = new SpinBox { MinValue = 1, MaxValue = 50, Step = 1, Value = savedStartFloor };
 		leftCol.AddChild(_startFloorPicker);
 
 		_modePicker.ItemSelected += _ =>

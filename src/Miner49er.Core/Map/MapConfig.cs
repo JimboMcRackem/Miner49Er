@@ -106,11 +106,11 @@ public sealed class MapConfig
         return cfg;
     }
 
-    /// <summary>Deterministic difficulty curve for Expedition dungeon floors 1–20.
-    /// Size and hazards escalate in four bands; only the seed varies the layout.</summary>
+    /// <summary>Deterministic difficulty curve for Expedition dungeon floors 1–50.
+    /// Size and hazards escalate in seven bands; only the seed varies the layout.</summary>
     public static MapConfig FloorConfig(int floor, int seed, int playerCount = 1)
     {
-        int mapScale = floor switch { <= 5 => 1, <= 10 => 2, <= 15 => 3, _ => 4 };
+        int mapScale = floor switch { <= 5 => 1, <= 10 => 2, <= 15 => 3, <= 20 => 4, <= 30 => 5, <= 40 => 6, _ => 7 };
         bool pits    = floor >= 6;
         bool caveIns = floor >= 11;
         bool lava    = floor >= 16;

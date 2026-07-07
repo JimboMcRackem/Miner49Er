@@ -9,7 +9,7 @@ public static class MonsterRoster
 {
     public const int Min      = 3;
     public const int Max      = 8;
-    public const int FloorMax = 10;
+    public const int FloorMax = 12;
 
     /// <summary>One extra monster per ~384 tiles above the base 24x24 map, clamped to [3, 8].</summary>
     public static int CountFor(int width, int height)
@@ -19,11 +19,14 @@ public static class MonsterRoster
         return Math.Clamp(Min + extra, Min, Max);
     }
 
-    /// <summary>Area-based count plus a floor difficulty bonus at floors 8 and 14,
+    /// <summary>Area-based count plus floor difficulty bonuses at floors 8, 14, 20, and 28,
     /// hard-capped at <see cref="FloorMax"/>.</summary>
     public static int CountFor(int width, int height, int floor)
     {
-        int bonus = (floor >= 8 ? 1 : 0) + (floor >= 14 ? 1 : 0);
+        int bonus = (floor >= 8  ? 1 : 0)
+                  + (floor >= 14 ? 1 : 0)
+                  + (floor >= 20 ? 1 : 0)
+                  + (floor >= 28 ? 1 : 0);
         return Math.Clamp(CountFor(width, height) + bonus, Min, FloorMax);
     }
 }

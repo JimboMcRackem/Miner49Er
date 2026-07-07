@@ -64,4 +64,48 @@ public class MapConfigFloorTests
         var cfg = MapConfig.FloorConfig(floor, 42, playerCount);
         Assert.Equal(playerCount, cfg.PlayerCount);
     }
+
+    [Theory]
+    [InlineData(21)] [InlineData(25)] [InlineData(30)]
+    public void Floors_21_to_30_are_scale5_all_hazards(int floor)
+    {
+        var cfg = MapConfig.FloorConfig(floor, 42);
+        Assert.Equal(96, cfg.BaseWidth);
+        Assert.Equal(96, cfg.BaseHeight);
+        Assert.True(cfg.Pits);
+        Assert.True(cfg.CaveIns);
+        Assert.True(cfg.Lava);
+    }
+
+    [Theory]
+    [InlineData(31)] [InlineData(35)] [InlineData(40)]
+    public void Floors_31_to_40_are_scale6_all_hazards(int floor)
+    {
+        var cfg = MapConfig.FloorConfig(floor, 42);
+        Assert.Equal(112, cfg.BaseWidth);
+        Assert.True(cfg.Pits);
+        Assert.True(cfg.CaveIns);
+        Assert.True(cfg.Lava);
+    }
+
+    [Theory]
+    [InlineData(41)] [InlineData(45)] [InlineData(50)]
+    public void Floors_41_to_50_are_scale7_all_hazards(int floor)
+    {
+        var cfg = MapConfig.FloorConfig(floor, 42);
+        Assert.Equal(128, cfg.BaseWidth);
+        Assert.True(cfg.Pits);
+        Assert.True(cfg.CaveIns);
+        Assert.True(cfg.Lava);
+    }
+
+    [Fact]
+    public void MonsterRoster_has_extra_bonuses_at_floors_20_and_28()
+    {
+        int count14 = MonsterRoster.CountFor(32, 32, 14);
+        int count20 = MonsterRoster.CountFor(32, 32, 20);
+        int count28 = MonsterRoster.CountFor(32, 32, 28);
+        Assert.True(count20 > count14);
+        Assert.True(count28 > count20);
+    }
 }

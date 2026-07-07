@@ -42,9 +42,23 @@ public class MonsterRosterTests
     }
 
     [Fact]
+    public void Floor_20_adds_three()
+    {
+        Assert.Equal(6, MonsterRoster.CountFor(24, 24, 20));
+    }
+
+    [Fact]
+    public void Floor_28_adds_four()
+    {
+        Assert.Equal(7, MonsterRoster.CountFor(24, 24, 28));
+    }
+
+    [Fact]
     public void Floor_bonus_is_capped_at_floor_max()
     {
-        Assert.Equal(9, MonsterRoster.CountFor(48, 48, 20));
-        Assert.Equal(10, MonsterRoster.CountFor(200, 200, 20));
+        // 48x48 area gives base 7; +3 bonuses (floors 8,14,20) = 10; FloorMax=12
+        Assert.Equal(10, MonsterRoster.CountFor(48, 48, 20));
+        // Very large map hits area cap (8) + 4 bonuses = 12 = FloorMax
+        Assert.Equal(MonsterRoster.FloorMax, MonsterRoster.CountFor(200, 200, 28));
     }
 }
