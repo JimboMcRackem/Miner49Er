@@ -21,7 +21,7 @@ public partial class Lobby : Control
 	private OptionButton _explosivePicker = null!;
 	private OptionButton _speedPicker = null!;
 	private OptionButton _mapSizePicker = null!;
-	private OptionButton _startFloorPicker = null!;
+	private SpinBox _startFloorPicker = null!;
 	private Label _codeLabel = null!;
 	private Button _copyBtn = null!;
 	private OptionButton _botSkillPicker = null!;
@@ -91,15 +91,7 @@ public partial class Lobby : Control
 		_mapSizePicker.ItemSelected += _ => SuggestTimerForMapSize();
 		leftCol.AddChild(_mapSizePicker);
 
-		_startFloorPicker = new OptionButton();
-		_startFloorPicker.AddItem("Floor 1  (Normal)",   1);
-		_startFloorPicker.AddItem("Floor 5  (Deeper)",   5);
-		_startFloorPicker.AddItem("Floor 8  (Hard)",     8);
-		_startFloorPicker.AddItem("Floor 12 (Very Hard)", 12);
-		_startFloorPicker.AddItem("Floor 16 (Lava)",    16);
-		int startFloorIdx = Enumerable.Range(0, _startFloorPicker.ItemCount)
-			.FirstOrDefault(i => _startFloorPicker.GetItemId(i) == savedStartFloor, 0);
-		_startFloorPicker.Select(startFloorIdx);
+		_startFloorPicker = new SpinBox { MinValue = 1, MaxValue = 20, Step = 1, Value = savedStartFloor };
 		leftCol.AddChild(_startFloorPicker);
 
 		_modePicker.ItemSelected += _ =>
@@ -203,7 +195,7 @@ public partial class Lobby : Control
 			int mapScale   = _mapSizePicker.GetSelectedId();
 			int explosive  = (expedition || treasure || derby) ? 0 : _explosivePicker.GetSelectedId();
 			int timeLimit  = (expedition || treasure || derby) ? 0 : _timePicker.GetSelectedId();
-			int startFloor = expedition ? _startFloorPicker.GetSelectedId() : 1;
+			int startFloor = expedition ? (int)_startFloorPicker.Value : 1;
 			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), timeLimit,
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
 				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive, startFloor);
