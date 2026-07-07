@@ -70,10 +70,13 @@ public partial class Compass : CanvasLayer
 
 	private float? ComputeExitAngle()
 	{
-		// In ReachCenter the goal is the centre tile, not an escape ladder.
-		GridPos? target = NetworkManager.Instance.MatchMode == GameMode.ReachCenter
-			? _client.CenterTile
-			: _client.EscapeTile;
+		// On treasure floors the compass points to the hidden idol until it's found,
+		// then pivots to the exit once EscapeOpen (ExpeditionTreasurePos cleared on that transition).
+		GridPos? target = _client.ExpeditionTreasurePos
+			// In ReachCenter the goal is the centre tile, not an escape ladder.
+			?? (NetworkManager.Instance.MatchMode == GameMode.ReachCenter
+				? _client.CenterTile
+				: _client.EscapeTile);
 		if (target is not { } et) return null;
 		GridPos? self = null;
 		foreach (var m in _client.Miners)
