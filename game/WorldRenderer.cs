@@ -78,6 +78,11 @@ public partial class WorldRenderer : Node2D
 	private Texture2D?[,] _skeletonHumanWalkTex = new Texture2D?[4, 4]; // [dir, frame 0-3]
 	private Texture2D?[,] _skeletonDinoWalkTex  = new Texture2D?[4, 4]; // [dir, frame 0-3]
 
+	// Water snake
+	private static readonly Color WaterSnakeColor = new(0.15f, 0.72f, 0.62f);
+	private Texture2D?[]  _waterSnakeTex     = new Texture2D?[4];
+	private Texture2D?[,] _waterSnakeWalkTex = new Texture2D?[4, 9]; // [dir, frame 0-8]
+
 	public void Init(MatchClient client)
 	{
 		_client = client;
@@ -131,6 +136,8 @@ public partial class WorldRenderer : Node2D
 		LoadMonsterTex(_skeletonDinoTex,  "skeleton_dino");
 		BuildSkeletonWalkTextures(_skeletonHumanWalkTex, "skeleton_human");
 		BuildSkeletonWalkTextures(_skeletonDinoWalkTex,  "skeleton_dino");
+		LoadMonsterTex(_waterSnakeTex, "water_snake");
+		BuildWaterSnakeWalkTextures();
 		for (int f = 0; f <= 8; f++)
 		{
 			string p = $"res://assets/monsters/octopus/idle_{f}.png";
@@ -212,6 +219,18 @@ public partial class WorldRenderer : Node2D
 				string path = $"res://assets/monsters/{folder}/walk/{dirName[d]}_{f}.png";
 				if (ResourceLoader.Exists(path))
 					arr[d, f] = GD.Load<Texture2D>(path);
+			}
+	}
+
+	private void BuildWaterSnakeWalkTextures()
+	{
+		string[] dirName = { "north", "east", "south", "west" };
+		for (int d = 0; d < 4; d++)
+			for (int f = 0; f <= 8; f++)
+			{
+				string path = $"res://assets/monsters/water_snake/walk/{dirName[d]}_{f}.png";
+				if (ResourceLoader.Exists(path))
+					_waterSnakeWalkTex[d, f] = GD.Load<Texture2D>(path);
 			}
 	}
 
@@ -874,6 +893,22 @@ public partial class WorldRenderer : Node2D
 						}
 						else
 							DrawCircle(c, ts * 0.32f, Colors.White);
+					}
+					break;
+				}
+				case MonsterKind.WaterSnake:
+				{
+					int snakeFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
+					var snakeTex = _waterSnakeWalkTex[mo.Facing, snakeFrame] ?? _waterSnakeTex[mo.Facing];
+					if (snakeTex != null)
+					{
+						float ss = ts * 1.3f;
+						DrawTextureRect(snakeTex, new Rect2(c.X - ss / 2f, c.Y - ss / 2f, ss, ss), false);
+					}
+					else
+					{
+						DrawCircle(c, ts * 0.30f, WaterSnakeColor);
+						DrawCircle(c + fwd * 1.2f, ts * 0.14f, WaterSnakeColor);
 					}
 					break;
 				}
