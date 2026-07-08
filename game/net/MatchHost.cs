@@ -211,6 +211,9 @@ public partial class MatchHost : Node
 				case RockFell rf:
 					changes.Add(new TileChange(rf.Pos.X, rf.Pos.Y, false, TileType.Rock));
 					break;
+				case CrystalShardDropped csd:
+					_sim.AddItem(new Item(csd.Pos, ItemKind.CrystalShard, ItemPlacement.Loose));
+					break;
 				case LifeRestored:
 					_livesRemaining = Math.Min(_livesRemaining + 1, _livesMax);
 					break;
