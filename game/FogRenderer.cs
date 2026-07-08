@@ -44,7 +44,14 @@ public partial class FogRenderer : Node2D
 		return ImageTexture.CreateFromImage(img);
 	}
 
-	public override void _Process(double delta) => QueueRedraw();
+	public override void _Process(double delta)
+	{
+		if (_client != null && _client.FogDirty)
+		{
+			_client.ClearFogDirty();
+			QueueRedraw();
+		}
+	}
 
 	public override void _Draw()
 	{

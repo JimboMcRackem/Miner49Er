@@ -19,6 +19,8 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color CrystalFacetA  = new("a060ff");
 	private static readonly Color CrystalFacetB  = new("60c0ff");
 	private static readonly Color CrystalFacetC  = new("c080ff");
+	private static readonly Vector2[] _crystalPolyVerts  = new Vector2[4];
+	private static readonly Color[]   _crystalPolyColors = new Color[4];
 	private static readonly Color ChargeColor    = new("ff5530");
 	private static readonly Color FlashColor     = new("ffd27f");
 	private static readonly Color SpeedItemColor = new("4ad06a");
@@ -480,7 +482,10 @@ public partial class WorldRenderer : Node2D
 							var tip2 = cen - rot * len;
 							Color fc = (fi % 3) switch { 0 => CrystalFacetA, 1 => CrystalFacetB, _ => CrystalFacetC };
 							fc = fc with { A = brightness * 0.85f };
-							DrawPolygon(new[] { tip1, cen + perp, tip2, cen - perp }, new[] { fc, fc, fc, fc });
+							_crystalPolyVerts[0] = tip1; _crystalPolyVerts[1] = cen + perp;
+							_crystalPolyVerts[2] = tip2; _crystalPolyVerts[3] = cen - perp;
+							_crystalPolyColors[0] = _crystalPolyColors[1] = _crystalPolyColors[2] = _crystalPolyColors[3] = fc;
+							DrawPolygon(_crystalPolyVerts, _crystalPolyColors);
 						}
 					}
 					break;

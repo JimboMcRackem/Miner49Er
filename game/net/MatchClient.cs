@@ -73,9 +73,11 @@ public partial class MatchClient : Node2D
 	private readonly Dictionary<int, double> _walkUntil = new();
 
 	private HashSet<GridPos>? _crystalPositions;
+	private HashSet<GridPos>? _crystalLitTiles;  // precomputed union of all crystal shadowcasts
 	private const int CrystalWallRadius       = 5;
 	private const int CrystalShardFloorRadius = 2;
 	private const int CrystalShardHeldRadius  = 3;
+	public bool FogDirty { get; private set; }
 
 	// Random idle fidget state (local miner only)
 	private const int   IdleVariantCount  = 3;
@@ -140,7 +142,10 @@ public partial class MatchClient : Node2D
 			{
 				Grid.Set(p, t.NewType);
 				if (t.NewType == TileType.Floor && _crystalPositions != null)
-					_crystalPositions.Remove(p);
+				{
+					if (_crystalPositions.Remove(p))
+						_crystalLitTiles = null; // invalidate; rebuilt lazily next UpdateFog
+				}
 			}
 			if (t.FromBlast)
 			{
@@ -217,6 +222,8 @@ public partial class MatchClient : Node2D
 
 		Fog.Reset();
 		_crystalPositions = null;
+		_crystalLitTiles  = null;
+		FogDirty = false;
 		_visualPos.Clear();
 		_monsterVisualPos.Clear();
 		_miners.Clear();
@@ -555,9 +562,10 @@ public partial class MatchClient : Node2D
 
 			var visible = Visibility.Compute(Grid, new GridPos(m.X, m.Y), m.VisionRadius);
 
-			if (_crystalPositions == null) BuildCrystalCache();
-			foreach (var cp in _crystalPositions!)
-				visible.UnionWith(Visibility.Compute(Grid, cp, CrystalWallRadius));
+			// Crystal walls: use precomputed union of all crystal shadowcasts (built once per floor,
+			// invalidated only when a crystal is mined — avoids N shadowcasts per tick).
+			if (_crystalLitTiles == null) BuildCrystalLitCache();
+			visible.UnionWith(_crystalLitTiles!);
 
 			foreach (var it in _items)
 				if (it.Kind == ItemKind.CrystalShard && it.Placement == ItemPlacement.Loose)
@@ -568,8 +576,11 @@ public partial class MatchClient : Node2D
 					visible.UnionWith(Visibility.Compute(Grid, new GridPos(mn.X, mn.Y), CrystalShardHeldRadius));
 
 			Fog.Update(visible);
+			FogDirty = true;
 		}
 	}
+
+	public void ClearFogDirty() => FogDirty = false;
 
 	private void BuildCrystalCache()
 	{
@@ -577,6 +588,14 @@ public partial class MatchClient : Node2D
 		foreach (var p in Grid.Positions())
 			if (Grid.Get(p) == TileType.CrystalRock)
 				_crystalPositions.Add(p);
+	}
+
+	private void BuildCrystalLitCache()
+	{
+		if (_crystalPositions == null) BuildCrystalCache();
+		_crystalLitTiles = new HashSet<GridPos>();
+		foreach (var cp in _crystalPositions!)
+			_crystalLitTiles.UnionWith(Visibility.Compute(Grid, cp, CrystalWallRadius));
 	}
 
 	private static int CountGold(TileGrid grid)
