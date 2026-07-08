@@ -72,6 +72,11 @@ public partial class MatchClient : Node2D
 	private readonly Dictionary<int, (int X, int Y)> _lastMinerPos = new();
 	private readonly Dictionary<int, double> _walkUntil = new();
 
+	private HashSet<GridPos>? _crystalPositions;
+	private const int CrystalWallRadius       = 5;
+	private const int CrystalShardFloorRadius = 2;
+	private const int CrystalShardHeldRadius  = 3;
+
 	// Random idle fidget state (local miner only)
 	private const int   IdleVariantCount  = 3;
 	private const float IdleMinWait       = 5f;
@@ -131,7 +136,12 @@ public partial class MatchClient : Node2D
 		foreach (var t in update.TileChanges)
 		{
 			var p = new GridPos(t.X, t.Y);
-			if (Grid.InBounds(p)) Grid.Set(p, t.NewType);
+			if (Grid.InBounds(p))
+			{
+				Grid.Set(p, t.NewType);
+				if (t.NewType == TileType.Floor && _crystalPositions != null)
+					_crystalPositions.Remove(p);
+			}
 			if (t.FromBlast)
 			{
 				_world?.AddExplosionFlash(p);
@@ -206,6 +216,7 @@ public partial class MatchClient : Node2D
 		Octopus           = null;
 
 		Fog.Reset();
+		_crystalPositions = null;
 		_visualPos.Clear();
 		_monsterVisualPos.Clear();
 		_miners.Clear();
@@ -539,8 +550,33 @@ public partial class MatchClient : Node2D
 	private void UpdateFog()
 	{
 		foreach (var m in _miners)
-			if (m.Id == LocalMinerId && m.Alive)
-				Fog.Update(Visibility.Compute(Grid, new GridPos(m.X, m.Y), m.VisionRadius));
+		{
+			if (m.Id != LocalMinerId || !m.Alive) continue;
+
+			var visible = Visibility.Compute(Grid, new GridPos(m.X, m.Y), m.VisionRadius);
+
+			if (_crystalPositions == null) BuildCrystalCache();
+			foreach (var cp in _crystalPositions!)
+				visible.UnionWith(Visibility.Compute(Grid, cp, CrystalWallRadius));
+
+			foreach (var it in _items)
+				if (it.Kind == ItemKind.CrystalShard && it.Placement == ItemPlacement.Loose)
+					visible.UnionWith(Visibility.Compute(Grid, new GridPos(it.X, it.Y), CrystalShardFloorRadius));
+
+			foreach (var mn in _miners)
+				if (mn.Alive && mn.Held == (int)ItemKind.CrystalShard)
+					visible.UnionWith(Visibility.Compute(Grid, new GridPos(mn.X, mn.Y), CrystalShardHeldRadius));
+
+			Fog.Update(visible);
+		}
+	}
+
+	private void BuildCrystalCache()
+	{
+		_crystalPositions = new HashSet<GridPos>();
+		foreach (var p in Grid.Positions())
+			if (Grid.Get(p) == TileType.CrystalRock)
+				_crystalPositions.Add(p);
 	}
 
 	private static int CountGold(TileGrid grid)
