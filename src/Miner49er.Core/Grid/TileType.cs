@@ -1,6 +1,6 @@
 namespace Miner49er.Core;
 
-public enum TileType { Floor, Rock, GoldRock, ImpermeableRock, ShallowWater, DeepWater, Plank, Pit, Cracked, Crumbling, Lava, LavaVent }
+public enum TileType { Floor, Rock, GoldRock, ImpermeableRock, ShallowWater, DeepWater, Plank, Pit, Cracked, Crumbling, Lava, LavaVent, CrystalRock }
 
 public static class TileTypeExtensions
 {
@@ -27,12 +27,12 @@ public static class TileTypeExtensions
     public static double MoveCostMultiplier(this TileType t) =>
         t == TileType.ShallowWater ? ShallowSlowFactor : 1.0;
 
-    public static bool IsMinable(this TileType t) => t is TileType.Rock or TileType.GoldRock;
-    public static bool IsBlastable(this TileType t) => t is TileType.Rock or TileType.GoldRock;
+    public static bool IsMinable(this TileType t) => t is TileType.Rock or TileType.GoldRock or TileType.CrystalRock;
+    public static bool IsBlastable(this TileType t) => t is TileType.Rock or TileType.GoldRock or TileType.CrystalRock;
 
     /// <summary>Blocks line-of-sight (the rock family). Floor, water, and planks are transparent.</summary>
     public static bool BlocksSight(this TileType t) =>
-        t is TileType.Rock or TileType.GoldRock or TileType.ImpermeableRock;
+        t is TileType.Rock or TileType.GoldRock or TileType.ImpermeableRock or TileType.CrystalRock;
 
     /// <summary>Shallow or deep water (used by water placement and the flood).</summary>
     public static bool IsWater(this TileType t) => t is TileType.ShallowWater or TileType.DeepWater;

@@ -16,6 +16,7 @@ public enum ItemKind
     IdolShiva, IdolBuddha, IdolRa, IdolQuetzalcoatl,
     IdolUrn, IdolLamp, IdolMace, IdolSceptre, IdolGlobe,
     IdolTrophyCup, IdolChalice, IdolCrown, IdolSkull,
+    CrystalShard,
 }
 
 public static class ItemKindExtensions
@@ -23,7 +24,7 @@ public static class ItemKindExtensions
     /// <summary>Carried kinds go into the 1-slot inventory; triggered with Use verb.</summary>
     public static bool IsCarried(this ItemKind k) =>
         k is ItemKind.WaterPlank or ItemKind.SlowMold or ItemKind.Lantern
-          or ItemKind.Detonator or ItemKind.TreasureChest
+          or ItemKind.Detonator or ItemKind.TreasureChest or ItemKind.CrystalShard
           or (>= ItemKind.IdolVishnu and <= ItemKind.IdolSkull);
 
     /// <summary>Placeable kinds cycle in PlaceItems (random floor placement).</summary>
