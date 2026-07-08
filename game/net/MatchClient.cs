@@ -119,7 +119,7 @@ public partial class MatchClient : Node2D
 
 		_camera = new Node2D { Name = "CameraRig" };
 		sceneRoot.AddChild(_camera);
-		_cam = new Camera2D { Zoom = new Vector2(2.0f, 2.0f) };
+		_cam = new Camera2D { Zoom = new Vector2(2.5f, 2.5f) };
 		_camera.AddChild(_cam);
 		_cam.MakeCurrent();
 	}
@@ -305,14 +305,14 @@ public partial class MatchClient : Node2D
 		else if (localAlive && _cam != null)
 		{
 			_camera.Position = localVisualPos;
-			_cam.Zoom = _cam.Zoom.Lerp(new Vector2(2f, 2f), Mathf.Min(1f, (float)delta * 4f));
+			_cam.Zoom = _cam.Zoom.Lerp(new Vector2(2.5f, 2.5f), Mathf.Min(1f, (float)delta * 4f));
 			if (_fogRenderer != null) _fogRenderer.SpectatorMode = false;
 		}
 		else if (_cam != null && NetworkManager.Instance.MatchMode != GameMode.Expedition)
 		{
 			// Dead — ease to a browsable zoom; camera stays near death position.
 			// Expedition uses its own black-fade overlay and respawns the miner, so we leave it alone.
-			_cam.Zoom = _cam.Zoom.Lerp(new Vector2(1.5f, 1.5f), Mathf.Min(1f, (float)delta * 2.5f));
+			_cam.Zoom = _cam.Zoom.Lerp(new Vector2(2.0f, 2.0f), Mathf.Min(1f, (float)delta * 2.5f));
 			if (_fogRenderer != null) _fogRenderer.SpectatorMode = true;
 
 			// WASD/arrow keys scroll the camera; clamp to map bounds.
