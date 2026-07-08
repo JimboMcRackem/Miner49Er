@@ -44,6 +44,13 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color DetonatorItemColor = new("ff3355");
 	private const int ListenItemRevealRadius = 6;
 
+	// Cached water draw data — computed once on first draw, valid for map lifetime since water tiles never change.
+	private GridPos[]? _waterTiles;
+	private Vector2[][]? _waterPolys;
+	// Singleton color arrays shared across all shallow / deep tiles to avoid per-frame allocations.
+	private static readonly Color[] _shallowWaterCol = { new Color(0.06f, 0.17f, 0.46f) };
+	private static readonly Color[] _deepWaterCol    = { new Color(0.02f, 0.07f, 0.24f) };
+
 	private Texture2D? _shopLampTex;
 	private Texture2D? _chargeTex;
 	private Texture2D? _toolboxTex;
@@ -303,24 +310,16 @@ public partial class WorldRenderer : Node2D
 		int ts = MatchClient.TileSize;
 
 		// Water: polygon-based tiles with procedurally rounded outer corners.
-		// Shallow rounds against non-water; deep rounds against non-deep (including shallow).
-		// WorldRenderer (ZIndex -9) draws above TerrainMap._layer (ZIndex -10), covering Wang tiles.
+		// Polygons are cached after first draw since water tiles never change mid-game.
+		EnsureWaterCache();
 		float wTime = (float)Time.GetTicksMsec() / 1000f;
-		foreach (var p in grid.Positions())
+		for (int wi = 0; wi < _waterTiles!.Length; wi++)
 		{
-			var wt = grid.Get(p);
-			if (!wt.IsWater()) continue;
+			var p = _waterTiles[wi];
+			bool deep = grid.Get(p) == TileType.DeepWater;
+			DrawPolygon(_waterPolys![wi], deep ? _deepWaterCol : _shallowWaterCol);
+
 			float wx0 = p.X * ts, wy0 = p.Y * ts;
-			bool deep = wt == TileType.DeepWater;
-
-			bool nAdj = deep ? IsDeepWater(grid, p.X, p.Y - 1) : IsWater(grid, p.X, p.Y - 1);
-			bool sAdj = deep ? IsDeepWater(grid, p.X, p.Y + 1) : IsWater(grid, p.X, p.Y + 1);
-			bool wAdj = deep ? IsDeepWater(grid, p.X - 1, p.Y) : IsWater(grid, p.X - 1, p.Y);
-			bool eAdj = deep ? IsDeepWater(grid, p.X + 1, p.Y) : IsWater(grid, p.X + 1, p.Y);
-
-			var col = deep ? new Color(0.02f, 0.07f, 0.24f) : new Color(0.06f, 0.17f, 0.46f);
-			DrawPolygon(WaterTilePoly(wx0, wy0, ts, nAdj, sAdj, wAdj, eAdj), new[] { col });
-
 			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
 			int sparkCount = 4 + (int)(wh & 1u);
 			for (int wv = 0; wv < sparkCount; wv++)
@@ -1146,6 +1145,29 @@ public partial class WorldRenderer : Node2D
 			float a = fromA + (toA - fromA) * k / n;
 			pts.Add(new Vector2(cx + r * Mathf.Cos(a), cy + r * Mathf.Sin(a)));
 		}
+	}
+
+	private void EnsureWaterCache()
+	{
+		if (_waterTiles != null) return;
+		var grid = _client.Grid;
+		int ts = MatchClient.TileSize;
+		var tiles = new List<GridPos>();
+		var polys = new List<Vector2[]>();
+		foreach (var p in grid.Positions())
+		{
+			var wt = grid.Get(p);
+			if (!wt.IsWater()) continue;
+			bool deep = wt == TileType.DeepWater;
+			bool nAdj = deep ? IsDeepWater(grid, p.X, p.Y - 1) : IsWater(grid, p.X, p.Y - 1);
+			bool sAdj = deep ? IsDeepWater(grid, p.X, p.Y + 1) : IsWater(grid, p.X, p.Y + 1);
+			bool wAdj = deep ? IsDeepWater(grid, p.X - 1, p.Y) : IsWater(grid, p.X - 1, p.Y);
+			bool eAdj = deep ? IsDeepWater(grid, p.X + 1, p.Y) : IsWater(grid, p.X + 1, p.Y);
+			tiles.Add(p);
+			polys.Add(WaterTilePoly(p.X * ts, p.Y * ts, ts, nAdj, sAdj, wAdj, eAdj));
+		}
+		_waterTiles = tiles.ToArray();
+		_waterPolys = polys.ToArray();
 	}
 
 	private bool TryLocalTile(out GridPos tile)
