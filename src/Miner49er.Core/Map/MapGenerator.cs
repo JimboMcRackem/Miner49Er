@@ -23,6 +23,8 @@ public static class MapGenerator
                       config.PitClusterChance, config.PitClusterMax);
         if (config.Lava)
             PlaceLava(grid, rng, config.LavaPoolCount, config.LavaPoolGrowChance, config.LavaPoolMax);
+        if (config.CrystalPatchCount > 0)
+            PlaceCrystalPatches(grid, rng, config.CrystalPatchCount);
         var region = LargestTraversableRegion(grid);
         var center = NearestFloorToCenter(grid, region);
         var spawns = PlaceSpawns(grid, config.PlayerCount, region, config.Flooding,
@@ -802,5 +804,64 @@ public static class MapGenerator
             Decoys     = System.Array.Empty<GridPos>(),
             EscapeTile = new GridPos(cx, 1),   // top of north corridor
         };
+    }
+
+    private static void PlaceCrystalPatches(TileGrid g, Random rng, int patchCount)
+    {
+        if (patchCount <= 0) return;
+        const int RegionsX = 4, RegionsY = 4;
+        int regionW = Math.Max(1, g.Width  / RegionsX);
+        int regionH = Math.Max(1, g.Height / RegionsY);
+
+        for (int ry = 0; ry < RegionsY; ry++)
+        for (int rx = 0; rx < RegionsX; rx++)
+        {
+            if (rng.NextDouble() > 0.60) continue;
+
+            var candidates = new List<GridPos>();
+            int x0 = rx * regionW, x1 = Math.Min(x0 + regionW, g.Width);
+            int y0 = ry * regionH, y1 = Math.Min(y0 + regionH, g.Height);
+            for (int y = y0; y < y1; y++)
+            for (int x = x0; x < x1; x++)
+            {
+                var p = new GridPos(x, y);
+                if (g.Get(p) == TileType.Rock && HasFloorNeighbour(g, p))
+                    candidates.Add(p);
+            }
+            if (candidates.Count == 0) continue;
+
+            var seed = candidates[rng.Next(candidates.Count)];
+            int targetSize = rng.Next(3, 6);
+            var patch = new HashSet<GridPos> { seed };
+            var frontier = new Queue<GridPos>();
+            frontier.Enqueue(seed);
+
+            while (patch.Count < targetSize && frontier.Count > 0)
+            {
+                var cur = frontier.Dequeue();
+                foreach (var d in Card)
+                {
+                    var nb = cur + d.ToOffset();
+                    if (!g.InBounds(nb) || patch.Contains(nb)) continue;
+                    if (g.Get(nb) != TileType.Rock) continue;
+                    if (!HasFloorNeighbour(g, nb)) continue;
+                    patch.Add(nb);
+                    frontier.Enqueue(nb);
+                    if (patch.Count >= targetSize) break;
+                }
+            }
+
+            foreach (var p in patch) g.Set(p, TileType.CrystalRock);
+        }
+    }
+
+    private static bool HasFloorNeighbour(TileGrid g, GridPos p)
+    {
+        foreach (var d in Card)
+        {
+            var nb = p + d.ToOffset();
+            if (g.InBounds(nb) && g.Get(nb) == TileType.Floor) return true;
+        }
+        return false;
     }
 }
