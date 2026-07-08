@@ -1271,7 +1271,8 @@ public sealed class Simulation
                     continue;
                 }
                 if (!Grid.Get(p).IsBlastable()) continue;
-                bool wasGold = Grid.Get(p) == TileType.GoldRock;
+                bool wasGold    = Grid.Get(p) == TileType.GoldRock;
+                bool wasCrystal = Grid.Get(p) == TileType.CrystalRock;
                 Grid.Set(p, TileType.Floor);
                 if (wasGold)
                 {
@@ -1280,6 +1281,7 @@ public sealed class Simulation
                 }
                 UnburyItemsAt(p);
                 ActivateVentsAround(p);
+                if (wasCrystal) _events.Add(new CrystalShardDropped(p));
                 destroyed.Add(p);
             }
 
@@ -1339,12 +1341,14 @@ public sealed class Simulation
         if (kind == ActivityKind.Mining)
         {
             if (!Grid.InBounds(target) || !Grid.Get(target).IsMinable()) return;
-            bool wasGold = Grid.Get(target) == TileType.GoldRock;
+            bool wasGold    = Grid.Get(target) == TileType.GoldRock;
+            bool wasCrystal = Grid.Get(target) == TileType.CrystalRock;
             Grid.Set(target, TileType.Floor);
             if (wasGold) { m.GoldCollected++; OnGoldCleared(); }
             UnburyItemsAt(target);
             ActivateVentsAround(target);
             _events.Add(new RockMined(m.Id, target, wasGold));
+            if (wasCrystal) _events.Add(new CrystalShardDropped(target));
             _noiseSources.Add(new NoiseSource { Pos = target, LifetimeRemaining = 2.0, Kind = NoiseKind.Pickaxe });
         }
         else if (kind == ActivityKind.Planting)
