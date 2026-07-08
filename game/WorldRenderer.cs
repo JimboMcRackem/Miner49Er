@@ -901,8 +901,11 @@ public partial class WorldRenderer : Node2D
 					var snakeTex = _waterSnakeWalkTex[mo.Facing, snakeFrame] ?? _waterSnakeTex[mo.Facing];
 					if (snakeTex != null)
 					{
-						float ss = ts * 1.3f;
-						DrawTextureRect(snakeTex, new Rect2(c.X - ss / 2f, c.Y - ss / 2f, ss, ss), false);
+						// Elongate along the movement axis so the snake reads as low and horizontal.
+						bool ew = mo.Facing == 1 || mo.Facing == 3;
+						float sw = ew ? ts * 1.9f : ts * 0.80f;
+						float sh = ew ? ts * 0.80f : ts * 1.9f;
+						DrawTextureRect(snakeTex, new Rect2(c.X - sw / 2f, c.Y - sh / 2f, sw, sh), false);
 					}
 					else
 					{
