@@ -16,6 +16,9 @@ public partial class WorldRenderer : Node2D
 
 	private static readonly Color CrackColor     = new Color(0.15f, 0.08f, 0.0f, 0.70f);
 	private static readonly Color LavaVentColor  = new("ff7a2a");
+	private static readonly Color CrystalFacetA  = new("a060ff");
+	private static readonly Color CrystalFacetB  = new("60c0ff");
+	private static readonly Color CrystalFacetC  = new("c080ff");
 	private static readonly Color ChargeColor    = new("ff5530");
 	private static readonly Color FlashColor     = new("ffd27f");
 	private static readonly Color SpeedItemColor = new("4ad06a");
@@ -62,7 +65,10 @@ public partial class WorldRenderer : Node2D
 	private Texture2D? _crumbledTex;
 	private Texture2D? _crackedTex;
 	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
-	private ImageTexture _lanternGlowTex = null!;
+	private ImageTexture _lanternGlowTex  = null!;
+	private ImageTexture _crystalGlowTex  = null!;
+	private Texture2D?   _crystalRockTex;
+	private Texture2D?   _crystalShardTex;
 	private Texture2D?[] _octopusIdleTex = new Texture2D?[9]; // idle_0..idle_8
 
 	// PixelLab monster sprites — [dir] order: 0=N 1=E 2=S 3=W
@@ -150,10 +156,18 @@ public partial class WorldRenderer : Node2D
 			string p = $"res://assets/monsters/octopus/idle_{f}.png";
 			if (ResourceLoader.Exists(p)) _octopusIdleTex[f] = GD.Load<Texture2D>(p);
 		}
-		_lanternGlowTex = BuildRadialGlowTex();
+		_lanternGlowTex  = BuildRadialGlowTex();
+		_crystalGlowTex  = BuildRadialGlowTex(new Color(0.65f, 0.35f, 1.0f, 1f), new Color(0.30f, 0.55f, 1.0f, 1f));
+		_crystalRockTex  = ResourceLoader.Exists("res://assets/tiles/singletiles/crystal_rock.png")
+		                   ? GD.Load<Texture2D>("res://assets/tiles/singletiles/crystal_rock.png") : null;
+		_crystalShardTex = ResourceLoader.Exists("res://assets/objects/item_crystal_shard.png")
+		                   ? GD.Load<Texture2D>("res://assets/objects/item_crystal_shard.png") : null;
 	}
 
-	private static ImageTexture BuildRadialGlowTex(int size = 128)
+	private static ImageTexture BuildRadialGlowTex(int size = 128) =>
+		BuildRadialGlowTex(new Color(1f, 0.85f, 0.4f, 1f), new Color(1f, 0.60f, 0.1f, 1f), size);
+
+	private static ImageTexture BuildRadialGlowTex(Color centre, Color edge, int size = 128)
 	{
 		var img = Image.CreateEmpty(size, size, false, Image.Format.Rgba8);
 		float half = size / 2f;
@@ -162,7 +176,11 @@ public partial class WorldRenderer : Node2D
 		{
 			float t = Mathf.Clamp(new Vector2(x - half, y - half).Length() / half, 0f, 1f);
 			float a = Mathf.Pow(1f - t, 2.5f);
-			img.SetPixel(x, y, new Color(1f, 0.85f, 0.4f, a * 0.55f));
+			img.SetPixel(x, y, new Color(
+				Mathf.Lerp(centre.R, edge.R, t),
+				Mathf.Lerp(centre.G, edge.G, t),
+				Mathf.Lerp(centre.B, edge.B, t),
+				a * 0.55f));
 		}
 		return ImageTexture.CreateFromImage(img);
 	}
@@ -433,6 +451,40 @@ public partial class WorldRenderer : Node2D
 					if (_lavaVentTex != null) DrawTextureRect(_lavaVentTex, r, false);
 					else DrawRect(r, LavaVentColor);
 					break;
+				case TileType.CrystalRock:
+				{
+					float crystalGlowPx = ts * 2.5f;
+					float pulse = 0.70f + 0.30f * Mathf.Sin(wTime * Mathf.Pi * 2f / 1.65f);
+					float cx = p.X * ts + ts * 0.5f, cy = p.Y * ts + ts * 0.5f;
+					DrawTextureRect(_crystalGlowTex,
+						new Rect2(cx - crystalGlowPx / 2f, cy - crystalGlowPx / 2f, crystalGlowPx, crystalGlowPx),
+						false, new Color(1f, 1f, 1f, 0.40f * pulse));
+					if (_crystalRockTex != null)
+					{
+						DrawTextureRect(_crystalRockTex, r, false);
+					}
+					else
+					{
+						uint ch = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xC7A1u);
+						float brightness = 0.80f + 0.20f * Mathf.Sin(wTime * 3.1f + (ch & 0xFFu) * 0.025f);
+						for (int fi = 0; fi < 4; fi++)
+						{
+							uint fh = ch ^ (uint)(fi * 1013904223u);
+							float ang = ((fh >> 4) & 0xFFu) * (Mathf.Tau / 255f);
+							float len = ts * (0.30f + ((fh >> 12) & 0x1Fu) * 0.007f);
+							float wid = ts * 0.06f;
+							var cen = new Vector2(cx, cy);
+							var rot = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
+							var perp = new Vector2(-rot.Y, rot.X) * wid;
+							var tip1 = cen + rot * len;
+							var tip2 = cen - rot * len;
+							Color fc = (fi % 3) switch { 0 => CrystalFacetA, 1 => CrystalFacetB, _ => CrystalFacetC };
+							fc = fc with { A = brightness * 0.85f };
+							DrawPolygon(new[] { tip1, cen + perp, tip2, cen - perp }, new[] { fc, fc, fc, fc });
+						}
+					}
+					break;
+				}
 				case TileType.Cracked:
 				{
 					if (_crackedTex != null)
@@ -683,6 +735,28 @@ public partial class WorldRenderer : Node2D
 				else
 					DrawCircle(icenter, ts * 0.15f, ItemColor(it.Kind));
 			}
+			else if (it.Kind == ItemKind.CrystalShard)
+			{
+				float shardGlowPx = ts * 1.4f;
+				DrawTextureRect(_crystalGlowTex,
+					new Rect2(icenter.X - shardGlowPx / 2f, icenter.Y - shardGlowPx / 2f, shardGlowPx, shardGlowPx),
+					false, new Color(1f, 1f, 1f, 0.30f));
+				if (_crystalShardTex != null)
+					DrawTextureRect(_crystalShardTex, r, false);
+				else
+				{
+					float hw = ts * 0.20f;
+					DrawPolygon(
+						new[] {
+							new Vector2(icenter.X,       icenter.Y - hw),
+							new Vector2(icenter.X + hw,  icenter.Y),
+							new Vector2(icenter.X,       icenter.Y + hw),
+							new Vector2(icenter.X - hw,  icenter.Y),
+						},
+						new[] { CrystalFacetB, CrystalFacetA, CrystalFacetC, CrystalFacetB });
+					DrawCircle(icenter, hw * 0.5f, new Color(1f, 1f, 1f, 0.85f));
+				}
+			}
 			else
 			{
 				if (_itemTex.TryGetValue(it.Kind, out var itex))
@@ -769,6 +843,15 @@ public partial class WorldRenderer : Node2D
 			DrawTextureRect(_lanternGlowTex,
 				new Rect2(center.X - glowPx / 2f, center.Y - glowPx / 2f, glowPx, glowPx),
 				false);
+		}
+
+		// Crystal shard halo: soft cyan ring around any miner holding a shard
+		foreach (var m in _client.Miners)
+		{
+			if (!m.Alive || m.Held != (int)ItemKind.CrystalShard) continue;
+			if (!_client.Fog.IsVisible(new GridPos(m.X, m.Y)) && !spectating) continue;
+			var center = _client.MinerVisualPos(m.Id, m.X, m.Y);
+			DrawCircle(center, ts * 0.55f, new Color(0.45f, 0.20f, 1.0f, 0.22f));
 		}
 
 		foreach (var mo in _client.Monsters)
