@@ -47,6 +47,14 @@ public partial class MatchHost : Node
 	// Human miner IDs (excludes bots); used for bot-aware game-over logic.
 	private readonly HashSet<int> _humanMinerIds = new();
 
+	// True when deaths draw from the shared life pool with per-miner respawns: any
+	// Expedition run with more than one being in the party — multiple humans, or bots
+	// present. A death (human OR bot) spends one shared life and the being respawns only
+	// while lives remain. Pure solo (one human, no bots) keeps the full-wipe respawn model.
+	private bool UsesPerMinerRespawn =>
+		NetworkManager.Instance.MatchMode == GameMode.Expedition
+		&& (NetworkManager.Instance.MatchPlayerCount > 1 || _botBrains.Count > 0);
+
 	// Co-op Expedition: floor-clear choice pending (host awaits "Continue" or "Return to Menu").
 	private bool _floorChoicePending;
 	private int  _floorChoiceWinnerId;
@@ -279,8 +287,8 @@ public partial class MatchHost : Node
 
 		var nm = NetworkManager.Instance;
 
-		// Co-op expedition: detect per-miner deaths and schedule individual respawns.
-		if (nm.MatchMode == GameMode.Expedition && nm.MatchPlayerCount > 1)
+		// Detect per-miner deaths and schedule individual respawns (co-op, or solo with bots).
+		if (UsesPerMinerRespawn)
 			HandleCoopDeaths();
 
 		// With bots: end when all human miners are dead and no human respawns are pending.
@@ -325,9 +333,9 @@ public partial class MatchHost : Node
 			bool expeditionLoss = nm.MatchMode == GameMode.Expedition && result.WinnerId == -1;
 			if (expeditionLoss)
 			{
-				if (nm.MatchPlayerCount > 1)
+				if (UsesPerMinerRespawn)
 				{
-					// Co-op: per-miner deaths are handled in HandleCoopDeaths.
+					// Per-miner deaths are handled in HandleCoopDeaths (spends shared lives).
 					// result.IsOver only fires when alive.Count == 0.
 					// If any respawn timers are still running, keep going.
 					if (_coopRespawnTimers.Count > 0) return;
@@ -335,7 +343,7 @@ public partial class MatchHost : Node
 				}
 				else
 				{
-					// Solo: spend a life and respawn all dead miners.
+					// Pure solo (one human, no bots): spend a life and respawn all dead miners.
 					_livesRemaining--;
 					if (_livesRemaining > 0)
 					{
@@ -374,15 +382,16 @@ public partial class MatchHost : Node
 		}
 
 		// Detect miners that just died this tick and haven't been processed yet.
+		// Every being — human or bot — draws from the shared life pool; when it is empty,
+		// the dead being stays down (no respawn timer scheduled).
 		foreach (var m in _sim.Miners)
 		{
 			if (!m.Alive && !_deadMiners.Contains(m.Id) && !_coopRespawnTimers.ContainsKey(m.Id))
 			{
 				_deadMiners.Add(m.Id);
-				bool isBot = _botBrains.ContainsKey(m.Id);
-				if (isBot || _livesRemaining > 0)
+				if (_livesRemaining > 0)
 				{
-					if (!isBot) _livesRemaining--;
+					_livesRemaining--;
 					_coopRespawnTimers[m.Id] = RespawnDelay;
 				}
 			}
