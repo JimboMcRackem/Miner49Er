@@ -135,14 +135,21 @@ public sealed class MapConfig
         cfg.ScreePatchCount   = floor switch { >= 20 => 3, >= 8 => 2, >= 3 => 1, _ => 0 };
         cfg.UnstableRockCount = floor switch { >= 20 => 2, >= 8 => 1, _ => 0 };
         cfg.VolatileRockCount = floor >= 15 ? 1 : 0;
-        cfg.FloodedCave = floor >= 10 && (uint)HashCode.Combine(seed, floor) % 5 == 0;
+        cfg.FloodedCave = floor >= 10 && (uint)FloorHash(seed, floor, 0) % 5 == 0;
         if (floor % 4 == 0)
         {
-            var treasureRng = new System.Random(HashCode.Combine(seed, floor, 0xFEED));
+            var treasureRng = new System.Random(FloorHash(seed, floor, 1));
             var allIdols    = TreasureAssignment.AllIdols();
             cfg.ExpeditionTreasureKind    = allIdols[treasureRng.Next(allIdols.Length)];
             cfg.ExpeditionTreasureInChest = treasureRng.Next(2) == 0;
         }
         return cfg;
     }
+
+    /// <summary>Deterministic, process-stable hash of a per-floor decision. Unlike
+    /// HashCode.Combine — which is randomised per process, so host and client would
+    /// disagree and generate divergent maps — this is a fixed integer mix (same style
+    /// as FloorModifiers.Pick). The salt decorrelates independent per-floor rolls.</summary>
+    private static int FloorHash(int seed, int floor, int salt) =>
+        unchecked(seed ^ (floor * 7919) ^ (salt * 486187739));
 }

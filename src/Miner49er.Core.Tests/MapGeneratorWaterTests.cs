@@ -146,4 +146,20 @@ public class MapGeneratorWaterTests
         for (int s = 0; s < 50; s++)
             Assert.False(MapConfig.FloorConfig(floor, s).FloodedCave);
     }
+
+    // Regression: FloodedCave must be deterministic ACROSS processes so host and client
+    // generate the same map. HashCode.Combine (previously used) is randomised per process,
+    // so it would fail these pinned values on most runs. A stable integer hash keeps them fixed.
+    [Theory]
+    [InlineData(0, 20, true)]
+    [InlineData(11, 20, true)]
+    [InlineData(7, 10, true)]
+    [InlineData(1, 20, false)]
+    [InlineData(42, 30, false)]
+    [InlineData(3, 16, false)]
+    [InlineData(7, 12, false)]
+    public void FloodedCave_is_process_stable_for_fixed_seed_and_floor(int seed, int floor, bool expected)
+    {
+        Assert.Equal(expected, MapConfig.FloorConfig(floor, seed).FloodedCave);
+    }
 }
