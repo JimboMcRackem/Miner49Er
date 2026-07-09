@@ -1204,6 +1204,29 @@ public sealed class Simulation
         _events.Add(new MinerCrushed(m.Id));
     }
 
+    // A "scree" tile just gave way (mined or blasted). Rolls against its trigger chance;
+    // on a hit it fills every Floor tile within the tile's Chebyshev radius with Rock and
+    // crushes any miner caught in that square, then announces the collapse for feedback.
+    private void TriggerScreeCollapse(GridPos pos, TileType screeType)
+    {
+        if (_rng.NextDouble() >= screeType.ScreeTriggerChance()) return;
+
+        int radius = screeType.ScreeCollapseRadius();
+        for (int dy = -radius; dy <= radius; dy++)
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                if (dx == 0 && dy == 0) continue;   // the mined/blasted tile stays Floor — you got the rock
+                var p = new GridPos(pos.X + dx, pos.Y + dy);
+                if (!Grid.InBounds(p) || Grid.Get(p) != TileType.Floor) continue;
+                Grid.Set(p, TileType.Rock);
+                _events.Add(new RockFell(p));
+            }
+        foreach (var m in _miners.Values)
+            if (m.Pos.ChebyshevTo(pos) <= radius)
+                CollapseKill(m);
+        _events.Add(new ScreeCollapsed(pos, radius));
+    }
+
     private void AdvanceOctopus(double dt)
     {
         if (_octopus is null) return;
@@ -1256,6 +1279,7 @@ public sealed class Simulation
     {
         var destroyed = new List<GridPos>();
         var collapsedCracks = new List<GridPos>();
+        var screeHits = new List<(GridPos Pos, TileType Type)>();
         int r = Config.BlastRockRadius + blastBonus;
         for (int dy = -r; dy <= r; dy++)
             for (int dx = -r; dx <= r; dx++)
@@ -1270,9 +1294,10 @@ public sealed class Simulation
                     collapsedCracks.Add(p);
                     continue;
                 }
-                if (!Grid.Get(p).IsBlastable()) continue;
-                bool wasGold    = Grid.Get(p) == TileType.GoldRock;
-                bool wasCrystal = Grid.Get(p) == TileType.CrystalRock;
+                var blastTile = Grid.Get(p);
+                if (!blastTile.IsBlastable()) continue;
+                bool wasGold    = blastTile == TileType.GoldRock;
+                bool wasCrystal = blastTile == TileType.CrystalRock;
                 Grid.Set(p, TileType.Floor);
                 if (wasGold)
                 {
@@ -1282,8 +1307,14 @@ public sealed class Simulation
                 UnburyItemsAt(p);
                 ActivateVentsAround(p);
                 if (wasCrystal) _events.Add(new CrystalShardDropped(p));
+                if (blastTile.IsScree()) screeHits.Add((p, blastTile));
                 destroyed.Add(p);
             }
+
+        // Scree tiles caught in the blast collapse after the whole disc is cleared, so a
+        // collapse never refills a tile the same blast has yet to process.
+        foreach (var (pos, type) in screeHits)
+            TriggerScreeCollapse(pos, type);
 
         foreach (var m in _miners.Values)
         {
@@ -1341,14 +1372,16 @@ public sealed class Simulation
         if (kind == ActivityKind.Mining)
         {
             if (!Grid.InBounds(target) || !Grid.Get(target).IsMinable()) return;
-            bool wasGold    = Grid.Get(target) == TileType.GoldRock;
-            bool wasCrystal = Grid.Get(target) == TileType.CrystalRock;
+            var targetTile  = Grid.Get(target);
+            bool wasGold    = targetTile == TileType.GoldRock;
+            bool wasCrystal = targetTile == TileType.CrystalRock;
             Grid.Set(target, TileType.Floor);
             if (wasGold) { m.GoldCollected++; OnGoldCleared(); }
             UnburyItemsAt(target);
             ActivateVentsAround(target);
             _events.Add(new RockMined(m.Id, target, wasGold));
             if (wasCrystal) _events.Add(new CrystalShardDropped(target));
+            if (targetTile.IsScree()) TriggerScreeCollapse(target, targetTile);
             _noiseSources.Add(new NoiseSource { Pos = target, LifetimeRemaining = 2.0, Kind = NoiseKind.Pickaxe });
         }
         else if (kind == ActivityKind.Planting)
