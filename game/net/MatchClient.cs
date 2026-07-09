@@ -39,6 +39,7 @@ public partial class MatchClient : Node2D
 	public float SecondsRemaining { get; private set; } = -1f;
 	public int Lives { get; private set; } = 3;
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
+	public event System.Action<Vector2, int>? ScreeCollapsed; // world position + collapse radius
 
 	private List<MinerSnapshot> _miners = new();
 	private List<ChargeSnapshot> _charges = new();
@@ -168,6 +169,14 @@ public partial class MatchClient : Node2D
 			Exploded?.Invoke(c);
 		}
 
+		if (update.Snapshot.ScreeCollapses is { } screeCollapses)
+			foreach (var sc in screeCollapses)
+			{
+				var wpos = new Vector2(sc.X * TileSize + TileSize / 2f, sc.Y * TileSize + TileSize / 2f);
+				_world?.AddRockfallDust(new GridPos(sc.X, sc.Y), sc.Radius);
+				ScreeCollapsed?.Invoke(wpos, sc.Radius);
+			}
+
 		_terrainMap?.UpdateTiles(update.TileChanges);
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
@@ -225,6 +234,8 @@ public partial class MatchClient : Node2D
 		_crystalLitTiles  = null;
 		FogDirty = false;
 		_visualPos.Clear();
+		_lastMinerPos.Clear();
+		_walkUntil.Clear();
 		_monsterVisualPos.Clear();
 		_miners.Clear();
 		_monsters.Clear();
@@ -262,12 +273,25 @@ public partial class MatchClient : Node2D
 		foreach (var m in _miners)
 		{
 			var target = new Vector2(m.X * TileSize + TileSize / 2f, m.Y * TileSize + TileSize / 2f);
-			var cur = _visualPos.TryGetValue(m.Id, out var v) ? v : target;
-			float pixelsPerSec = TileSize / (float)m.MoveSeconds;
-			_visualPos[m.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
 
-			if (_lastMinerPos.TryGetValue(m.Id, out var last) && (last.X != m.X || last.Y != m.Y))
-				_walkUntil[m.Id] = now + m.MoveSeconds;
+			bool hadLast = _lastMinerPos.TryGetValue(m.Id, out var last);
+			// A single-tile step is a walk; a non-adjacent jump (respawn teleport, floor
+			// warp) must NOT slide/animate across the map — snap straight to the destination.
+			bool teleported = hadLast && Mathf.Max(Mathf.Abs(last.X - m.X), Mathf.Abs(last.Y - m.Y)) > 1;
+
+			if (teleported)
+			{
+				_visualPos[m.Id] = target;
+				_walkUntil.Remove(m.Id);
+			}
+			else
+			{
+				var cur = _visualPos.TryGetValue(m.Id, out var v) ? v : target;
+				float pixelsPerSec = TileSize / (float)m.MoveSeconds;
+				_visualPos[m.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
+				if (hadLast && (last.X != m.X || last.Y != m.Y))
+					_walkUntil[m.Id] = now + m.MoveSeconds;
+			}
 			_lastMinerPos[m.Id] = (m.X, m.Y);
 
 			if (m.Id == LocalMinerId)

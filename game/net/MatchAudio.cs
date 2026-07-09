@@ -36,13 +36,14 @@ public partial class MatchAudio : Node2D
 	{
 		_client = client;
 		_client.Exploded += OnExploded;
+		_client.ScreeCollapsed += OnScreeCollapsed;
 		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed));
 		SpawnDrips();
 	}
 
 	public override void _ExitTree()
 	{
-		if (_client != null) _client.Exploded -= OnExploded;
+		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; }
 		// Don't StopMusic here — the incoming scene (Lobby/MainMenu) always calls PlayMusic
 		// and StopMusic can fire after the new scene's PlayMusic in some Godot orderings.
 		if (_lavaLoop != null && IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree();
@@ -245,6 +246,11 @@ public partial class MatchAudio : Node2D
 			if (localWorld.DistanceTo(worldPos) <= 10 * MatchClient.TileSize)
 				AudioManager.Instance.TriggerDeafen();
 		}
+	}
+
+	private void OnScreeCollapsed(Vector2 worldPos, int radius)
+	{
+		OneShot(SfxLibrary.Rockfall, worldPos);
 	}
 
 	private void SpawnDrips()

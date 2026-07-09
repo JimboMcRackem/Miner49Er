@@ -1,6 +1,6 @@
 namespace Miner49er.Core;
 
-public enum TileType { Floor, Rock, GoldRock, ImpermeableRock, ShallowWater, DeepWater, Plank, Pit, Cracked, Crumbling, Lava, LavaVent, CrystalRock }
+public enum TileType { Floor, Rock, GoldRock, ImpermeableRock, ShallowWater, DeepWater, Plank, Pit, Cracked, Crumbling, Lava, LavaVent, CrystalRock, ScreeRock, UnstableRock, VolatileRock }
 
 public static class TileTypeExtensions
 {
@@ -27,12 +27,30 @@ public static class TileTypeExtensions
     public static double MoveCostMultiplier(this TileType t) =>
         t == TileType.ShallowWater ? ShallowSlowFactor : 1.0;
 
-    public static bool IsMinable(this TileType t) => t is TileType.Rock or TileType.GoldRock or TileType.CrystalRock;
-    public static bool IsBlastable(this TileType t) => t is TileType.Rock or TileType.GoldRock or TileType.CrystalRock;
+    public static bool IsMinable(this TileType t) =>
+        t is TileType.Rock or TileType.GoldRock or TileType.CrystalRock
+          or TileType.ScreeRock or TileType.UnstableRock or TileType.VolatileRock;
+    public static bool IsBlastable(this TileType t) =>
+        t is TileType.Rock or TileType.GoldRock or TileType.CrystalRock
+          or TileType.ScreeRock or TileType.UnstableRock or TileType.VolatileRock;
 
     /// <summary>Blocks line-of-sight (the rock family). Floor, water, and planks are transparent.</summary>
     public static bool BlocksSight(this TileType t) =>
-        t is TileType.Rock or TileType.GoldRock or TileType.ImpermeableRock or TileType.CrystalRock;
+        t is TileType.Rock or TileType.GoldRock or TileType.ImpermeableRock or TileType.CrystalRock
+          or TileType.ScreeRock or TileType.UnstableRock or TileType.VolatileRock;
+
+    /// <summary>Unstable "scree" rock — mining or blasting may trigger a rockslide that fills
+    /// nearby floor with Rock and crushes anyone caught. Amber/red-coded under Listen.</summary>
+    public static bool IsScree(this TileType t) =>
+        t is TileType.ScreeRock or TileType.UnstableRock or TileType.VolatileRock;
+
+    /// <summary>Chebyshev radius of the collapse fill when a scree tile gives way.</summary>
+    public static int ScreeCollapseRadius(this TileType t) =>
+        t == TileType.VolatileRock ? 2 : 1;
+
+    /// <summary>Probability that mining/blasting a scree tile triggers its collapse.</summary>
+    public static double ScreeTriggerChance(this TileType t) =>
+        t == TileType.ScreeRock ? 0.5 : 1.0;
 
     /// <summary>Shallow or deep water (used by water placement and the flood).</summary>
     public static bool IsWater(this TileType t) => t is TileType.ShallowWater or TileType.DeepWater;
