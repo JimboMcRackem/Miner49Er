@@ -108,4 +108,20 @@ public class MapConfigFloorTests
         Assert.True(count20 > count14);
         Assert.True(count28 > count20);
     }
+
+    [Fact]
+    public void FloorConfig_floor_2_has_no_scree()
+    {
+        var cfg = MapConfig.FloorConfig(2, seed: 1);
+        Assert.Equal(0, cfg.ScreePatchCount);
+    }
+
+    [Fact]
+    public void FloorConfig_scree_caps_at_3_on_late_floors()
+    {
+        var cfg = MapConfig.FloorConfig(50, seed: 1);
+        Assert.True(cfg.ScreePatchCount <= 3);
+        Assert.True(cfg.UnstableRockCount <= 2);
+        Assert.True(cfg.VolatileRockCount <= 1);
+    }
 }

@@ -19,6 +19,9 @@ public sealed class MapConfig
     public int LanternCount { get; set; } = 1;      // visible carried lanterns scattered on Floor
     public int DetonatorCount { get; set; } = 0;    // visible carried detonators scattered on Floor
     public int CrystalPatchCount { get; set; } = 0; // glowing crystal wall clusters
+    public int ScreePatchCount    { get; set; } = 0; // amber scree: 50% trigger, radius-1 collapse
+    public int UnstableRockCount  { get; set; } = 0; // light-red: 100% trigger, radius-1 collapse
+    public int VolatileRockCount  { get; set; } = 0; // bright-red: 100% trigger, radius-2 collapse
     public int ChestCount { get; set; } = 0;        // visible Chest toolboxes per floor
     public bool HasShop { get; set; } = false;     // place a shopkeeper tile on this floor
     public ItemKind[]? BuriedIdolKinds { get; set; } = null; // TreasureHunt: idol kinds to bury in rock
@@ -129,6 +132,9 @@ public sealed class MapConfig
         cfg.HasShop = floor % 4 == 0;
         cfg.DetonatorCount = floor >= 3 ? 1 : 0;
         cfg.CrystalPatchCount = floor >= 3 ? 4 : 0;
+        cfg.ScreePatchCount   = floor switch { >= 20 => 3, >= 8 => 2, >= 3 => 1, _ => 0 };
+        cfg.UnstableRockCount = floor switch { >= 20 => 2, >= 8 => 1, _ => 0 };
+        cfg.VolatileRockCount = floor >= 15 ? 1 : 0;
         cfg.FloodedCave = floor >= 10 && (uint)HashCode.Combine(seed, floor) % 5 == 0;
         if (floor % 4 == 0)
         {

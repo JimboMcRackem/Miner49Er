@@ -25,6 +25,8 @@ public static class MapGenerator
             PlaceLava(grid, rng, config.LavaPoolCount, config.LavaPoolGrowChance, config.LavaPoolMax);
         if (config.CrystalPatchCount > 0)
             PlaceCrystalPatches(grid, rng, config.CrystalPatchCount);
+        if (config.ScreePatchCount + config.UnstableRockCount + config.VolatileRockCount > 0)
+            PlaceScreePatches(grid, rng, config.ScreePatchCount, config.UnstableRockCount, config.VolatileRockCount);
         var region = LargestTraversableRegion(grid);
         var center = NearestFloorToCenter(grid, region);
         var spawns = PlaceSpawns(grid, config.PlayerCount, region, config.Flooding,
@@ -863,5 +865,68 @@ public static class MapGenerator
             if (g.InBounds(nb) && g.Get(nb) == TileType.Floor) return true;
         }
         return false;
+    }
+
+    // Scatters small (2–4 tile) scree patches across the 4x4 region grid, one tier per patch.
+    // Mirrors PlaceCrystalPatches but the patch pool mixes the three scree tiers; each seeds on
+    // rim rock that borders Floor so every hazard is reachable by mining. Deliberately sparse:
+    // ~60% of regions get a patch and the total is capped by the supplied per-tier counts.
+    private static void PlaceScreePatches(TileGrid g, Random rng,
+        int screeCount, int unstableCount, int volatileCount)
+    {
+        if (screeCount + unstableCount + volatileCount == 0) return;
+
+        const int RegionsX = 4, RegionsY = 4;
+        int regionW = Math.Max(1, g.Width  / RegionsX);
+        int regionH = Math.Max(1, g.Height / RegionsY);
+
+        var toPlace = new List<TileType>();
+        for (int i = 0; i < screeCount;    i++) toPlace.Add(TileType.ScreeRock);
+        for (int i = 0; i < unstableCount; i++) toPlace.Add(TileType.UnstableRock);
+        for (int i = 0; i < volatileCount; i++) toPlace.Add(TileType.VolatileRock);
+        Shuffle(toPlace, rng);
+
+        int idx = 0;
+        for (int ry = 0; ry < RegionsY && idx < toPlace.Count; ry++)
+        for (int rx = 0; rx < RegionsX && idx < toPlace.Count; rx++)
+        {
+            if (rng.NextDouble() > 0.60) continue;
+
+            var candidates = new List<GridPos>();
+            int x0 = rx * regionW, x1 = Math.Min(x0 + regionW, g.Width);
+            int y0 = ry * regionH, y1 = Math.Min(y0 + regionH, g.Height);
+            for (int y = y0; y < y1; y++)
+            for (int x = x0; x < x1; x++)
+            {
+                var p = new GridPos(x, y);
+                if (g.Get(p) == TileType.Rock && HasFloorNeighbour(g, p))
+                    candidates.Add(p);
+            }
+            if (candidates.Count == 0) continue;
+
+            TileType tileType = toPlace[idx++];
+            var seed = candidates[rng.Next(candidates.Count)];
+            int targetSize = rng.Next(2, 5); // 2–4 tiles per patch (smaller than crystal)
+            var patch = new HashSet<GridPos> { seed };
+            var frontier = new Queue<GridPos>();
+            frontier.Enqueue(seed);
+
+            while (patch.Count < targetSize && frontier.Count > 0)
+            {
+                var cur = frontier.Dequeue();
+                foreach (var d in Card)
+                {
+                    var nb = cur + d.ToOffset();
+                    if (!g.InBounds(nb) || patch.Contains(nb)) continue;
+                    if (g.Get(nb) != TileType.Rock) continue;
+                    if (!HasFloorNeighbour(g, nb)) continue;
+                    patch.Add(nb);
+                    frontier.Enqueue(nb);
+                    if (patch.Count >= targetSize) break;
+                }
+            }
+
+            foreach (var p in patch) g.Set(p, tileType);
+        }
     }
 }
