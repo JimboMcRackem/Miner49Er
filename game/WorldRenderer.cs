@@ -468,12 +468,18 @@ public partial class WorldRenderer : Node2D
 					break;
 				case TileType.CrystalRock:
 				{
-					float crystalGlowPx = ts * 2.5f;
-					float pulse = 0.70f + 0.30f * Mathf.Sin(wTime * Mathf.Pi * 2f / 1.65f);
 					float cx = p.X * ts + ts * 0.5f, cy = p.Y * ts + ts * 0.5f;
-					DrawTextureRect(_crystalGlowTex,
-						new Rect2(cx - crystalGlowPx / 2f, cy - crystalGlowPx / 2f, crystalGlowPx, crystalGlowPx),
-						false, new Color(1f, 1f, 1f, 0.40f * pulse));
+					// The glow only shows when the crystal is in the local miner's current FOV —
+					// an explored-but-unseen crystal would otherwise bleed its bright halo through
+					// the dim fog overlay.
+					if (_client.FogRenderer?.SpectatorMode == true || _client.Fog.IsVisible(p))
+					{
+						float crystalGlowPx = ts * 2.5f;
+						float pulse = 0.70f + 0.30f * Mathf.Sin(wTime * Mathf.Pi * 2f / 1.65f);
+						DrawTextureRect(_crystalGlowTex,
+							new Rect2(cx - crystalGlowPx / 2f, cy - crystalGlowPx / 2f, crystalGlowPx, crystalGlowPx),
+							false, new Color(1f, 1f, 1f, 0.40f * pulse));
+					}
 					if (_crystalRockTex != null)
 					{
 						DrawTextureRect(_crystalRockTex, r, false);

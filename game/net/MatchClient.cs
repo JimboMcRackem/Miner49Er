@@ -74,7 +74,7 @@ public partial class MatchClient : Node2D
 	private readonly Dictionary<int, double> _walkUntil = new();
 
 	private HashSet<GridPos>? _crystalPositions;
-	private HashSet<GridPos>? _crystalLitTiles;  // precomputed union of all crystal shadowcasts
+	private Dictionary<GridPos, HashSet<GridPos>>? _crystalLitByPos;  // per-crystal precomputed lit set
 	private const int CrystalWallRadius       = 5;
 	private const int CrystalShardFloorRadius = 2;
 	private const int CrystalShardHeldRadius  = 3;
@@ -145,7 +145,7 @@ public partial class MatchClient : Node2D
 				if (t.NewType == TileType.Floor && _crystalPositions != null)
 				{
 					if (_crystalPositions.Remove(p))
-						_crystalLitTiles = null; // invalidate; rebuilt lazily next UpdateFog
+						_crystalLitByPos = null; // invalidate; rebuilt lazily next UpdateFog
 				}
 			}
 			if (t.FromBlast)
@@ -231,7 +231,7 @@ public partial class MatchClient : Node2D
 
 		Fog.Reset();
 		_crystalPositions = null;
-		_crystalLitTiles  = null;
+		_crystalLitByPos  = null;
 		FogDirty = false;
 		_visualPos.Clear();
 		_lastMinerPos.Clear();
@@ -586,13 +586,20 @@ public partial class MatchClient : Node2D
 
 			var visible = Visibility.Compute(Grid, new GridPos(m.X, m.Y), m.VisionRadius);
 
-			// Crystal walls: use precomputed union of all crystal shadowcasts (built once per floor,
-			// invalidated only when a crystal is mined — avoids N shadowcasts per tick).
-			if (_crystalLitTiles == null) BuildCrystalLitCache();
-			visible.UnionWith(_crystalLitTiles!);
+			// Crystal walls light their surroundings only once the player can actually see the
+			// crystal — i.e. it lies within their own line-of-sight vision. This makes a crystal an
+			// "encountered in your FOV" light source, not a global map reveal. Per-crystal lit sets
+			// are precomputed once per floor (invalidated when a crystal is mined) so only the
+			// cheap Contains check runs per tick.
+			if (_crystalLitByPos == null) BuildCrystalLitCache();
+			foreach (var (cp, lit) in _crystalLitByPos!)
+				if (visible.Contains(cp))
+					visible.UnionWith(lit);
 
+			// A loose shard on the floor lights its area only when the player can see the shard.
 			foreach (var it in _items)
-				if (it.Kind == ItemKind.CrystalShard && it.Placement == ItemPlacement.Loose)
+				if (it.Kind == ItemKind.CrystalShard && it.Placement == ItemPlacement.Loose
+				    && visible.Contains(new GridPos(it.X, it.Y)))
 					visible.UnionWith(Visibility.Compute(Grid, new GridPos(it.X, it.Y), CrystalShardFloorRadius));
 
 			foreach (var mn in _miners)
@@ -617,9 +624,9 @@ public partial class MatchClient : Node2D
 	private void BuildCrystalLitCache()
 	{
 		if (_crystalPositions == null) BuildCrystalCache();
-		_crystalLitTiles = new HashSet<GridPos>();
+		_crystalLitByPos = new Dictionary<GridPos, HashSet<GridPos>>();
 		foreach (var cp in _crystalPositions!)
-			_crystalLitTiles.UnionWith(Visibility.Compute(Grid, cp, CrystalWallRadius));
+			_crystalLitByPos[cp] = Visibility.Compute(Grid, cp, CrystalWallRadius);
 	}
 
 	private static int CountGold(TileGrid grid)
