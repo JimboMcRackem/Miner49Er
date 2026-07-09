@@ -234,6 +234,8 @@ public partial class MatchClient : Node2D
 		_crystalLitTiles  = null;
 		FogDirty = false;
 		_visualPos.Clear();
+		_lastMinerPos.Clear();
+		_walkUntil.Clear();
 		_monsterVisualPos.Clear();
 		_miners.Clear();
 		_monsters.Clear();
@@ -271,12 +273,25 @@ public partial class MatchClient : Node2D
 		foreach (var m in _miners)
 		{
 			var target = new Vector2(m.X * TileSize + TileSize / 2f, m.Y * TileSize + TileSize / 2f);
-			var cur = _visualPos.TryGetValue(m.Id, out var v) ? v : target;
-			float pixelsPerSec = TileSize / (float)m.MoveSeconds;
-			_visualPos[m.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
 
-			if (_lastMinerPos.TryGetValue(m.Id, out var last) && (last.X != m.X || last.Y != m.Y))
-				_walkUntil[m.Id] = now + m.MoveSeconds;
+			bool hadLast = _lastMinerPos.TryGetValue(m.Id, out var last);
+			// A single-tile step is a walk; a non-adjacent jump (respawn teleport, floor
+			// warp) must NOT slide/animate across the map — snap straight to the destination.
+			bool teleported = hadLast && Mathf.Max(Mathf.Abs(last.X - m.X), Mathf.Abs(last.Y - m.Y)) > 1;
+
+			if (teleported)
+			{
+				_visualPos[m.Id] = target;
+				_walkUntil.Remove(m.Id);
+			}
+			else
+			{
+				var cur = _visualPos.TryGetValue(m.Id, out var v) ? v : target;
+				float pixelsPerSec = TileSize / (float)m.MoveSeconds;
+				_visualPos[m.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
+				if (hadLast && (last.X != m.X || last.Y != m.Y))
+					_walkUntil[m.Id] = now + m.MoveSeconds;
+			}
 			_lastMinerPos[m.Id] = (m.X, m.Y);
 
 			if (m.Id == LocalMinerId)
