@@ -179,6 +179,7 @@ public partial class MatchHost : Node
 		_tick++;
 
 		var changes = new List<TileChange>();
+		var screeCollapses = new List<ScreeCollapseSnapshot>();
 		foreach (var e in _sim.DrainEvents())
 		{
 			switch (e)
@@ -214,13 +215,19 @@ public partial class MatchHost : Node
 				case CrystalShardDropped csd:
 					_sim.AddItem(new Item(csd.Pos, ItemKind.CrystalShard, ItemPlacement.Loose));
 					break;
+				case ScreeCollapsed sc:
+					screeCollapses.Add(new ScreeCollapseSnapshot(sc.Pos.X, sc.Pos.Y, sc.Radius));
+					break;
 				case LifeRestored:
 					_livesRemaining = Math.Min(_livesRemaining + 1, _livesMax);
 					break;
 			}
 		}
 
-		var update = new TickUpdate(SnapshotFactory.Capture(_sim, _tick, _livesRemaining), changes);
+		var snapshot = SnapshotFactory.Capture(_sim, _tick, _livesRemaining);
+		if (screeCollapses.Count > 0)
+			snapshot = snapshot with { ScreeCollapses = screeCollapses };
+		var update = new TickUpdate(snapshot, changes);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
 	}
 

@@ -183,4 +183,35 @@ public class SnapshotCodecTests
         var decoded = SnapshotCodec.Read(bytes).Snapshot;
         Assert.True(decoded.Monsters[0].Dormant);
     }
+
+    [Fact]
+    public void Round_trips_scree_collapses()
+    {
+        var update = new TickUpdate(
+            new WorldSnapshot(3, new List<MinerSnapshot>(), new List<ChargeSnapshot>(),
+                new List<ItemSnapshot>(), new List<MoldSnapshot>(), new List<MonsterSnapshot>(),
+                ScreeCollapses: new List<ScreeCollapseSnapshot> { new(4, 5, 1), new(9, 2, 2) }),
+            new List<TileChange> { new(4, 5, false, TileType.Rock) });
+
+        var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
+
+        Assert.NotNull(back.Snapshot.ScreeCollapses);
+        Assert.Equal(2, back.Snapshot.ScreeCollapses!.Count);
+        Assert.Equal(new ScreeCollapseSnapshot(4, 5, 1), back.Snapshot.ScreeCollapses[0]);
+        Assert.Equal(new ScreeCollapseSnapshot(9, 2, 2), back.Snapshot.ScreeCollapses[1]);
+        // TileChanges still decode correctly after the scree block
+        Assert.Single(back.TileChanges);
+        Assert.Equal(TileType.Rock, back.TileChanges[0].NewType);
+    }
+
+    [Fact]
+    public void Null_scree_collapses_round_trips_as_null()
+    {
+        var update = new TickUpdate(
+            new WorldSnapshot(0, new List<MinerSnapshot>(), new List<ChargeSnapshot>(),
+                new List<ItemSnapshot>(), new List<MoldSnapshot>(), new List<MonsterSnapshot>()),
+            new List<TileChange>());
+        var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
+        Assert.Null(back.Snapshot.ScreeCollapses);
+    }
 }
