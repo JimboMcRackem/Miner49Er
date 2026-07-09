@@ -29,6 +29,7 @@ public static class SfxLibrary
 	public static AudioStream Squelch => Get("squelch", () => Tone(0.16f, 380f, 140f)); // wet mold plop
 	public static AudioStream Fall => Get("fall", () => Tone(0.50f, 700f, 90f)); // long descending wail — falling
 	public static AudioStream CaveIn     => Get("cavein",      () => Noise(0.45f,  90f, decay: true)); // low rumble — collapsing floor
+	public static AudioStream Rockfall   => Get("rockfall",    () => Noise(0.55f, 110f, decay: true)); // clattering rock debris — scree collapse
 	public static AudioStream Sizzle     => Get("sizzle",      () => Noise(0.35f, 1200f, decay: true)); // hot hiss — burned alive
 	public static AudioStream CrackRumble  => Get("crack_rumble",  () => Noise(0.18f, 130f, decay: true)); // stone creak underfoot
 	public static AudioStream LavaCrackle => Get("lava_crackle",  () => Noise(1.00f, 480f));               // fire crackle loop near lava

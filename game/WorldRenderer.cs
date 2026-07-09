@@ -13,6 +13,7 @@ public partial class WorldRenderer : Node2D
 	private MatchClient _client = null!;
 	private readonly List<(GridPos pos, float life)> _flashes = new();
 	private readonly List<(Vector2 center, float maxR, float life)> _rings = new();
+	private readonly List<(GridPos center, int radius, float life)> _rockfallDusts = new();
 
 	private static readonly Color CrackColor     = new Color(0.15f, 0.08f, 0.0f, 0.70f);
 	private static readonly Color LavaVentColor  = new("ff7a2a");
@@ -28,6 +29,10 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color BlastItemColor = new("e08a2f");
 	private static readonly Color ToolboxColor   = new("9a7b4f");
 	private static readonly Color ShimmerColor   = new("f5f0c0");
+	private static readonly Color ScreeColor     = new(1.0f, 0.67f, 0.0f, 1f);  // amber — probabilistic scree
+	private static readonly Color UnstableColor  = new(1.0f, 0.27f, 0.07f, 1f); // light red — certain, radius 1
+	private static readonly Color VolatileColor  = new(1.0f, 0.0f,  0.0f, 1f);  // bright red — certain, radius 2
+	private static readonly Color RockfallDustColor = new(0.55f, 0.45f, 0.35f, 1f);
 	private static readonly Color PlankItemColor = new("c8a060");
 	private static readonly Color MoldItemColor  = new("8fae4f");
 	private static readonly Color MoldColor      = new("6f8f3a");
@@ -303,6 +308,7 @@ public partial class WorldRenderer : Node2D
 
 	public void AddExplosionFlash(GridPos pos) => _flashes.Add((pos, 0.4f));
 	public void AddExplosionRing(Vector2 center, float maxR) => _rings.Add((center, maxR, 0.5f));
+	public void AddRockfallDust(GridPos center, int radius) => _rockfallDusts.Add((center, radius, 0.6f));
 
 	public override void _Process(double delta)
 	{
@@ -319,6 +325,13 @@ public partial class WorldRenderer : Node2D
 			r.life -= (float)delta;
 			if (r.life <= 0) _rings.RemoveAt(i);
 			else _rings[i] = r;
+		}
+		for (int i = _rockfallDusts.Count - 1; i >= 0; i--)
+		{
+			var d = _rockfallDusts[i];
+			d.life -= (float)delta;
+			if (d.life <= 0) _rockfallDusts.RemoveAt(i);
+			else _rockfallDusts[i] = d;
 		}
 		QueueRedraw();
 	}
@@ -809,6 +822,26 @@ public partial class WorldRenderer : Node2D
 				if (fade <= 0f) continue;
 				DrawShimmer(d.X, d.Y, ShimmerColor with { A = baseA * fade }, ts);
 			}
+			// Scree tiles shimmer in their tier colour (amber / light-red / bright-red).
+			for (int dy = -ListenItemRevealRadius; dy <= ListenItemRevealRadius; dy++)
+			for (int dx = -ListenItemRevealRadius; dx <= ListenItemRevealRadius; dx++)
+			{
+				int nx = lt.X + dx, ny = lt.Y + dy;
+				var gp = new GridPos(nx, ny);
+				if (!_client.Grid.InBounds(gp)) continue;
+				Color screeCol;
+				switch (_client.Grid.Get(gp))
+				{
+					case TileType.ScreeRock:    screeCol = ScreeColor;    break;
+					case TileType.UnstableRock: screeCol = UnstableColor; break;
+					case TileType.VolatileRock: screeCol = VolatileColor; break;
+					default: continue;
+				}
+				int dist = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
+				float fade = Mathf.Clamp(wavePos - dist + 1f, 0f, 1f);
+				if (fade <= 0f) continue;
+				DrawShimmer(nx, ny, screeCol with { A = baseA * fade }, ts);
+			}
 		}
 
 		foreach (var (pos, life) in _flashes)
@@ -830,6 +863,15 @@ public partial class WorldRenderer : Node2D
 			// Inner softer halo — slightly smaller, whiter, thinner
 			DrawArc(center, radius * 0.75f, 0f, Mathf.Tau, 48,
 				new Color(1f, 1f, 0.70f, alpha * 0.40f), 3f);
+		}
+
+		// Rockfall dust burst — an earthy circle covering the collapse zone, fading over 0.6 s.
+		const float DustDuration = 0.6f;
+		foreach (var (dcenter, dradius, dlife) in _rockfallDusts)
+		{
+			float alpha = Mathf.Clamp(dlife / DustDuration, 0f, 1f) * 0.45f;
+			var wc = new Vector2(dcenter.X * ts + ts / 2f, dcenter.Y * ts + ts / 2f);
+			DrawCircle(wc, dradius * ts + ts * 0.5f, RockfallDustColor with { A = alpha });
 		}
 
 		// Lantern light: radial amber glow centered on each active lantern source

@@ -39,6 +39,7 @@ public partial class MatchClient : Node2D
 	public float SecondsRemaining { get; private set; } = -1f;
 	public int Lives { get; private set; } = 3;
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
+	public event System.Action<Vector2, int>? ScreeCollapsed; // world position + collapse radius
 
 	private List<MinerSnapshot> _miners = new();
 	private List<ChargeSnapshot> _charges = new();
@@ -167,6 +168,14 @@ public partial class MatchClient : Node2D
 			_world?.AddExplosionRing(c, maxR + TileSize * 0.7f);
 			Exploded?.Invoke(c);
 		}
+
+		if (update.Snapshot.ScreeCollapses is { } screeCollapses)
+			foreach (var sc in screeCollapses)
+			{
+				var wpos = new Vector2(sc.X * TileSize + TileSize / 2f, sc.Y * TileSize + TileSize / 2f);
+				_world?.AddRockfallDust(new GridPos(sc.X, sc.Y), sc.Radius);
+				ScreeCollapsed?.Invoke(wpos, sc.Radius);
+			}
 
 		_terrainMap?.UpdateTiles(update.TileChanges);
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
