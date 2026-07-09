@@ -614,7 +614,9 @@ public partial class WorldRenderer : Node2D
 		foreach (var c in _client.Charges)
 		{
 			if (!_client.Fog.IsVisible(new GridPos(c.X, c.Y)) && !spectating) continue;
-			var r = new Rect2(c.X * ts, c.Y * ts, ts, ts);
+			float chargeScale = 0.60f;
+			float chargePad   = ts * (1f - chargeScale) / 2f;
+			var r = new Rect2(c.X * ts + chargePad, c.Y * ts + chargePad, ts * chargeScale, ts * chargeScale);
 			if (_chargeTex != null)
 				DrawTextureRect(_chargeTex, r, false);
 			else
@@ -626,7 +628,7 @@ public partial class WorldRenderer : Node2D
 			float flicker2 = 0.5f + 0.5f * Mathf.Sin(tMs / 27f + 1.3f);
 			float jx = Mathf.Sin(tMs / 33f) * 1.5f;
 			float jy = Mathf.Sin(tMs / 41f) * 1.0f;
-			var spark = new Vector2(c.X * ts + ts * 0.5f + jx, c.Y * ts + ts * 0.11f + jy);
+			var spark = new Vector2(c.X * ts + ts * 0.5f + jx, c.Y * ts + chargePad + ts * 0.07f + jy);
 			DrawCircle(spark, 3.0f, new Color(1f, 0.35f, 0f, 0.50f + 0.38f * flicker));   // orange halo
 			DrawCircle(spark, 1.8f, new Color(1f, 0.90f, 0.3f, 0.70f + 0.28f * flicker2)); // bright core
 		}
