@@ -244,6 +244,38 @@ public class SnapshotCodecTests
     }
 
     [Fact]
+    public void Round_trips_portal_uses()
+    {
+        var update = new TickUpdate(
+            new WorldSnapshot(5, new List<MinerSnapshot>(), new List<ChargeSnapshot>(),
+                new List<ItemSnapshot>(), new List<MoldSnapshot>(), new List<MonsterSnapshot>(),
+                PortalUses: new List<PortalUseSnapshot>
+                {
+                    new(2, 3, 9, 4, PortalKind.Stable),
+                    new(4, 4, 1, 1, PortalKind.Unstable),
+                }),
+            new List<TileChange>());
+
+        var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
+
+        Assert.NotNull(back.Snapshot.PortalUses);
+        Assert.Equal(2, back.Snapshot.PortalUses!.Count);
+        Assert.Equal(new PortalUseSnapshot(2, 3, 9, 4, PortalKind.Stable), back.Snapshot.PortalUses[0]);
+        Assert.Equal(new PortalUseSnapshot(4, 4, 1, 1, PortalKind.Unstable), back.Snapshot.PortalUses[1]);
+    }
+
+    [Fact]
+    public void Null_portal_uses_round_trips_as_null()
+    {
+        var update = new TickUpdate(
+            new WorldSnapshot(0, new List<MinerSnapshot>(), new List<ChargeSnapshot>(),
+                new List<ItemSnapshot>(), new List<MoldSnapshot>(), new List<MonsterSnapshot>()),
+            new List<TileChange>());
+        var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
+        Assert.Null(back.Snapshot.PortalUses);
+    }
+
+    [Fact]
     public void Round_trips_miner_listening_flag()
     {
         var update = new TickUpdate(

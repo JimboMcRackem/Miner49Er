@@ -82,6 +82,10 @@ public static class SnapshotCodec
         foreach (var wh in snap.Whistles ?? System.Array.Empty<WhistleSnapshot>())
         { w.Write(wh.X); w.Write(wh.Y); }
 
+        w.Write(snap.PortalUses?.Count ?? 0);
+        foreach (var pu in snap.PortalUses ?? System.Array.Empty<PortalUseSnapshot>())
+        { w.Write(pu.X); w.Write(pu.Y); w.Write(pu.ToX); w.Write(pu.ToY); w.Write((int)pu.Kind); }
+
         w.Write(update.TileChanges.Count);
         foreach (var t in update.TileChanges)
         {
@@ -179,6 +183,14 @@ public static class SnapshotCodec
         for (int i = 0; i < whistleCount; i++)
             whistles!.Add(new WhistleSnapshot(r.ReadInt32(), r.ReadInt32()));
 
+        int portalUseCount = r.ReadInt32();
+        List<PortalUseSnapshot>? portalUses = portalUseCount > 0
+            ? new List<PortalUseSnapshot>(portalUseCount) : null;
+        for (int i = 0; i < portalUseCount; i++)
+            portalUses!.Add(new PortalUseSnapshot(
+                r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
+                (PortalKind)r.ReadInt32()));
+
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
@@ -187,6 +199,6 @@ public static class SnapshotCodec
         return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds,
             monsters, secondsRemaining, escapeOpen, octopus, lives, reelCharges,
             treasureProgress, placedChests, tripCharges, ScreeCollapses: screeCollapses,
-            Whistles: whistles), changes);
+            Whistles: whistles, PortalUses: portalUses), changes);
     }
 }
