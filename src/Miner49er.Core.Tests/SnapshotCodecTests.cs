@@ -242,4 +242,24 @@ public class SnapshotCodecTests
         var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
         Assert.Null(back.Snapshot.Whistles);
     }
+
+    [Fact]
+    public void Round_trips_miner_listening_flag()
+    {
+        var update = new TickUpdate(
+            new WorldSnapshot(1,
+                new List<MinerSnapshot>
+                {
+                    new(1, 0, 0, 0, true, 0, 0, 0.0, 0.1, 5, -1) { Listening = true },
+                    new(2, 1, 1, 0, true, 0, 0, 0.0, 0.1, 5, -1),
+                },
+                new List<ChargeSnapshot>(), new List<ItemSnapshot>(),
+                new List<MoldSnapshot>(), new List<MonsterSnapshot>()),
+            new List<TileChange>());
+
+        var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
+
+        Assert.True(back.Snapshot.Miners[0].Listening);
+        Assert.False(back.Snapshot.Miners[1].Listening);
+    }
 }

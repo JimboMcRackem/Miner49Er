@@ -145,4 +145,33 @@ public class BotBrainTests
 
         Assert.False(brain.Think(sim, GameMode.Expedition).Whistle);
     }
+
+    [Fact]
+    public void Miner_occasionally_listens_when_safe_and_idle()
+    {
+        // Open floor, no hazards, no gold, not escaping. Over many ticks a Miner+ bot
+        // should strike the listen pose at least once (cosmetic idle behaviour).
+        var grid = new TileGrid(9, 9, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(4, 4));
+        var brain = new BotBrain(1, BotSkill.Miner, seed: 12345);
+
+        bool listenedAtLeastOnce = false;
+        for (int i = 0; i < 2000; i++)
+            if (brain.Think(sim, GameMode.GoldRush).Listen) { listenedAtLeastOnce = true; break; }
+
+        Assert.True(listenedAtLeastOnce);
+    }
+
+    [Fact]
+    public void Greenhorn_never_listens()
+    {
+        var grid = new TileGrid(9, 9, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(4, 4));
+        var brain = new BotBrain(1, BotSkill.Greenhorn, seed: 12345);
+
+        for (int i = 0; i < 2000; i++)
+            Assert.False(brain.Think(sim, GameMode.GoldRush).Listen);
+    }
 }

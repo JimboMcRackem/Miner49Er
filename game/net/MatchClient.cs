@@ -427,7 +427,8 @@ public partial class MatchClient : Node2D
 					int frame = (int)(elapsed / m.MoveSeconds * 4) % 4;
 					tex = _minerWalkTex[colorIdx, facing, frame];
 				}
-				else if (Listening && m.Id == LocalMinerId && _minerListenTex != null)
+				else if (((m.Id == LocalMinerId && Listening) || (m.Id != LocalMinerId && m.Listening))
+				         && _minerListenTex != null)
 				{
 					tex = _minerListenTex[colorIdx, facing];
 				}

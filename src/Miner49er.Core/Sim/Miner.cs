@@ -36,5 +36,9 @@ public sealed class Miner
     public double StunRemaining { get; internal set; }
     public double StunCooldown  { get; internal set; }
 
+    /// <summary>Cosmetic only: the miner is holding the listen pose. Set by the host for
+    /// bots; never affects simulation outcome. Networked so remote clients can render it.</summary>
+    public bool Listening { get; set; }
+
     internal Miner(int id, GridPos pos) { Id = id; Pos = pos; }
 }

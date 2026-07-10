@@ -14,6 +14,9 @@ public sealed class BotBrain
     private readonly Random _rng;
     private readonly HashSet<GridPos> _knownMines = new();
     private bool _hasWhistled;
+    private int _listenTicksRemaining;
+    private const double ListenChance = 0.003;     // ~ once per 11 s at 30 Hz when safe
+    private const int    ListenDurationTicks = 40; // ~1.3 s pose
 
     private static readonly Direction[] AllDirs =
         { Direction.North, Direction.East, Direction.South, Direction.West };
@@ -180,6 +183,23 @@ public sealed class BotBrain
                     int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false, avoidHazards: Skill >= BotSkill.Miner);
                     if (fleeDir != -1) { _ticksUntilReeval = 0; return new BotAction(fleeDir); }
                 }
+            }
+        }
+
+        // Cosmetic listen pose: Miner+ occasionally pauses to "listen" when nothing urgent is
+        // happening (no hazard fled this tick, not racing for the exit). Purely visual.
+        bool escapeUrgentNow = mode == GameMode.Expedition && sim.EscapeOpen;
+        if (Skill >= BotSkill.Miner && !escapeUrgentNow)
+        {
+            if (_listenTicksRemaining > 0)
+            {
+                _listenTicksRemaining--;
+                return new BotAction(-1, listen: true);
+            }
+            if (_rng.NextDouble() < ListenChance)
+            {
+                _listenTicksRemaining = ListenDurationTicks;
+                return new BotAction(-1, listen: true);
             }
         }
 

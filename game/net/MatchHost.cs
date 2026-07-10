@@ -278,6 +278,7 @@ public partial class MatchHost : Node
 				var wp = _sim.GetMiner(minerId).Pos;
 				_botWhistles.Add(new WhistleSnapshot(wp.X, wp.Y));
 			}
+			_sim.GetMiner(minerId).Listening = action.Listen;
 		}
 
 		foreach (var (minerId, dir) in _pendingDir)
