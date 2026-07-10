@@ -13,6 +13,7 @@ public sealed class BotBrain
     private int _ticksUntilReeval;
     private readonly Random _rng;
     private readonly HashSet<GridPos> _knownMines = new();
+    private bool _hasWhistled;
 
     private static readonly Direction[] AllDirs =
         { Direction.North, Direction.East, Direction.South, Direction.West };
@@ -35,6 +36,18 @@ public sealed class BotBrain
         {
             _goal = escOpen;
             _ticksUntilReeval = 0;
+        }
+
+        // Re-arm the whistle each floor (escape starts closed on a fresh floor).
+        bool escapeOpenNow = mode == GameMode.Expedition && sim.EscapeOpen;
+        if (!escapeOpenNow) _hasWhistled = false;
+
+        // First time a Miner+ bot is standing on the open exit, whistle to rally the team.
+        if (escapeOpenNow && Skill >= BotSkill.Miner && sim.EscapeTile is { } whistleTile
+            && miner.Pos == whistleTile && !_hasWhistled)
+        {
+            _hasWhistled = true;
+            return new BotAction(-1, whistle: true);
         }
 
         // Let any in-progress activity finish — sending a direction cancels mining.

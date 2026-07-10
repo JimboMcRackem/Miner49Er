@@ -115,4 +115,34 @@ public class BotBrainTests
 
         Assert.Equal((int)Direction.East, action.Dir);
     }
+
+    [Fact]
+    public void Miner_on_open_exit_whistles_once_per_floor()
+    {
+        // Gold-less floor so the escape opens immediately; bot spawns on the escape tile.
+        var grid = new TileGrid(5, 5, TileType.Floor);
+        var exit = new GridPos(2, 2);
+        var sim = new Simulation(grid, new SimConfig(), escapeTile: exit);
+        sim.AddMiner(1, exit);
+        var brain = new BotBrain(1, BotSkill.Miner, seed: 0);
+
+        var first = brain.Think(sim, GameMode.Expedition);
+        Assert.True(first.Whistle);
+
+        // Standing on the exit again the next tick: no repeat whistle.
+        var second = brain.Think(sim, GameMode.Expedition);
+        Assert.False(second.Whistle);
+    }
+
+    [Fact]
+    public void Greenhorn_on_open_exit_does_not_whistle()
+    {
+        var grid = new TileGrid(5, 5, TileType.Floor);
+        var exit = new GridPos(2, 2);
+        var sim = new Simulation(grid, new SimConfig(), escapeTile: exit);
+        sim.AddMiner(1, exit);
+        var brain = new BotBrain(1, BotSkill.Greenhorn, seed: 0);
+
+        Assert.False(brain.Think(sim, GameMode.Expedition).Whistle);
+    }
 }
