@@ -81,4 +81,63 @@ public class BotPathfinderTests
         var nearest = BotPathfinder.Nearest(grid, new GridPos(0, 0), System.Array.Empty<GridPos>(), passRock: false);
         Assert.Null(nearest);
     }
+
+    [Fact]
+    public void NextDir_avoidHazards_routes_around_scree_wall()
+    {
+        // Direct east path is ScreeRock; with avoidHazards the bot detours south.
+        // 3×2 Floor grid, bot (0,0) -> target (2,0), ScreeRock at (1,0).
+        var grid = new TileGrid(3, 2, TileType.Floor);
+        grid.Set(new GridPos(1, 0), TileType.ScreeRock);
+        int dir = BotPathfinder.NextDir(grid, new GridPos(0, 0), new GridPos(2, 0),
+            passRock: true, avoidHazards: true);
+        Assert.Equal((int)Direction.South, dir);
+    }
+
+    [Fact]
+    public void NextDir_without_avoidHazards_mines_through_scree()
+    {
+        // Same layout; passRock and NO avoidHazards -> bot goes straight through the scree.
+        var grid = new TileGrid(3, 2, TileType.Floor);
+        grid.Set(new GridPos(1, 0), TileType.ScreeRock);
+        int dir = BotPathfinder.NextDir(grid, new GridPos(0, 0), new GridPos(2, 0),
+            passRock: true, avoidHazards: false);
+        Assert.Equal((int)Direction.East, dir);
+    }
+
+    [Fact]
+    public void NextDir_avoidHazards_routes_around_crumbling_floor()
+    {
+        // Crumbling floor blocks the direct east path; detour south.
+        var grid = new TileGrid(3, 2, TileType.Floor);
+        grid.Set(new GridPos(1, 0), TileType.Crumbling);
+        int dir = BotPathfinder.NextDir(grid, new GridPos(0, 0), new GridPos(2, 0),
+            passRock: false, avoidHazards: true);
+        Assert.Equal((int)Direction.South, dir);
+    }
+
+    [Fact]
+    public void NextDir_avoidHazards_avoids_rock_adjacent_to_lava_vent()
+    {
+        // Rock at (1,0) sits next to a LavaVent at (1,1); mining it would breach the vent.
+        // avoidHazards routes south around it instead of east through it.
+        var grid = new TileGrid(3, 3, TileType.Floor);
+        grid.Set(new GridPos(1, 0), TileType.Rock);
+        grid.Set(new GridPos(1, 1), TileType.LavaVent);
+        int dir = BotPathfinder.NextDir(grid, new GridPos(0, 0), new GridPos(2, 0),
+            passRock: true, avoidHazards: true);
+        Assert.NotEqual((int)Direction.East, dir);
+    }
+
+    [Fact]
+    public void NextDir_avoidHazards_still_returns_minus1_when_only_route_is_hazard()
+    {
+        // A 3×1 row where the middle tile is ScreeRock and there is no detour.
+        // avoidHazards makes it unreachable (caller is expected to fall back).
+        var grid = new TileGrid(3, 1, TileType.Floor);
+        grid.Set(new GridPos(1, 0), TileType.ScreeRock);
+        int dir = BotPathfinder.NextDir(grid, new GridPos(0, 0), new GridPos(2, 0),
+            passRock: true, avoidHazards: true);
+        Assert.Equal(-1, dir);
+    }
 }
