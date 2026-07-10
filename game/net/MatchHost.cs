@@ -23,6 +23,7 @@ public partial class MatchHost : Node
 	private readonly HashSet<int> _pendingUse   = new();
 	private readonly HashSet<int> _pendingThrow = new();
 	private readonly List<WhistleSnapshot> _botWhistles = new();
+	private readonly List<PortalUseSnapshot> _portalUses = new();
 
 	private int _tick;
 	private double _accum;
@@ -227,6 +228,9 @@ public partial class MatchHost : Node
 				case ScreeCollapsed sc:
 					screeCollapses.Add(new ScreeCollapseSnapshot(sc.Pos.X, sc.Pos.Y, sc.Radius));
 					break;
+				case PortalUsed pu:
+					_portalUses.Add(new PortalUseSnapshot(pu.From.X, pu.From.Y, pu.To.X, pu.To.Y, pu.Kind));
+					break;
 				case LifeRestored:
 					_livesRemaining = Math.Min(_livesRemaining + 1, _livesMax);
 					break;
@@ -240,6 +244,11 @@ public partial class MatchHost : Node
 		{
 			snapshot = snapshot with { Whistles = new List<WhistleSnapshot>(_botWhistles) };
 			_botWhistles.Clear();
+		}
+		if (_portalUses.Count > 0)
+		{
+			snapshot = snapshot with { PortalUses = new List<PortalUseSnapshot>(_portalUses) };
+			_portalUses.Clear();
 		}
 		var update = new TickUpdate(snapshot, changes);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
@@ -476,6 +485,9 @@ public partial class MatchHost : Node
 
 		foreach (var item in newMap.Items)
 			newSim.AddItem(item);
+
+		foreach (var spec in newMap.Portals)
+			newSim.AddPortal(spec);
 
 		// Spawn every peer; miner IDs are 1-based so spawn index = minerId - 1.
 		GridPos monsterRef = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : newMap.Center;
