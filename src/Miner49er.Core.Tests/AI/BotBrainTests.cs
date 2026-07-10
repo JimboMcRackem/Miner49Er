@@ -81,4 +81,38 @@ public class BotBrainTests
 
         Assert.True(action.Plant);
     }
+
+    [Fact]
+    public void Foreman_does_not_step_into_scree_on_the_way_to_gold()
+    {
+        // Bot at (0,0). GoldRock target at (2,0). Direct east tile (1,0) is UnstableRock.
+        // A detour south exists. Foreman is hazard-aware, so it must not step east into the scree.
+        var grid = new TileGrid(3, 2, TileType.Floor);
+        grid.Set(new GridPos(1, 0), TileType.UnstableRock);
+        grid.Set(new GridPos(2, 0), TileType.GoldRock);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(0, 0));
+        var brain = new BotBrain(1, BotSkill.Foreman, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GoldRush);
+
+        Assert.NotEqual((int)Direction.East, action.Dir);
+    }
+
+    [Fact]
+    public void Foreman_falls_back_through_scree_when_it_is_the_only_route()
+    {
+        // 3×1 corridor: bot (0,0), gold (2,0), scree (1,0) is the ONLY path.
+        // Hazard-aware pass finds nothing; fallback routes east through the scree so the bot isn't frozen.
+        var grid = new TileGrid(3, 1, TileType.Floor);
+        grid.Set(new GridPos(1, 0), TileType.ScreeRock);
+        grid.Set(new GridPos(2, 0), TileType.GoldRock);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(0, 0));
+        var brain = new BotBrain(1, BotSkill.Foreman, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GoldRush);
+
+        Assert.Equal((int)Direction.East, action.Dir);
+    }
 }

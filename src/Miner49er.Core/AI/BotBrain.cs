@@ -64,7 +64,7 @@ public sealed class BotBrain
                 var fleeTarget = FleeFrom(sim.Grid, miner.Pos, danger.WallPos);
                 if (fleeTarget != null)
                 {
-                    int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false);
+                    int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false, avoidHazards: Skill >= BotSkill.Miner);
                     if (fleeDir != -1)
                     {
                         _ticksUntilReeval = 0; // re-pick goal once clear
@@ -83,7 +83,7 @@ public sealed class BotBrain
                 var fleeTarget = FleeFrom(sim.Grid, miner.Pos, nearestMonster.Value);
                 if (fleeTarget != null)
                 {
-                    int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false);
+                    int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false, avoidHazards: Skill >= BotSkill.Miner);
                     if (fleeDir != -1)
                     {
                         _ticksUntilReeval = 0;
@@ -100,7 +100,7 @@ public sealed class BotBrain
             var fleeTarget = FleeFrom(sim.Grid, miner.Pos, pf.Pos);
             if (fleeTarget != null)
             {
-                int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false);
+                int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false, avoidHazards: Skill >= BotSkill.Miner);
                 if (fleeDir != -1)
                 {
                     _ticksUntilReeval = 0;
@@ -149,7 +149,7 @@ public sealed class BotBrain
                 if (miner.Pos.ManhattanTo(minePos) > 1) continue;
                 var fleeTarget = FleeFrom(sim.Grid, miner.Pos, minePos);
                 if (fleeTarget == null) continue;
-                int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false);
+                int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false, avoidHazards: Skill >= BotSkill.Miner);
                 if (fleeDir != -1) { _ticksUntilReeval = 0; return new BotAction(fleeDir); }
             }
         }
@@ -164,7 +164,7 @@ public sealed class BotBrain
                 var fleeTarget = FleeFrom(sim.Grid, miner.Pos, nearestRival.Value);
                 if (fleeTarget != null)
                 {
-                    int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false);
+                    int fleeDir = BotPathfinder.NextDir(sim.Grid, miner.Pos, fleeTarget.Value, passRock: false, avoidHazards: Skill >= BotSkill.Miner);
                     if (fleeDir != -1) { _ticksUntilReeval = 0; return new BotAction(fleeDir); }
                 }
             }
@@ -197,7 +197,11 @@ public sealed class BotBrain
 
         bool passRock = Skill >= BotSkill.Foreman
             || (mode == GameMode.ReachCenter && miner.GoldCollected >= 5);
-        int dir = BotPathfinder.NextDir(sim.Grid, miner.Pos, _goal.Value, passRock);
+        bool hazardAware = Skill >= BotSkill.Miner;
+        int dir = BotPathfinder.NextDir(sim.Grid, miner.Pos, _goal.Value, passRock, avoidHazards: hazardAware);
+        // Two-pass fallback: if hazards box in the only route, accept the risk rather than freeze.
+        if (dir == -1 && hazardAware)
+            dir = BotPathfinder.NextDir(sim.Grid, miner.Pos, _goal.Value, passRock, avoidHazards: false);
 
         if (dir == -1) { _ticksUntilReeval = 0; return BotAction.Idle; }
 
