@@ -10,4 +10,5 @@ public sealed class GeneratedMap
     public GridPos? EscapeTile { get; init; }
     public GridPos? ShopPos { get; init; }
     public GridPos? ExpeditionTreasurePos { get; init; }
+    public IReadOnlyList<PortalSpec> Portals { get; init; } = System.Array.Empty<PortalSpec>();
 }
