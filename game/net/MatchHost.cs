@@ -22,6 +22,7 @@ public partial class MatchHost : Node
 	private readonly HashSet<int> _pendingPlant = new();
 	private readonly HashSet<int> _pendingUse   = new();
 	private readonly HashSet<int> _pendingThrow = new();
+	private readonly List<WhistleSnapshot> _botWhistles = new();
 
 	private int _tick;
 	private double _accum;
@@ -235,6 +236,11 @@ public partial class MatchHost : Node
 		var snapshot = SnapshotFactory.Capture(_sim, _tick, _livesRemaining);
 		if (screeCollapses.Count > 0)
 			snapshot = snapshot with { ScreeCollapses = screeCollapses };
+		if (_botWhistles.Count > 0)
+		{
+			snapshot = snapshot with { Whistles = new List<WhistleSnapshot>(_botWhistles) };
+			_botWhistles.Clear();
+		}
 		var update = new TickUpdate(snapshot, changes);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
 	}
@@ -266,6 +272,12 @@ public partial class MatchHost : Node
 			if (action.Plant) _pendingPlant.Add(minerId);
 			if (action.Use)   _pendingUse.Add(minerId);
 			if (action.Throw) _pendingThrow.Add(minerId);
+			if (action.Whistle)
+			{
+				WhistleBots();
+				var wp = _sim.GetMiner(minerId).Pos;
+				_botWhistles.Add(new WhistleSnapshot(wp.X, wp.Y));
+			}
 		}
 
 		foreach (var (minerId, dir) in _pendingDir)

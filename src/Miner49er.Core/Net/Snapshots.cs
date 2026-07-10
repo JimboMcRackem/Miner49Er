@@ -31,6 +31,7 @@ public readonly record struct PlacedChestSnapshot(int MinerId, int X, int Y);
 public readonly record struct TripChargeSnapshot(int OwnerId, int X, int Y);
 public readonly record struct PendingFallSnapshot(int X, int Y, float FractionElapsed);
 public readonly record struct ScreeCollapseSnapshot(int X, int Y, int Radius);
+public readonly record struct WhistleSnapshot(int X, int Y);
 
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,
@@ -43,6 +44,7 @@ public sealed record WorldSnapshot(
     IReadOnlyList<PlacedChestSnapshot>?      PlacedChests     = null,
     IReadOnlyList<TripChargeSnapshot>?       TripCharges      = null,
     IReadOnlyList<PendingFallSnapshot>?      PendingFalls     = null,
-    IReadOnlyList<ScreeCollapseSnapshot>?    ScreeCollapses   = null);
+    IReadOnlyList<ScreeCollapseSnapshot>?    ScreeCollapses   = null,
+    IReadOnlyList<WhistleSnapshot>?          Whistles         = null);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);

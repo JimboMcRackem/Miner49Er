@@ -78,6 +78,10 @@ public static class SnapshotCodec
         foreach (var sc in snap.ScreeCollapses ?? System.Array.Empty<ScreeCollapseSnapshot>())
         { w.Write(sc.X); w.Write(sc.Y); w.Write(sc.Radius); }
 
+        w.Write(snap.Whistles?.Count ?? 0);
+        foreach (var wh in snap.Whistles ?? System.Array.Empty<WhistleSnapshot>())
+        { w.Write(wh.X); w.Write(wh.Y); }
+
         w.Write(update.TileChanges.Count);
         foreach (var t in update.TileChanges)
         {
@@ -166,6 +170,12 @@ public static class SnapshotCodec
         for (int i = 0; i < screeCount; i++)
             screeCollapses!.Add(new ScreeCollapseSnapshot(r.ReadInt32(), r.ReadInt32(), r.ReadInt32()));
 
+        int whistleCount = r.ReadInt32();
+        List<WhistleSnapshot>? whistles = whistleCount > 0
+            ? new List<WhistleSnapshot>(whistleCount) : null;
+        for (int i = 0; i < whistleCount; i++)
+            whistles!.Add(new WhistleSnapshot(r.ReadInt32(), r.ReadInt32()));
+
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
@@ -173,6 +183,7 @@ public static class SnapshotCodec
 
         return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds,
             monsters, secondsRemaining, escapeOpen, octopus, lives, reelCharges,
-            treasureProgress, placedChests, tripCharges, ScreeCollapses: screeCollapses), changes);
+            treasureProgress, placedChests, tripCharges, ScreeCollapses: screeCollapses,
+            Whistles: whistles), changes);
     }
 }

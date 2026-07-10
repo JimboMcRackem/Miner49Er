@@ -214,4 +214,32 @@ public class SnapshotCodecTests
         var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
         Assert.Null(back.Snapshot.ScreeCollapses);
     }
+
+    [Fact]
+    public void Round_trips_whistles()
+    {
+        var update = new TickUpdate(
+            new WorldSnapshot(2, new List<MinerSnapshot>(), new List<ChargeSnapshot>(),
+                new List<ItemSnapshot>(), new List<MoldSnapshot>(), new List<MonsterSnapshot>(),
+                Whistles: new List<WhistleSnapshot> { new(6, 7), new(1, 0) }),
+            new List<TileChange>());
+
+        var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
+
+        Assert.NotNull(back.Snapshot.Whistles);
+        Assert.Equal(2, back.Snapshot.Whistles!.Count);
+        Assert.Equal(new WhistleSnapshot(6, 7), back.Snapshot.Whistles[0]);
+        Assert.Equal(new WhistleSnapshot(1, 0), back.Snapshot.Whistles[1]);
+    }
+
+    [Fact]
+    public void Null_whistles_round_trips_as_null()
+    {
+        var update = new TickUpdate(
+            new WorldSnapshot(0, new List<MinerSnapshot>(), new List<ChargeSnapshot>(),
+                new List<ItemSnapshot>(), new List<MoldSnapshot>(), new List<MonsterSnapshot>()),
+            new List<TileChange>());
+        var back = SnapshotCodec.Read(SnapshotCodec.Write(update));
+        Assert.Null(back.Snapshot.Whistles);
+    }
 }
