@@ -41,6 +41,13 @@ public partial class MatchClient : Node2D
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
 	public event System.Action<Vector2, int>? ScreeCollapsed; // world position + collapse radius
 	public event System.Action<Vector2>? Whistled; // world position of a bot whistle
+		public event System.Action<Vector2, PortalKind>? Portaled; // world position + kind of a teleport
+
+		// Portals are client-derived from the deterministic map gen (never networked);
+		// only the transient teleport event rides the wire. Track collapsed ends locally.
+		public IReadOnlyList<PortalSpec> Portals { get; private set; } = System.Array.Empty<PortalSpec>();
+		private readonly HashSet<int> _collapsedPortals = new();
+		public bool IsPortalCollapsed(int id) => _collapsedPortals.Contains(id);
 
 	private List<MinerSnapshot> _miners = new();
 	private List<ChargeSnapshot> _charges = new();
@@ -182,6 +189,19 @@ public partial class MatchClient : Node2D
 			foreach (var wh in whistles)
 				Whistled?.Invoke(new Vector2(wh.X * TileSize + TileSize / 2f, wh.Y * TileSize + TileSize / 2f));
 
+		if (update.Snapshot.PortalUses is { } portalUses)
+			foreach (var pu in portalUses)
+			{
+				// Mirror the host's authoritative collapse: an unstable gate's pair is
+				// gone once used, so stop rendering both ends locally.
+				if (pu.Kind == PortalKind.Unstable)
+					foreach (var sp in Portals)
+						if (sp.Pos.X == pu.X && sp.Pos.Y == pu.Y)
+						{ _collapsedPortals.Add(sp.Id); _collapsedPortals.Add(sp.LinkId); }
+
+				Portaled?.Invoke(new Vector2(pu.X * TileSize + TileSize / 2f, pu.Y * TileSize + TileSize / 2f), pu.Kind);
+			}
+
 		_terrainMap?.UpdateTiles(update.TileChanges);
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
@@ -229,6 +249,8 @@ public partial class MatchClient : Node2D
 
 		Grid              = newMap.Grid;
 		Decoys            = newMap.Decoys;
+		Portals           = newMap.Portals;
+		_collapsedPortals.Clear();
 		GoldRemaining     = CountGold(newMap.Grid);
 		StartingGoldCount = GoldRemaining;
 		EscapeOpen        = false;

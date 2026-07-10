@@ -76,6 +76,7 @@ public partial class WorldRenderer : Node2D
 	private ImageTexture _crystalGlowTex  = null!;
 	private Texture2D?   _crystalRockTex;
 	private Texture2D?   _crystalShardTex;
+	private Texture2D?   _portalTex; // colour-coded teleport gate archway (tinted per state)
 	private Texture2D?[] _octopusIdleTex = new Texture2D?[9]; // idle_0..idle_8
 
 	// PixelLab monster sprites — [dir] order: 0=N 1=E 2=S 3=W
@@ -169,6 +170,8 @@ public partial class WorldRenderer : Node2D
 		                   ? GD.Load<Texture2D>("res://assets/tiles/singletiles/crystal_rock.png") : null;
 		_crystalShardTex = ResourceLoader.Exists("res://assets/objects/item_crystal_shard.png")
 		                   ? GD.Load<Texture2D>("res://assets/objects/item_crystal_shard.png") : null;
+		_portalTex       = ResourceLoader.Exists("res://assets/portals/gate.png")
+		                   ? GD.Load<Texture2D>("res://assets/portals/gate.png") : null;
 	}
 
 	private static ImageTexture BuildRadialGlowTex(int size = 128) =>
@@ -540,6 +543,46 @@ public partial class WorldRenderer : Node2D
 					break;
 				}
 			}
+		}
+
+		// Colour-coded teleport gates. A gate only draws once its tile is uncovered Floor.
+		// State: black void until BOTH ends are revealed (partner still buried) — then the
+		// pair goes live, stable gates cycle blue↔green and unstable gates pulse red. The
+		// glow is gated on current FOV (like CrystalRock) so it doesn't bleed through fog.
+		foreach (var gate in _client.Portals)
+		{
+			if (_client.IsPortalCollapsed(gate.Id)) continue;                     // used/gone
+			var pos = gate.Pos;
+			if (!grid.InBounds(pos) || grid.Get(pos) != TileType.Floor) continue;  // buried/hidden
+			if (_client.FogRenderer?.SpectatorMode != true && !_client.Fog.IsVisible(pos)) continue;
+
+			// Active only when the partner end is also revealed Floor and not collapsed.
+			bool active = false;
+			foreach (var link in _client.Portals)
+				if (link.Id == gate.LinkId)
+				{
+					active = grid.InBounds(link.Pos) && grid.Get(link.Pos) == TileType.Floor
+					         && !_client.IsPortalCollapsed(link.Id);
+					break;
+				}
+
+			Color glow;
+			if (!active)
+				glow = new Color(0.05f, 0.05f, 0.08f);                             // black void
+			else if (gate.Kind == PortalKind.Unstable)
+			{
+				float pulse = 0.5f + 0.5f * Mathf.Sin(wTime * Mathf.Pi * 2f);      // ~1s red pulse
+				glow = new Color(1f, 0.25f, 0.2f, 0.55f + 0.45f * pulse);
+			}
+			else
+			{
+				float t = 0.5f + 0.5f * Mathf.Sin(wTime * Mathf.Pi * 2f / 1.5f);   // ~1.5s blue↔green
+				glow = new Color(0.1f, 0.6f + 0.3f * t, 0.9f - 0.4f * t);
+			}
+
+			var pr = new Rect2(pos.X * ts, pos.Y * ts, ts, ts);
+			if (_portalTex != null) DrawTextureRect(_portalTex, pr, false, glow);
+			else DrawCircle(new Vector2(pos.X * ts + ts * 0.5f, pos.Y * ts + ts * 0.5f), ts * 0.35f, glow);
 		}
 
 		// Skeletal remains embedded in ~6% of rock walls — seeded, 4 archaeological variants.

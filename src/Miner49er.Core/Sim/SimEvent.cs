@@ -43,3 +43,4 @@ public sealed record RockFell(GridPos Pos) : SimEvent;
 public sealed record SkeletonAroused(int MonsterId) : SimEvent;
 public sealed record CrystalShardDropped(GridPos Pos) : SimEvent;
 public sealed record ScreeCollapsed(GridPos Pos, int Radius) : SimEvent;
+public sealed record PortalUsed(int MinerId, GridPos From, GridPos To, PortalKind Kind) : SimEvent;

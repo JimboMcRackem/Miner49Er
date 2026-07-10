@@ -38,13 +38,14 @@ public partial class MatchAudio : Node2D
 		_client.Exploded += OnExploded;
 		_client.ScreeCollapsed += OnScreeCollapsed;
 		_client.Whistled += OnWhistled;
+		_client.Portaled += OnPortaled;
 		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed));
 		SpawnDrips();
 	}
 
 	public override void _ExitTree()
 	{
-		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; _client.Whistled -= OnWhistled; }
+		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; _client.Whistled -= OnWhistled; _client.Portaled -= OnPortaled; }
 		// Don't StopMusic here — the incoming scene (Lobby/MainMenu) always calls PlayMusic
 		// and StopMusic can fire after the new scene's PlayMusic in some Godot orderings.
 		if (_lavaLoop != null && IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree();
@@ -259,7 +260,12 @@ public partial class MatchAudio : Node2D
 		OneShot(SfxLibrary.Whistle, worldPos);
 	}
 
-	private void SpawnDrips()
+	private void OnPortaled(Vector2 worldPos, PortalKind kind)
+		{
+			OneShot(SfxLibrary.PortalWhoosh, worldPos);
+		}
+
+		private void SpawnDrips()
 	{
 		var grid = _client.Grid;
 		var rng = new System.Random(1234);

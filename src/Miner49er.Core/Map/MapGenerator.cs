@@ -43,6 +43,10 @@ public static class MapGenerator
             expeditionTreasurePos = PlaceExpeditionTreasure(grid, rng, ek,
                 config.ExpeditionTreasureInChest, region, items);
         var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
+        var portals = config.PortalPairCount > 0
+            ? PlacePortals(grid, rng, config.PortalPairCount, region, spawns,
+                items.Select(it => it.Pos).Concat(decoys))
+            : (IReadOnlyList<PortalSpec>)System.Array.Empty<PortalSpec>();
         if (config.CaveIns)
             PlaceCracks(grid, rng, config.CrackSiteCount + (config.PlayerCount - 1),
                         config.CrackPatchGrowChance, config.CrackPatchMax,
@@ -62,6 +66,7 @@ public static class MapGenerator
             EscapeTile = spawns.Count > 0 ? spawns[0] : null,
             ShopPos = shopPos,
             ExpeditionTreasurePos = expeditionTreasurePos,
+            Portals = portals,
         };
     }
 
@@ -646,6 +651,55 @@ public static class MapGenerator
             result.Add(new Item(cands[idx], ItemKind.Lantern, ItemPlacement.Toolbox));
         for (int i = 0; i < detonatorCount && idx < cands.Count; i++, idx++)
             result.Add(new Item(cands[idx], ItemKind.Detonator, ItemPlacement.Toolbox));
+        return result;
+    }
+
+    // Colour-coded gate pairs. Each pair shares one kind (Stable/Unstable). Each end
+    // is either EXPOSED (on a Floor tile in the play region) or BURIED (in ordinary
+    // Rock bordering the region, uncovered by mining). Buriedness is implicit in the
+    // tile type — no grid mutation here — so the sim derives "revealed" from the grid.
+    // Deterministic: ordered scan + seed-shuffle, so host and every client agree.
+    private static List<PortalSpec> PlacePortals(TileGrid g, Random rng, int pairCount,
+        HashSet<GridPos> region, List<GridPos> spawns, IEnumerable<GridPos> taken)
+    {
+        var result = new List<PortalSpec>();
+        if (pairCount <= 0) return result;
+
+        var used = new HashSet<GridPos>(taken);
+        used.UnionWith(spawns);
+
+        var floorCands = g.Positions()
+            .Where(p => region.Contains(p) && g.Get(p) == TileType.Floor && !used.Contains(p))
+            .ToList();
+        Shuffle(floorCands, rng);
+
+        var rockCands = g.Positions()
+            .Where(p => g.Get(p) == TileType.Rock && HasRegionNeighbor(g, p, region) && !used.Contains(p))
+            .ToList();
+        Shuffle(rockCands, rng);
+
+        int fi = 0, ri = 0, id = 0;
+
+        // Pull one end: 50% exposed (Floor) / 50% buried (Rock); fall back to the
+        // other pool if one is exhausted, so a pair always gets two distinct tiles.
+        GridPos? NextEnd()
+        {
+            bool wantBuried = rng.Next(2) == 0;
+            if (wantBuried && ri < rockCands.Count) { var p = rockCands[ri++]; used.Add(p); return p; }
+            if (fi < floorCands.Count)              { var p = floorCands[fi++]; used.Add(p); return p; }
+            if (ri < rockCands.Count)               { var p = rockCands[ri++]; used.Add(p); return p; }
+            return null;
+        }
+
+        for (int pair = 0; pair < pairCount; pair++)
+        {
+            var a = NextEnd(); var b = NextEnd();
+            if (a is null || b is null) break;      // ran out of tiles — place fewer pairs
+            var kind = rng.Next(2) == 0 ? PortalKind.Stable : PortalKind.Unstable;
+            result.Add(new PortalSpec(id, a.Value, kind, id + 1));
+            result.Add(new PortalSpec(id + 1, b.Value, kind, id));
+            id += 2;
+        }
         return result;
     }
 

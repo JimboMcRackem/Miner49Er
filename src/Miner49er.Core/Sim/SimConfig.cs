@@ -49,6 +49,8 @@ public sealed class SimConfig
     public double MonsterWaterSnakeLandMoveSeconds  { get; set; } = 0.70;  // half speed on land
     public int MonsterSenseRadius { get; set; } = 6;   // Manhattan range at which a monster locks on
 
+    public double PortalCooldownSeconds { get; set; } = 2.0; // per-pair lockout after a traversal
+
     // Manhattan radii within which each noise kind wakes a dormant skeleton.
     public int SkeletonExplosionWakeRadius { get; set; } = 12;
     public int SkeletonPickaxeWakeRadius   { get; set; } = 3;
