@@ -339,11 +339,26 @@ public partial class WorldRenderer : Node2D
 		QueueRedraw();
 	}
 
+	// Visible tile range in grid coords, derived from the camera's world-space viewport
+	// rect (the active Camera2D drives GetViewport().CanvasTransform). Every full-grid
+	// _Draw pass culls to this so deep/flooded floors (up to ~112x112 ≈ 12k tiles) only
+	// pay for on-screen tiles each frame instead of redrawing the whole map.
+	private (int minX, int maxX, int minY, int maxY) VisibleTileRange(TileGrid grid, int ts)
+	{
+		Rect2 world = GetViewport().CanvasTransform.AffineInverse() * GetViewportRect();
+		int minTx = Mathf.Max(0, (int)Mathf.Floor(world.Position.X / ts) - 1);
+		int minTy = Mathf.Max(0, (int)Mathf.Floor(world.Position.Y / ts) - 1);
+		int maxTx = Mathf.Min(grid.Width  - 1, (int)Mathf.Floor((world.Position.X + world.Size.X) / ts) + 1);
+		int maxTy = Mathf.Min(grid.Height - 1, (int)Mathf.Floor((world.Position.Y + world.Size.Y) / ts) + 1);
+		return (minTx, maxTx, minTy, maxTy);
+	}
+
 	public override void _Draw()
 	{
 		if (_client == null) return;
 		var grid = _client.Grid;
 		int ts = MatchClient.TileSize;
+		var (vx0, vx1, vy0, vy1) = VisibleTileRange(grid, ts);
 
 		// Water: polygon-based tiles with procedurally rounded outer corners.
 		// Polygons are cached after first draw since water tiles never change mid-game.
@@ -352,6 +367,7 @@ public partial class WorldRenderer : Node2D
 		for (int wi = 0; wi < _waterTiles!.Length; wi++)
 		{
 			var p = _waterTiles[wi];
+			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue; // off-screen: skip polygon + sparkles
 			bool deep = grid.Get(p) == TileType.DeepWater;
 			DrawPolygon(_waterPolys![wi], deep ? _deepWaterCol : _shallowWaterCol);
 
@@ -377,6 +393,7 @@ public partial class WorldRenderer : Node2D
 		// variation and small grain marks, making the floor look like unworked natural stone.
 		foreach (var p in grid.Positions())
 		{
+			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue;
 			var t = grid.Get(p);
 			if (t != TileType.Floor && t != TileType.Cracked && t != TileType.Crumbling) continue;
 			float x0 = p.X * ts, y0 = p.Y * ts;
@@ -396,6 +413,7 @@ public partial class WorldRenderer : Node2D
 		// Scattered bone fragments on ~5% of floor tiles — 4 variants, seeded by position.
 		foreach (var p in grid.Positions())
 		{
+			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue;
 			if (grid.Get(p) != TileType.Floor) continue;
 			uint h = (uint)(p.X * 3266489917u ^ p.Y * 2246822519u ^ 0xBEEFu);
 			if ((h & 0x13u) != 1u) continue; // ~5% of floor tiles
@@ -454,6 +472,7 @@ public partial class WorldRenderer : Node2D
 		// Single-pass tile overlays on top of TerrainMap (FogRenderer at ZIndex -5 covers these naturally).
 		foreach (var p in grid.Positions())
 		{
+			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue;
 			var r = new Rect2(p.X * ts, p.Y * ts, ts, ts);
 			switch (grid.Get(p))
 			{
@@ -588,6 +607,7 @@ public partial class WorldRenderer : Node2D
 		// Skeletal remains embedded in ~6% of rock walls — seeded, 4 archaeological variants.
 		foreach (var p in grid.Positions())
 		{
+			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue;
 			if (grid.Get(p) != TileType.Rock) continue;
 			uint h = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xCAFEu);
 			if ((h & 0xFu) != 1u) continue;
