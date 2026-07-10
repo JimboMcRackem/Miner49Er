@@ -11,6 +11,7 @@ public sealed class Simulation
     private readonly List<Item> _items = new();
     private readonly List<MoldPatch> _molds = new();
     private readonly List<LavaVent> _lavaVents = new();
+    private readonly List<Portal> _portals = new();
     private readonly List<SimEvent> _events = new();
     private readonly List<Monster> _monsters = new();
     private readonly List<ReelCharge> _reelCharges = new();
@@ -127,6 +128,34 @@ public sealed class Simulation
     }
 
     public void AddOctopus(GridPos pos) => _octopus = new Octopus(pos);
+
+    public void AddPortal(PortalSpec spec) =>
+        _portals.Add(new Portal { Id = spec.Id, Pos = spec.Pos, Kind = spec.Kind, LinkId = spec.LinkId });
+
+    public IReadOnlyList<PortalReadModel> Portals =>
+        _portals.Select(p => new PortalReadModel(p.Id, p.Pos, p.Kind, p.LinkId, p.Collapsed)).ToList();
+
+    /// <summary>Test-only: force a portal tile to Floor to simulate mining it out.</summary>
+    internal void RevealTileForTest(GridPos p) => Grid.Set(p, TileType.Floor);
+
+    // A portal is "revealed" once its tile is uncovered Floor (buried ends are Rock).
+    private bool IsRevealed(Portal p) => Grid.InBounds(p.Pos) && Grid.Get(p.Pos) == TileType.Floor;
+
+    private Portal? LinkOf(Portal p) => _portals.FirstOrDefault(q => q.Id == p.LinkId);
+
+    private bool IsPortalActive(Portal p)
+    {
+        if (p.Collapsed || p.CooldownRemaining > 0 || !IsRevealed(p)) return false;
+        var link = LinkOf(p);
+        return link is not null && !link.Collapsed && IsRevealed(link);
+    }
+
+    private void AdvancePortals(double dt)
+    {
+        foreach (var p in _portals)
+            if (p.CooldownRemaining > 0)
+                p.CooldownRemaining = Math.Max(0, p.CooldownRemaining - dt);
+    }
 
     internal void DropMoldAt(GridPos pos) =>
         _molds.Add(new MoldPatch(pos, Config.MoldSeconds));
@@ -684,6 +713,26 @@ public sealed class Simulation
         m.Pos = target;
         _events.Add(new MinerMoved(id, from, target));
 
+        // Colour-coded gate: stepping onto a live portal teleports to its partner.
+        // Placed before the arrival hazard checks so those evaluate at the DESTINATION.
+        // Sequential per-miner processing gives "lowest id wins" on an unstable gate for
+        // free: the first mover collapses it, later movers find it collapsed → no-op.
+        var enteredPortal = _portals.FirstOrDefault(p => p.Pos == target);
+        if (enteredPortal is not null && IsPortalActive(enteredPortal))
+        {
+            var link = LinkOf(enteredPortal)!;
+            enteredPortal.CooldownRemaining = Config.PortalCooldownSeconds;
+            link.CooldownRemaining = Config.PortalCooldownSeconds;
+            if (enteredPortal.Kind == PortalKind.Unstable)
+            {
+                enteredPortal.Collapsed = true;
+                link.Collapsed = true;
+            }
+            _events.Add(new PortalUsed(id, target, link.Pos, enteredPortal.Kind));
+            m.Pos = link.Pos;
+            target = link.Pos;   // arrival checks below evaluate at the teleport destination
+        }
+
         if (Grid.Get(target).IsLethal())
             KillByTile(m);
 
@@ -846,6 +895,7 @@ public sealed class Simulation
         AdvanceMolds(dt);
         AdvanceNoiseSources(dt);
         AdvanceCooldowns(dt);
+        AdvancePortals(dt);
         AdvanceCracks(dt);
         AdvanceLava(dt);
         AdvanceDormantMonsters(); // pre-existing noise (stone/pickaxe) wakes skeletons before they step
