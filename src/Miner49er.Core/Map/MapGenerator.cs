@@ -47,6 +47,8 @@ public static class MapGenerator
             ? PlacePortals(grid, rng, config.PortalPairCount, region, spawns,
                 items.Select(it => it.Pos).Concat(decoys))
             : (IReadOnlyList<PortalSpec>)System.Array.Empty<PortalSpec>();
+        items.AddRange(PlaceStones(grid, rng, config.StonePileCount, region, spawns,
+            items.Select(it => it.Pos).Concat(decoys).Concat(portals.Select(pt => pt.Pos))));
         if (config.CaveIns)
             PlaceCracks(grid, rng, config.CrackSiteCount + (config.PlayerCount - 1),
                         config.CrackPatchGrowChance, config.CrackPatchMax,
@@ -783,6 +785,52 @@ public static class MapGenerator
             var n = p + d.ToOffset();
             if (region.Contains(n)) return true;
         }
+        return false;
+    }
+
+    // Scatters loose stone piles on Floor tiles in the traversable region. Most piles are
+    // reserved for tiles bordering scree ("shale") walls so they cluster around the dangerous
+    // rock, with a light scatter left for open floor. Deterministic for a seed.
+    private static List<Item> PlaceStones(TileGrid g, Random rng, int count,
+        HashSet<GridPos> region, List<GridPos> spawns, IEnumerable<GridPos> taken)
+    {
+        if (count <= 0) return new List<Item>();
+        var used = new HashSet<GridPos>(taken);
+        var spawnSet = new HashSet<GridPos>(spawns);
+
+        var floorCands = g.Positions()
+            .Where(p => region.Contains(p) && g.Get(p) == TileType.Floor
+                     && !spawnSet.Contains(p) && !used.Contains(p))
+            .ToList();
+        Shuffle(floorCands, rng);
+
+        // Partition (preserving the shuffled order) into scree-adjacent and open floor.
+        var nearScree = new List<GridPos>();
+        var openFloor = new List<GridPos>();
+        foreach (var p in floorCands)
+            (IsScreeAdjacent(g, p) ? nearScree : openFloor).Add(p);
+
+        // ~3/4 of the piles hug scree walls; the rest scatter on open floor. If either
+        // bucket runs short, the other backfills so we always place up to `count`.
+        var chosen = new List<GridPos>();
+        int screeQuota = Math.Min(nearScree.Count, (count * 3 + 3) / 4);
+        chosen.AddRange(nearScree.Take(screeQuota));
+        chosen.AddRange(openFloor.Take(count - chosen.Count));
+        if (chosen.Count < count)
+            chosen.AddRange(nearScree.Skip(screeQuota).Take(count - chosen.Count));
+
+        return chosen.Select(p => new Item(p, ItemKind.Stone, ItemPlacement.Loose)).ToList();
+    }
+
+    private static bool IsScreeAdjacent(TileGrid g, GridPos p)
+    {
+        for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                var n = new GridPos(p.X + dx, p.Y + dy);
+                if (g.InBounds(n) && g.Get(n).IsScree()) return true;
+            }
         return false;
     }
 

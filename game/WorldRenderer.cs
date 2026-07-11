@@ -127,6 +127,7 @@ public partial class WorldRenderer : Node2D
 		LoadItemTex(ItemKind.LifePotion,   "res://assets/objects/item_lifepot.png");
 		LoadItemTex(ItemKind.Detonator,    "res://assets/objects/item_detonator.png");
 		LoadItemTex(ItemKind.Lantern,      "res://assets/objects/item_lantern.png");
+		LoadItemTex(ItemKind.Stone,        "res://assets/objects/stone_pile.png");
 		LoadItemTex(ItemKind.TreasureChest,   "res://assets/objects/treasure_chest.png");
 		LoadItemTex(ItemKind.IdolVishnu,      "res://assets/objects/idol_vishnu.png");
 		LoadItemTex(ItemKind.IdolZeus,        "res://assets/objects/idol_zeus.png");
@@ -1300,6 +1301,7 @@ public partial class WorldRenderer : Node2D
 		ItemKind.WaterPlank   => PlankItemColor,
 		ItemKind.SlowMold     => MoldItemColor,
 		ItemKind.Detonator    => DetonatorItemColor,
+		ItemKind.Stone        => new Color(0.60f, 0.58f, 0.54f),
 		_ when kind.IsIdol()  => IdolColor,
 		_                     => SpeedItemColor,
 	};
