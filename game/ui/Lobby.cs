@@ -303,7 +303,7 @@ public partial class Lobby : Control
 				var row = new HBoxContainer { CustomMinimumSize = new Vector2(280, 0) };
 				var lbl = new Label
 				{
-					Text = $"{info.Name}  [READY]",
+					Text = $"{info.Name}  [{MinerVariants.Names[MinerVariants.Clamp(info.VariantIndex)]}]  [READY]",
 					SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 				};
 				lbl.AddThemeColorOverride("font_color", PlayerColors.At(info.ColorIndex));
@@ -318,7 +318,7 @@ public partial class Lobby : Control
 			{
 				var row = new Label
 				{
-					Text = $"{info.Name}  {(info.Ready ? "[READY]" : "[...]")}",
+					Text = $"{info.Name}  [{MinerVariants.Names[MinerVariants.Clamp(info.VariantIndex)]}]  {(info.Ready ? "[READY]" : "[...]")}",
 				};
 				row.AddThemeColorOverride("font_color", PlayerColors.At(info.ColorIndex));
 				_list.AddChild(row);
