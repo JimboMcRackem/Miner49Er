@@ -11,8 +11,10 @@ public partial class MainMenu : Control
 	private Control _multiPanel = null!;
 
 	// Solo sub-panel fields
-	private LineEdit     _soloName   = null!;
-	private OptionButton _soloColor  = null!;
+	private LineEdit     _soloName    = null!;
+	private OptionButton _soloColor   = null!;
+	private OptionButton _soloVariant = null!;
+	private TextureRect  _soloPreview = null!;
 	private HSlider      _sizeSlider = null!;
 	private CheckBox     _soloFlood  = null!;
 	private CheckBox     _soloPits   = null!;
@@ -20,8 +22,10 @@ public partial class MainMenu : Control
 	private CheckBox     _soloLava   = null!;
 
 	// Multiplayer sub-panel fields
-	private LineEdit     _multiName  = null!;
-	private OptionButton _multiColor = null!;
+	private LineEdit     _multiName    = null!;
+	private OptionButton _multiColor   = null!;
+	private OptionButton _multiVariant = null!;
+	private TextureRect  _multiPreview = null!;
 	private LineEdit     _address    = null!;
 	private CheckBox     _internet   = null!;
 	private Label        _status     = null!;
@@ -130,7 +134,7 @@ public partial class MainMenu : Control
 
 	private Control BuildSoloPanel()
 	{
-		var (savedName, savedColor, _, _) = SettingsStore.LoadPlayer();
+		var (savedName, savedColor, savedVariant, _, _) = SettingsStore.LoadPlayer();
 		var (savedScale, savedFlood, savedPits, savedCaveIn, savedLava) = SettingsStore.LoadSolo();
 
 		var box = new VBoxContainer();
@@ -147,6 +151,18 @@ public partial class MainMenu : Control
 
 		_soloColor = BuildColorPicker(savedColor);
 		box.AddChild(_soloColor);
+
+		_soloVariant = BuildVariantPicker(savedVariant);
+		box.AddChild(_soloVariant);
+		_soloPreview = new TextureRect
+		{
+			CustomMinimumSize = new Vector2(64, 64),
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			Texture = BuildPreview(savedVariant, savedColor),
+		};
+		box.AddChild(_soloPreview);
+		_soloColor.ItemSelected   += _ => _soloPreview.Texture = BuildPreview(_soloVariant.Selected, _soloColor.Selected);
+		_soloVariant.ItemSelected += _ => _soloPreview.Texture = BuildPreview(_soloVariant.Selected, _soloColor.Selected);
 
 		box.AddChild(new HSeparator());
 
@@ -193,7 +209,7 @@ public partial class MainMenu : Control
 
 	private Control BuildMultiPanel()
 	{
-		var (savedName, savedColor, savedAddress, savedInternet) = SettingsStore.LoadPlayer();
+		var (savedName, savedColor, savedVariant, savedAddress, savedInternet) = SettingsStore.LoadPlayer();
 
 		var box = new VBoxContainer();
 
@@ -209,6 +225,18 @@ public partial class MainMenu : Control
 
 		_multiColor = BuildColorPicker(savedColor);
 		box.AddChild(_multiColor);
+
+		_multiVariant = BuildVariantPicker(savedVariant);
+		box.AddChild(_multiVariant);
+		_multiPreview = new TextureRect
+		{
+			CustomMinimumSize = new Vector2(64, 64),
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			Texture = BuildPreview(savedVariant, savedColor),
+		};
+		box.AddChild(_multiPreview);
+		_multiColor.ItemSelected   += _ => _multiPreview.Texture = BuildPreview(_multiVariant.Selected, _multiColor.Selected);
+		_multiVariant.ItemSelected += _ => _multiPreview.Texture = BuildPreview(_multiVariant.Selected, _multiColor.Selected);
 
 		box.AddChild(new HSeparator());
 
@@ -275,6 +303,27 @@ public partial class MainMenu : Control
 		return picker;
 	}
 
+	private static OptionButton BuildVariantPicker(int selected)
+	{
+		var picker = new OptionButton { CustomMinimumSize = new Vector2(180, 0) };
+		for (int i = 0; i < MinerVariants.Count; i++)
+			picker.AddItem(MinerVariants.Names[i], i);
+		picker.Select(MinerVariants.Clamp(selected));
+		return picker;
+	}
+
+	// South-facing still of `variant`, tinted with `color`, for the menu preview.
+	private static Texture2D? BuildPreview(int variant, int color)
+	{
+		string prefix = MinerVariants.Prefix(variant);
+		var ctex = GD.Load<CompressedTexture2D>($"res://assets/miners/{prefix}miner_s.png")
+		         ?? GD.Load<CompressedTexture2D>("res://assets/miners/miner_s.png");
+		var src = ctex?.GetImage();
+		if (src == null) return null;
+		src.Convert(Image.Format.Rgba8);
+		return ImageTexture.CreateFromImage(TintGrayscale(src, PlayerColors.At(color)));
+	}
+
 	// ── Input ─────────────────────────────────────────────────────────────────
 
 	public override void _UnhandledInput(InputEvent @event)
@@ -296,27 +345,27 @@ public partial class MainMenu : Control
 
 	private void OnHost()
 	{
-		SettingsStore.SavePlayer(_multiName.Text, _multiColor.Selected, _address.Text, _internet.ButtonPressed);
-		var err = NetworkManager.Instance.HostGame(_multiName.Text, _multiColor.Selected, _internet.ButtonPressed);
+		SettingsStore.SavePlayer(_multiName.Text, _multiColor.Selected, _multiVariant.Selected, _address.Text, _internet.ButtonPressed);
+		var err = NetworkManager.Instance.HostGame(_multiName.Text, _multiColor.Selected, _internet.ButtonPressed, NetworkManager.DefaultPort, _multiVariant.Selected);
 		if (err != Error.Ok) { _status.Text = $"Host failed: {err}"; return; }
 		GetTree().ChangeSceneToFile("res://game/ui/Lobby.tscn");
 	}
 
 	private void OnJoin()
 	{
-		SettingsStore.SavePlayer(_multiName.Text, _multiColor.Selected, _address.Text, _internet.ButtonPressed);
-		var err = NetworkManager.Instance.JoinByCode(_address.Text, _multiName.Text, _multiColor.Selected);
+		SettingsStore.SavePlayer(_multiName.Text, _multiColor.Selected, _multiVariant.Selected, _address.Text, _internet.ButtonPressed);
+		var err = NetworkManager.Instance.JoinByCode(_address.Text, _multiName.Text, _multiColor.Selected, _multiVariant.Selected);
 		if (err != Error.Ok) { _status.Text = $"Join failed: {err}"; return; }
 		GetTree().ChangeSceneToFile("res://game/ui/Lobby.tscn");
 	}
 
 	private void OnSoloExpedition()
 	{
-		SettingsStore.SavePlayerIdentity(_soloName.Text, _soloColor.Selected);
+		SettingsStore.SavePlayerIdentity(_soloName.Text, _soloColor.Selected, _soloVariant.Selected);
 		SettingsStore.SaveSolo((int)_sizeSlider.Value, _soloFlood.ButtonPressed, _soloPits.ButtonPressed,
 			_soloCaveIn.ButtonPressed, _soloLava.ButtonPressed);
 		SettingsStore.ClearExpeditionSave(); // discard any old save — this is a fresh run
-		var err = NetworkManager.Instance.HostGame(_soloName.Text, _soloColor.Selected, overInternet: false);
+		var err = NetworkManager.Instance.HostGame(_soloName.Text, _soloColor.Selected, overInternet: false, variantIndex: _soloVariant.Selected);
 		if (err != Error.Ok) return;
 		NetworkManager.Instance.StartMatch(GameMode.Expedition, 0,
 			_soloFlood.ButtonPressed, _soloPits.ButtonPressed, _soloCaveIn.ButtonPressed, _soloLava.ButtonPressed, 0.12f,
@@ -325,11 +374,11 @@ public partial class MainMenu : Control
 
 	private void OnContinueExpedition(SettingsStore.ExpeditionSaveData save)
 	{
-		SettingsStore.SavePlayerIdentity(_soloName.Text, _soloColor.Selected);
+		SettingsStore.SavePlayerIdentity(_soloName.Text, _soloColor.Selected, _soloVariant.Selected);
 		var nm = NetworkManager.Instance;
 		nm.ExpeditionResume = new NetworkManager.ExpeditionResumeData(
 			save.CumulativeGold, save.Lives, save.PermSpeed, save.PermVision, save.PermBlast);
-		var err = nm.HostGame(_soloName.Text, _soloColor.Selected, overInternet: false);
+		var err = nm.HostGame(_soloName.Text, _soloColor.Selected, overInternet: false, variantIndex: _soloVariant.Selected);
 		if (err != Error.Ok) { nm.ExpeditionResume = null; return; }
 		nm.StartMatch(GameMode.Expedition, 0,
 			save.Flood, save.Pits, save.CaveIns, save.Lava, 0.12f,

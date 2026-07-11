@@ -87,34 +87,37 @@ public static class SettingsStore
 
 	private const string PlayerSection = "player";
 
-	public static (string name, int colorIndex, string address, bool overInternet) LoadPlayer()
+	public static (string name, int colorIndex, int variant, string address, bool overInternet) LoadPlayer()
 	{
 		var cfg = new ConfigFile();
 		if (cfg.Load(Path) != Error.Ok)
-			return ("Miner", 0, "127.0.0.1", true);
+			return ("Miner", 0, 0, "127.0.0.1", true);
 		string name    = (string)cfg.GetValue(PlayerSection, "name",          "Miner");
 		int    color   = (int)(long)cfg.GetValue(PlayerSection, "color",      0L);
+		int    variant = (int)(long)cfg.GetValue(PlayerSection, "variant",    0L);
 		string address = (string)cfg.GetValue(PlayerSection, "address",       "127.0.0.1");
 		bool   inet    = (bool)cfg.GetValue(PlayerSection, "over_internet",   true);
-		return (name, Mathf.Clamp(color, 0, 7), address, inet);
+		return (name, Mathf.Clamp(color, 0, 7), Mathf.Clamp(variant, 0, MinerVariants.Count - 1), address, inet);
 	}
 
-	public static void SavePlayerIdentity(string name, int colorIndex)
+	public static void SavePlayerIdentity(string name, int colorIndex, int variantIndex)
 	{
 		var cfg = new ConfigFile();
 		cfg.Load(Path);
-		cfg.SetValue(PlayerSection, "name",  name);
-		cfg.SetValue(PlayerSection, "color", (long)colorIndex);
+		cfg.SetValue(PlayerSection, "name",    name);
+		cfg.SetValue(PlayerSection, "color",   (long)colorIndex);
+		cfg.SetValue(PlayerSection, "variant", (long)variantIndex);
 		cfg.Save(Path);
 	}
 
-	public static void SavePlayer(string name, int colorIndex, string address, bool overInternet)
+	public static void SavePlayer(string name, int colorIndex, int variantIndex, string address, bool overInternet)
 	{
 		var cfg = new ConfigFile();
 		cfg.Load(Path);
-		cfg.SetValue(PlayerSection, "name",         name);
-		cfg.SetValue(PlayerSection, "color",        (long)colorIndex);
-		cfg.SetValue(PlayerSection, "address",      address);
+		cfg.SetValue(PlayerSection, "name",          name);
+		cfg.SetValue(PlayerSection, "color",         (long)colorIndex);
+		cfg.SetValue(PlayerSection, "variant",       (long)variantIndex);
+		cfg.SetValue(PlayerSection, "address",       address);
 		cfg.SetValue(PlayerSection, "over_internet", overInternet);
 		cfg.Save(Path);
 	}
