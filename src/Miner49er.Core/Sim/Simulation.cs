@@ -437,6 +437,20 @@ public sealed class Simulation
             }
             else m.CrackDwell = 0;
         }
+
+        // Ground monsters that linger on a crack give way too (same threshold).
+        foreach (var mo in _monsters)
+        {
+            if (!mo.Alive || !MonsterLoadsCracks(mo.Kind)) continue;
+            var t = Grid.Get(mo.Pos);
+            if (t == TileType.Cracked || t == TileType.Crumbling)
+            {
+                mo.CrackDwell += dt;
+                if (mo.CrackDwell >= Config.CrackDwellSeconds)
+                    CollapseMonster(mo);
+            }
+            else mo.CrackDwell = 0;
+        }
     }
 
     // A breached vent advances one BFS ring per interval, converting open floor to
@@ -596,6 +610,10 @@ public sealed class Simulation
             return;
         }
 
+        // Ground monsters load cracked floor like miners (see MonsterCrackLoad).
+        MonsterCrackLoad(mo, from);
+        if (!mo.Alive) return;
+
         if (target is { Alive: true } && mo.Pos == target.Pos)
             MaulMiner(target, mo.Kind);
 
@@ -620,6 +638,42 @@ public sealed class Simulation
         _events.Add(new MonsterKilled(dino.Id));
         foreach (var m in _miners.Values)
             if (m.Alive && m.Pos == dino.Pos) CollapseKill(m);
+    }
+
+    // Ghosts float over cracks; the dino has its own (more destructive) floor damage.
+    private static bool MonsterLoadsCracks(MonsterKind kind) =>
+        kind != MonsterKind.Ghost && kind != MonsterKind.SkeletonDino;
+
+    // A ground monster on a weak tile drops through: the tile becomes a Pit, the
+    // monster dies, and any miner sharing the tile is crushed (mirrors the dino).
+    private void CollapseMonster(Monster mo)
+    {
+        Grid.Set(mo.Pos, TileType.Pit);
+        _events.Add(new CrackCollapsed(mo.Pos));
+        mo.Alive = false;
+        _events.Add(new MonsterKilled(mo.Id));
+        foreach (var m in _miners.Values)
+            if (m.Alive && m.Pos == mo.Pos) CollapseKill(m);
+    }
+
+    // Ground monsters load cracked floor exactly like miners: stepping onto a
+    // Crumbling tile drops them into a Pit, while crossing a fresh Cracked tile
+    // wears it to Crumbling for the next loading (dwelling is handled in AdvanceCracks).
+    private void MonsterCrackLoad(Monster mo, GridPos from)
+    {
+        if (!MonsterLoadsCracks(mo.Kind)) return;
+
+        if (Grid.Get(mo.Pos) == TileType.Crumbling)
+        {
+            CollapseMonster(mo);
+            return;
+        }
+
+        if (Grid.Get(from) == TileType.Cracked)
+        {
+            Grid.Set(from, TileType.Crumbling);
+            _events.Add(new CrackWeakened(from));
+        }
     }
 
     // Rock blocks terrain-bound monsters; ghosts phase rock but are stopped by deep water.
