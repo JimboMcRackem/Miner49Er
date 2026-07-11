@@ -21,8 +21,8 @@ public class SimulationItemsTests
         sim.Tick(0.0);                  // pickup pass runs in Tick
 
         Assert.Empty(sim.Items);
-        Assert.Equal(1, m.PermSpeedLevel); // permanent, not timed
-        Assert.Empty(m.Effects);           // no StatusEffect added
+        Assert.Equal(0, m.PermSpeedLevel); // no longer permanent
+        Assert.Single(m.Effects);          // a timed SpeedPotion effect was applied
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public class SimulationItemsTests
         sim.AddItem(new Item(new GridPos(2, 2), ItemKind.LongerVision));
         sim.TryMove(1, Direction.East);
         sim.Tick(0.0);
-        Assert.Equal(6, sim.EffectiveVisionRadius(1)); // 5 base + 1 perm level * 1 bonus
+        Assert.Equal(5 + BuffTuning.VisionMagnitude, sim.EffectiveVisionRadius(1)); // 5 base + temp +3
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class SimulationItemsTests
         sim.Tick(0.0);
 
         Assert.Empty(sim.Items);
-        Assert.Equal(1, m.PermSpeedLevel); // perm buff applied
+        Assert.Single(m.Effects);          // temp speed buff applied
     }
 
     [Fact]

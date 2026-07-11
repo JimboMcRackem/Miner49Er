@@ -982,23 +982,7 @@ public sealed class Simulation
 
     // Rolls chest loot but skips any perm buff the miner has already capped, so a chest
     // always does something. Falls back to a life restore when every perm buff is maxed.
-    private ItemKind RollUsefulChestLoot(Miner m)
-    {
-        for (int attempt = 0; attempt < 8; attempt++)
-        {
-            var kind = ChestLootTable.Roll(_rng);
-            if (!IsPermBuffMaxed(m, kind)) return kind;
-        }
-        return ItemKind.LifePotion;
-    }
-
-    private bool IsPermBuffMaxed(Miner m, ItemKind kind) => kind switch
-    {
-        ItemKind.SpeedPotion  => m.PermSpeedLevel  >= Config.MaxPermSpeedLevel,
-        ItemKind.BiggerBlast  => m.PermBlastLevel  >= Config.MaxPermBlastLevel,
-        ItemKind.LongerVision => m.PermVisionLevel >= Config.MaxPermVisionLevel,
-        _ => false,
-    };
+    private ItemKind RollUsefulChestLoot(Miner m) => ChestLootTable.Roll(_rng);
 
     private void PickUpItems()
     {
@@ -1010,11 +994,6 @@ public sealed class Simulation
             foreach (var m in _miners.Values)
             {
                 if (!m.Alive || m.Pos != item.Pos) continue;
-                if (IsPermBuffMaxed(m, item.Kind))
-                {
-                    _events.Add(new PickupBlocked(m.Id, item.Pos, item.Kind));
-                    break;
-                }
                 _items.RemoveAt(i);
                 ApplyBuff(m.Id, item.Kind);
                 _events.Add(new ItemPickedUp(m.Id, item.Pos, item.Kind));
@@ -1146,13 +1125,16 @@ public sealed class Simulation
         switch (kind)
         {
             case ItemKind.SpeedPotion:
-                m.PermSpeedLevel = Math.Min(m.PermSpeedLevel + 1, Config.MaxPermSpeedLevel);
+                ApplyEffect(minerId, EffectKind.SpeedPotion, EffectChannel.MoveSpeed,
+                    BuffTuning.SpeedMagnitude, BuffTuning.SpeedSeconds);
                 break;
             case ItemKind.LongerVision:
-                m.PermVisionLevel = Math.Min(m.PermVisionLevel + 1, Config.MaxPermVisionLevel);
+                ApplyEffect(minerId, EffectKind.LongerVision, EffectChannel.VisionRadius,
+                    BuffTuning.VisionMagnitude, BuffTuning.VisionSeconds);
                 break;
             case ItemKind.BiggerBlast:
-                m.PermBlastLevel = Math.Min(m.PermBlastLevel + 1, Config.MaxPermBlastLevel);
+                ApplyEffect(minerId, EffectKind.BiggerBlast, EffectChannel.BlastRadius,
+                    BuffTuning.BlastMagnitude, BuffTuning.BlastSeconds);
                 break;
             case ItemKind.Chest:
                 ApplyBuff(minerId, RollUsefulChestLoot(m));
