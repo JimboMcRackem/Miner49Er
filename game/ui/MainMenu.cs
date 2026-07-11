@@ -14,7 +14,6 @@ public partial class MainMenu : Control
 	private LineEdit     _soloName    = null!;
 	private OptionButton _soloColor   = null!;
 	private OptionButton _soloVariant = null!;
-	private TextureRect  _soloPreview = null!;
 	private HSlider      _sizeSlider = null!;
 	private CheckBox     _soloFlood  = null!;
 	private CheckBox     _soloPits   = null!;
@@ -25,7 +24,6 @@ public partial class MainMenu : Control
 	private LineEdit     _multiName    = null!;
 	private OptionButton _multiColor   = null!;
 	private OptionButton _multiVariant = null!;
-	private TextureRect  _multiPreview = null!;
 	private LineEdit     _address    = null!;
 	private CheckBox     _internet   = null!;
 	private Label        _status     = null!;
@@ -149,20 +147,14 @@ public partial class MainMenu : Control
 			CustomMinimumSize = new Vector2(240, 0) };
 		box.AddChild(_soloName);
 
-		_soloColor = BuildColorPicker(savedColor);
-		box.AddChild(_soloColor);
-
 		_soloVariant = BuildVariantPicker(savedVariant);
 		box.AddChild(_soloVariant);
-		_soloPreview = new TextureRect
-		{
-			CustomMinimumSize = new Vector2(64, 64),
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-			Texture = BuildPreview(savedVariant, savedColor),
-		};
-		box.AddChild(_soloPreview);
-		_soloColor.ItemSelected   += _ => _soloPreview.Texture = BuildPreview(_soloVariant.Selected, _soloColor.Selected);
-		_soloVariant.ItemSelected += _ => _soloPreview.Texture = BuildPreview(_soloVariant.Selected, _soloColor.Selected);
+
+		// The colour picker doubles as the character preview: each colour swatch
+		// is the chosen variant tinted, so there's no separate preview to duplicate.
+		_soloColor = BuildColorPicker(savedColor, savedVariant);
+		box.AddChild(_soloColor);
+		_soloVariant.ItemSelected += _ => RefreshColorIcons(_soloColor, _soloVariant.Selected);
 
 		box.AddChild(new HSeparator());
 
@@ -223,20 +215,14 @@ public partial class MainMenu : Control
 			CustomMinimumSize = new Vector2(240, 0) };
 		box.AddChild(_multiName);
 
-		_multiColor = BuildColorPicker(savedColor);
-		box.AddChild(_multiColor);
-
 		_multiVariant = BuildVariantPicker(savedVariant);
 		box.AddChild(_multiVariant);
-		_multiPreview = new TextureRect
-		{
-			CustomMinimumSize = new Vector2(64, 64),
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-			Texture = BuildPreview(savedVariant, savedColor),
-		};
-		box.AddChild(_multiPreview);
-		_multiColor.ItemSelected   += _ => _multiPreview.Texture = BuildPreview(_multiVariant.Selected, _multiColor.Selected);
-		_multiVariant.ItemSelected += _ => _multiPreview.Texture = BuildPreview(_multiVariant.Selected, _multiColor.Selected);
+
+		// The colour picker doubles as the character preview: each colour swatch
+		// is the chosen variant tinted, so there's no separate preview to duplicate.
+		_multiColor = BuildColorPicker(savedColor, savedVariant);
+		box.AddChild(_multiColor);
+		_multiVariant.ItemSelected += _ => RefreshColorIcons(_multiColor, _multiVariant.Selected);
 
 		box.AddChild(new HSeparator());
 
@@ -290,10 +276,10 @@ public partial class MainMenu : Control
 		1 => "Small", 2 => "Medium", 3 => "Large", _ => "Huge"
 	};
 
-	private static OptionButton BuildColorPicker(int selected)
+	private static OptionButton BuildColorPicker(int selected, int variant)
 	{
 		var picker = new OptionButton { CustomMinimumSize = new Vector2(180, 0) };
-		var icons  = BuildMinerIcons();
+		var icons  = BuildMinerIcons(variant);
 		for (int i = 0; i < PlayerColors.Palette.Length; i++)
 		{
 			if (icons[i] != null) picker.AddIconItem(icons[i]!, PlayerColors.Names[i], i);
@@ -303,6 +289,15 @@ public partial class MainMenu : Control
 		return picker;
 	}
 
+	// Repaint a colour picker's swatches to show `variant` (called when the
+	// variant selection changes), keeping the current colour selected.
+	private static void RefreshColorIcons(OptionButton picker, int variant)
+	{
+		var icons = BuildMinerIcons(variant);
+		for (int i = 0; i < PlayerColors.Palette.Length && i < picker.ItemCount; i++)
+			if (icons[i] != null) picker.SetItemIcon(i, icons[i]!);
+	}
+
 	private static OptionButton BuildVariantPicker(int selected)
 	{
 		var picker = new OptionButton { CustomMinimumSize = new Vector2(180, 0) };
@@ -310,18 +305,6 @@ public partial class MainMenu : Control
 			picker.AddItem(MinerVariants.Names[i], i);
 		picker.Select(MinerVariants.Clamp(selected));
 		return picker;
-	}
-
-	// South-facing still of `variant`, tinted with `color`, for the menu preview.
-	private static Texture2D? BuildPreview(int variant, int color)
-	{
-		string prefix = MinerVariants.Prefix(variant);
-		var ctex = GD.Load<CompressedTexture2D>($"res://assets/miners/{prefix}miner_s.png")
-		         ?? GD.Load<CompressedTexture2D>("res://assets/miners/miner_s.png");
-		var src = ctex?.GetImage();
-		if (src == null) return null;
-		src.Convert(Image.Format.Rgba8);
-		return ImageTexture.CreateFromImage(TintGrayscale(src, PlayerColors.At(color)));
 	}
 
 	// ── Input ─────────────────────────────────────────────────────────────────
@@ -389,11 +372,13 @@ public partial class MainMenu : Control
 
 	// ── Sprite helpers ────────────────────────────────────────────────────────
 
-	private static Texture2D?[] BuildMinerIcons()
+	private static Texture2D?[] BuildMinerIcons(int variant)
 	{
 		var icons = new Texture2D?[PlayerColors.Palette.Length];
 		// Image.Load("res://...") redirects to .ctex in exports; use resource loader instead.
-		var ctex = GD.Load<CompressedTexture2D>("res://assets/miners/miner_s.png");
+		string prefix = MinerVariants.Prefix(variant);
+		var ctex = GD.Load<CompressedTexture2D>($"res://assets/miners/{prefix}miner_s.png")
+		         ?? GD.Load<CompressedTexture2D>("res://assets/miners/miner_s.png");
 		var src  = ctex?.GetImage();
 		if (src == null) return icons;
 		src.Convert(Image.Format.Rgba8);
