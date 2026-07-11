@@ -6,7 +6,7 @@ namespace Miner49er;
 
 /// <summary>Resolves logical sound names to AudioStreams. Loads
 /// res://assets/audio/{name}.{ogg|wav} when present; otherwise returns a cached
-/// procedural placeholder (16-bit mono PCM). Music has no placeholder — it is
+/// procedural placeholder (16-bit mono PCM). Music has no placeholder â€” it is
 /// null until the user drops in a loop. Missing files never crash.</summary>
 public static class SfxLibrary
 {
@@ -23,18 +23,20 @@ public static class SfxLibrary
 	public static AudioStream Drip => Get("drip", () => Tone(0.12f, 900f, 600f));
 	public static AudioStream Splash => Get("splash", () => Noise(0.25f, 700f, decay: true));
 	public static AudioStream Pickup => Get("pickup", () => Tone(0.12f, 700f, 1200f)); // bright rising blip
-	public static AudioStream Spill => Get("spill", () => Tone(0.18f, 500f, 160f)); // gritty falling — rubble spilling an item
+	public static AudioStream Spill => Get("spill", () => Tone(0.18f, 500f, 160f)); // gritty falling â€” rubble spilling an item
 	public static AudioStream Grab => Get("grab", () => Tone(0.10f, 600f, 900f));   // crisp pickup/swap
 	public static AudioStream Plank => Get("plank", () => Noise(0.10f, 800f, decay: true)); // wooden knock
 	public static AudioStream Squelch => Get("squelch", () => Tone(0.16f, 380f, 140f)); // wet mold plop
-	public static AudioStream Fall => Get("fall", () => Tone(0.50f, 700f, 90f)); // long descending wail — falling
-	public static AudioStream CaveIn     => Get("cavein",      () => Noise(0.45f,  90f, decay: true)); // low rumble — collapsing floor
-	public static AudioStream Rockfall   => Get("rockfall",    () => Noise(0.55f, 110f, decay: true)); // clattering rock debris — scree collapse
-	public static AudioStream Sizzle     => Get("sizzle",      () => Noise(0.35f, 1200f, decay: true)); // hot hiss — burned alive
+	public static AudioStream Fall => Get("fall", () => Tone(0.50f, 700f, 90f)); // long descending wail â€” falling
+	public static AudioStream CaveIn     => Get("cavein",      () => Noise(0.45f,  90f, decay: true)); // low rumble â€” collapsing floor
+	public static AudioStream Rockfall   => Get("rockfall",    () => Noise(0.55f, 110f, decay: true)); // clattering rock debris â€” scree collapse
+	public static AudioStream Sizzle     => Get("sizzle",      () => Noise(0.35f, 1200f, decay: true)); // hot hiss â€” burned alive
 	public static AudioStream CrackRumble  => Get("crack_rumble",  () => Noise(0.18f, 130f, decay: true)); // stone creak underfoot
 	public static AudioStream LavaCrackle => Get("lava_crackle",  () => Noise(1.00f, 480f));               // fire crackle loop near lava
-	public static AudioStream ZombieMoan  => Get("zombie_moan",   () => Tone(0.40f, 180f, 120f));          // low descending moan — plays on the miner when mauled
+	public static AudioStream ZombieMoan  => Get("zombie_moan",   () => Tone(0.40f, 180f, 120f));          // low descending moan â€” plays on the miner when mauled
 	public static AudioStream ReelSnap   => Get("reel_snap",     () => Noise(0.18f, 2400f, decay: true)); // sharp wire snap
+	public static AudioStream StoneThrow => Get("stone_throw", () => Noise(0.14f, 900f, decay: true));  // light swish on release
+	public static AudioStream StoneLand  => Get("stone_land",  () => Noise(0.10f, 500f, decay: true));  // dry clack on landing
 
 	// Monster movement sounds (positional, per step)
 	public static AudioStream GoatHooves   => Get("goat_hooves",   () => Noise(0.06f, 1800f, decay: true)); // sharp hoof click
@@ -47,10 +49,10 @@ public static class SfxLibrary
 	public static AudioStream SlimeSplat  => Get("slime_splat",  () => Noise(0.14f, 350f, decay: true));    // wet burst
 	public static AudioStream GhostScream => Get("ghost_scream", () => Tone(0.45f, 1800f, 300f));           // piercing wail
 	public static AudioStream ZombieGrunt => Get("zombie_grunt", () => Noise(0.18f, 140f, decay: true));    // guttural grunt
-	public static AudioStream Whistle     => Get("whistle",      () => Tone(0.30f, 1000f, 2200f));          // rising pea-whistle — call to exit
-	public static AudioStream PortalWhoosh => Get("portal_whoosh", () => Tone(0.35f, 400f, 1400f));          // rising whoosh — teleport
-	public static AudioStream Tinnitus      => Get("tinnitus",       () => Noise(5.0f, 2800f, decay: true));  // high-frequency static hiss — deafen after nearby blast
-	public static AudioStream TinnitusWhine => Get("tinnitus_whine", () => Tone(5.0f,  3800f, 3800f));        // constant-pitch whine fading in amplitude — layered under the hiss
+	public static AudioStream Whistle     => Get("whistle",      () => Tone(0.30f, 1000f, 2200f));          // rising pea-whistle â€” call to exit
+	public static AudioStream PortalWhoosh => Get("portal_whoosh", () => Tone(0.35f, 400f, 1400f));          // rising whoosh â€” teleport
+	public static AudioStream Tinnitus      => Get("tinnitus",       () => Noise(5.0f, 2800f, decay: true));  // high-frequency static hiss â€” deafen after nearby blast
+	public static AudioStream TinnitusWhine => Get("tinnitus_whine", () => Tone(5.0f,  3800f, 3800f));        // constant-pitch whine fading in amplitude â€” layered under the hiss
 	public static AudioStream? Music => GetOptional("music_loop");
 
 	// Returns a track from the music pool. When seed is provided all callers with
