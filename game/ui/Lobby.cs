@@ -20,6 +20,8 @@ public partial class Lobby : Control
 	private CheckBox _lavaCheck = null!;
 	private OptionButton _explosivePicker = null!;
 	private OptionButton _speedPicker = null!;
+	private OptionButton _explosionSizePicker = null!;
+	private OptionButton _visionPicker = null!;
 	private OptionButton _mapSizePicker = null!;
 	private SpinBox _startFloorPicker = null!;
 	private Label _codeLabel = null!;
@@ -45,7 +47,7 @@ public partial class Lobby : Control
 		leftCol.AddThemeConstantOverride("separation", 14);
 		columns.AddChild(leftCol);
 
-		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor) = SettingsStore.LoadLobby();
+		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor, savedBlast, savedVision) = SettingsStore.LoadLobby();
 
 		_modePicker = new OptionButton();
 		_modePicker.AddItem("Last Man Standing",  (int)GameMode.LastManStanding);
@@ -133,6 +135,24 @@ public partial class Lobby : Control
 		_speedPicker.Visible = NetworkManager.Instance.IsHost;
 		leftCol.AddChild(_speedPicker);
 
+		// Explosion size — item id is the blast radius (rock + kill) applied to SimConfig.
+		_explosionSizePicker = new OptionButton();
+		_explosionSizePicker.AddItem("Blast: Standard", 1);
+		_explosionSizePicker.AddItem("Blast: Large",    2);
+		_explosionSizePicker.AddItem("Blast: Huge",     3);
+		SelectById(_explosionSizePicker, savedBlast);
+		_explosionSizePicker.Visible = NetworkManager.Instance.IsHost;
+		leftCol.AddChild(_explosionSizePicker);
+
+		// Vision — item id is the base fog radius applied to SimConfig.VisionRadius.
+		_visionPicker = new OptionButton();
+		_visionPicker.AddItem("Vision: Short",  3);
+		_visionPicker.AddItem("Vision: Normal", 5);
+		_visionPicker.AddItem("Vision: Far",    7);
+		SelectById(_visionPicker, savedVision);
+		_visionPicker.Visible = NetworkManager.Instance.IsHost;
+		leftCol.AddChild(_visionPicker);
+
 		// ── Center column: player list ─────────────────────────────────────────
 		var centerCol = new VBoxContainer { CustomMinimumSize = new Vector2(300, 0) };
 		centerCol.AddThemeConstantOverride("separation", 12);
@@ -196,9 +216,11 @@ public partial class Lobby : Control
 			int explosive  = (expedition || treasure || derby) ? 0 : _explosivePicker.GetSelectedId();
 			int timeLimit  = (expedition || treasure || derby) ? 0 : _timePicker.GetSelectedId();
 			int startFloor = expedition ? (int)_startFloorPicker.Value : 1;
+			int blastRadius  = _explosionSizePicker.GetSelectedId();
+			int visionRadius = _visionPicker.GetSelectedId();
 			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), timeLimit,
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
-				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive, startFloor);
+				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive, startFloor, blastRadius, visionRadius);
 			NetworkManager.Instance.StartMatch(
 				(GameMode)_modePicker.GetSelectedId(),
 				timeLimit,
@@ -209,7 +231,9 @@ public partial class Lobby : Control
 				new[] { 0.20f, 0.12f, 0.07f }[_speedPicker.Selected],
 				mapScale,
 				(ExplosiveMode)explosive,
-				startFloor);
+				startFloor,
+				blastRadius,
+				visionRadius);
 		};
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		rightCol.AddChild(_startBtn);
@@ -234,6 +258,14 @@ public partial class Lobby : Control
 		RefreshModeControls();
 		if (NetworkManager.Instance.IsHost)
 			NetworkManager.Instance.BroadcastPendingMode(_modePicker.GetSelectedId());
+	}
+
+	// Selects the item whose id equals `id` (falls back to the first item).
+	private static void SelectById(OptionButton picker, int id)
+	{
+		for (int i = 0; i < picker.ItemCount; i++)
+			if (picker.GetItemId(i) == id) { picker.Select(i); return; }
+		if (picker.ItemCount > 0) picker.Select(0);
 	}
 
 	private void RefreshModeControls()

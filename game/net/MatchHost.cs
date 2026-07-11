@@ -469,6 +469,9 @@ public partial class MatchHost : Node
 			Seed                  = floorSeed,
 			RequireChestForEscape = newFloor == 51,
 			RockFallsEnabled      = true,   // ceiling collapses at 95% gold, every floor (matches floor 1)
+			BlastRockRadius       = nm.MatchBlastRadius,
+			BlastKillRadius       = nm.MatchBlastRadius,
+			VisionRadius          = nm.MatchVisionRadius,
 		};
 
 		GeneratedMap newMap;

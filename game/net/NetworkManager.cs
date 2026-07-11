@@ -330,6 +330,8 @@ public partial class NetworkManager : Node
 	public bool MatchCaveIns { get; private set; }
 	public bool MatchLava { get; private set; }
 	public ExplosiveMode MatchExplosive { get; private set; }
+	public int MatchBlastRadius { get; private set; } = 1;   // host-set explosion size (rock + kill radius)
+	public int MatchVisionRadius { get; private set; } = 5;  // host-set base fog radius
 	public float MatchBaseMoveSeconds { get; private set; } = 0.12f;
 	public int MatchMapScale { get; set; } = 1;
 	public long[] PeerOrder { get; private set; } = System.Array.Empty<long>();
@@ -375,18 +377,18 @@ public partial class NetworkManager : Node
 		_matchClient = client;
 	}
 
-	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1)
+	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1, int blastRadius = 1, int visionRadius = 5)
 	{
 		if (!IsHost) return;
 		if (flooding && timeLimitSeconds <= 0) timeLimitSeconds = 60; // a flooded match needs a clock
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
 		int seed = System.Random.Shared.Next();
-		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order, startFloor);
-		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order, startFloor); // host applies locally too
+		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order, startFloor, blastRadius, visionRadius);
+		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order, startFloor, blastRadius, visionRadius); // host applies locally too
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority)]
-	public void BeginMatch(int seed, int playerCount, int mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale, int explosive, long[] peerOrder, int startFloor = 1)
+	public void BeginMatch(int seed, int playerCount, int mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale, int explosive, long[] peerOrder, int startFloor = 1, int blastRadius = 1, int visionRadius = 5)
 	{
 		MatchSeed = seed;
 		MatchPlayerCount = playerCount;
@@ -399,6 +401,8 @@ public partial class NetworkManager : Node
 		MatchBaseMoveSeconds = baseMoveSeconds;
 		MatchMapScale = mapScale;
 		MatchExplosive = (ExplosiveMode)explosive;
+		MatchBlastRadius = blastRadius;
+		MatchVisionRadius = visionRadius;
 		PeerOrder = peerOrder;
 		MatchStartFloor = startFloor;
 		MatchFloor = startFloor;

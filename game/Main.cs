@@ -125,6 +125,9 @@ public partial class Main : Node2D
 				UnstableFloorEnabled = nm.MatchMode == GameMode.LastManStanding
 					|| nm.MatchMode == GameMode.DemolitionDerby,
 				RockFallsEnabled = true,
+				BlastRockRadius = nm.MatchBlastRadius,
+				BlastKillRadius = nm.MatchBlastRadius,
+				VisionRadius    = nm.MatchVisionRadius,
 			};
 			if (nm.MatchMode == GameMode.DemolitionDerby)
 			{

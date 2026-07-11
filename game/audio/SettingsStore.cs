@@ -155,11 +155,11 @@ public static class SettingsStore
 
 	private const string LobbySection = "lobby";
 
-	public static (int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor) LoadLobby()
+	public static (int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor, int blast, int vision) LoadLobby()
 	{
 		var cfg = new ConfigFile();
 		if (cfg.Load(Path) != Error.Ok)
-			return (0, 60, false, false, false, false, 1, 1, 0, 1);
+			return (0, 60, false, false, false, false, 1, 1, 0, 1, 1, 5);
 		int  mode       = (int)(long)cfg.GetValue(LobbySection, "game_mode",    0L);
 		int  time       = (int)(long)cfg.GetValue(LobbySection, "time_limit",   60L);
 		bool flood      = (bool)cfg.GetValue(LobbySection, "flood",   false);
@@ -170,12 +170,14 @@ public static class SettingsStore
 		int  scale      = (int)(long)cfg.GetValue(LobbySection, "map_scale",   1L);
 		int  explosive  = (int)(long)cfg.GetValue(LobbySection, "explosive",   0L);
 		int  startFloor = (int)(long)cfg.GetValue(LobbySection, "start_floor", 1L);
+		int  blast      = (int)(long)cfg.GetValue(LobbySection, "blast_radius", 1L);
+		int  vision     = (int)(long)cfg.GetValue(LobbySection, "vision_radius", 5L);
 		return (Mathf.Clamp(mode, 0, 3), time, flood, pits, caveIns, lava,
 		        Mathf.Clamp(speed, 0, 2), Mathf.Clamp(scale, 1, 4), Mathf.Clamp(explosive, 0, 2),
-		        Mathf.Clamp(startFloor, 1, 20));
+		        Mathf.Clamp(startFloor, 1, 20), Mathf.Clamp(blast, 1, 3), Mathf.Clamp(vision, 3, 8));
 	}
 
-	public static void SaveLobby(int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor = 1)
+	public static void SaveLobby(int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor = 1, int blast = 1, int vision = 5)
 	{
 		var cfg = new ConfigFile();
 		cfg.Load(Path);
@@ -189,6 +191,8 @@ public static class SettingsStore
 		cfg.SetValue(LobbySection, "map_scale",    (long)mapScale);
 		cfg.SetValue(LobbySection, "explosive",    (long)explosive);
 		cfg.SetValue(LobbySection, "start_floor",  (long)startFloor);
+		cfg.SetValue(LobbySection, "blast_radius", (long)blast);
+		cfg.SetValue(LobbySection, "vision_radius", (long)vision);
 		cfg.Save(Path);
 	}
 
