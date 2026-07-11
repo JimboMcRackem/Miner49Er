@@ -74,13 +74,10 @@ public partial class MatchClient : Node2D
 	private FogRenderer _fogRenderer = null!;
 	private Node2D _camera = null!;
 	private Camera2D _cam = null!;
-	private Texture2D[,]?  _minerTex;       // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
-	private Texture2D[,]?  _minerListenTex; // [colorIndex, facing] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â null if sprites not yet placed
-	private Texture2D[,]?  _minerIdleTex;   // [colorIndex, idleIdx] south-facing only; null until art placed
-	private Texture2D[,,]? _minerWalkTex;  // [colorIndex, facing, frame 0-3]
-	private Texture2D[,,]? _minerMineTex;  // [colorIndex, facing, frame 0-6]
-	private Texture2D[,,]? _minerPlantTex; // [colorIndex, facing, frame 0-4]
-	private Texture2D[,,]? _minerThrowTex; // [colorIndex, facing, frame 0-3]
+	// Tinted miner textures, built lazily one set per (variant, colour) pair actually in the match.
+	private readonly System.Collections.Generic.Dictionary<(int variant, int color), MinerTextureSet> _minerSets = new();
+	// Raw source images per variant, loaded once (with base fallback) then re-tinted per colour.
+	private readonly System.Collections.Generic.Dictionary<int, MinerSourceImages> _variantSources = new();
 	private readonly Dictionary<int, (int X, int Y)> _lastMinerPos = new();
 	private readonly Dictionary<int, double> _walkUntil = new();
 	private readonly Dictionary<int, double> _throwUntil = new();
@@ -130,13 +127,12 @@ public partial class MatchClient : Node2D
 		_fogRenderer.Init(this);
 		FogRenderer = _fogRenderer;
 
-		_minerTex       = BuildMinerTextures();
-		_minerListenTex = BuildMinerListenTextures();
-		_minerIdleTex   = BuildMinerIdleTextures();
-		_minerWalkTex   = BuildMinerWalkTextures();
-		_minerMineTex   = BuildMinerActivityTextures("mine",  7);
-		_minerPlantTex  = BuildMinerActivityTextures("plant", 5);
-		_minerThrowTex  = BuildMinerActivityTextures("throw", 4);
+		// Warm the tint cache for every (variant, colour) pair present at match start.
+		// Any pair not covered here (edge cases) is built lazily on first draw.
+		_minerSets.Clear();
+		_variantSources.Clear();
+		foreach (var info in NetworkManager.Instance.Players.Values)
+			GetOrBuildSet(MinerVariants.Clamp(info.VariantIndex), info.ColorIndex);
 
 		_camera = new Node2D { Name = "CameraRig" };
 		sceneRoot.AddChild(_camera);
@@ -349,7 +345,7 @@ public partial class MatchClient : Node2D
 				// Random idle fidgets: only when truly standing still
 				bool trulyIdle = m.Alive && m.Activity == 0
 					&& !(_walkUntil.TryGetValue(m.Id, out double wu) && now < wu)
-					&& !Listening && _minerIdleTex != null;
+					&& !Listening;
 
 				if (_idleShowTimer > 0)
 				{
@@ -443,50 +439,51 @@ public partial class MatchClient : Node2D
 			}
 
 			int colorIdx = MinerColorIndex(m.Id);
+			int variant  = MinerVariantIndex(m.Id);
 			int facing   = m.Facing;
+			var set      = GetOrBuildSet(variant, colorIdx);
 
 			double drawNow = Time.GetTicksMsec() / 1000.0;
 			Texture2D? tex;
-			bool throwing = _throwUntil.TryGetValue(m.Id, out double throwEnd) && drawNow < throwEnd && _minerThrowTex != null;
+			bool throwing = _throwUntil.TryGetValue(m.Id, out double throwEnd) && drawNow < throwEnd;
 			if (throwing)
 			{
 				double telapsed = MatchClient.StoneFlightSeconds - (throwEnd - drawNow);
 				int frame = Mathf.Clamp((int)(telapsed / MatchClient.StoneFlightSeconds * 4), 0, 3);
-				tex = _minerThrowTex![colorIdx, facing, frame];
+				tex = set.Throw[facing, frame];
 			}
-			else if (m.Activity == 1 && m.ActivityRemaining > 0 && _minerMineTex != null)
+			else if (m.Activity == 1 && m.ActivityRemaining > 0)
 			{
 				// Mining: loop 6 animated frames (1-6) at 6 fps
 				int frame = (int)(drawNow * 6 % 6) + 1;
-				tex = _minerMineTex[colorIdx, facing, frame];
+				tex = set.Mine[facing, frame];
 			}
-			else if ((m.Activity == 2 || m.Activity == 3) && m.ActivityRemaining > 0 && _minerPlantTex != null)
+			else if ((m.Activity == 2 || m.Activity == 3) && m.ActivityRemaining > 0)
 			{
 				// Planting / PlantingDetonator: loop 4 animated frames (1-4) at 4 fps
 				int frame = (int)(drawNow * 4 % 4) + 1;
-				tex = _minerPlantTex[colorIdx, facing, frame];
+				tex = set.Plant[facing, frame];
 			}
 			else
 			{
 				bool walking = _walkUntil.TryGetValue(m.Id, out double until) && drawNow < until;
-				if (walking && _minerWalkTex != null)
+				if (walking)
 				{
 					double elapsed = m.MoveSeconds - (until - drawNow);
 					int frame = (int)(elapsed / m.MoveSeconds * 4) % 4;
-					tex = _minerWalkTex[colorIdx, facing, frame];
+					tex = set.Walk[facing, frame];
 				}
-				else if (((m.Id == LocalMinerId && Listening) || (m.Id != LocalMinerId && m.Listening))
-				         && _minerListenTex != null)
+				else if ((m.Id == LocalMinerId && Listening) || (m.Id != LocalMinerId && m.Listening))
 				{
-					tex = _minerListenTex[colorIdx, facing];
+					tex = set.Listen[facing];
 				}
-				else if (_currentIdleIdx >= 0 && m.Id == LocalMinerId && _minerIdleTex != null)
+				else if (_currentIdleIdx >= 0 && m.Id == LocalMinerId)
 				{
-					tex = _minerIdleTex[colorIdx, _currentIdleIdx]; // south-facing fidget pose
+					tex = set.Idle[_currentIdleIdx]; // south-facing fidget pose
 				}
 				else
 				{
-					tex = _minerTex?[colorIdx, facing];
+					tex = set.Facing[facing];
 				}
 			}
 
@@ -511,107 +508,89 @@ public partial class MatchClient : Node2D
 		return idx % PlayerColors.Palette.Length;
 	}
 
-	private static Texture2D[,] BuildMinerTextures()
+	private sealed class MinerTextureSet
 	{
-		var paths = new[]
-		{
-			"res://assets/miners/miner_n.png",
-			"res://assets/miners/miner_e.png",
-			"res://assets/miners/miner_s.png",
-			"res://assets/miners/miner_w.png",
-		};
-		var srcs = new Image?[4];
+		public readonly Texture2D?[]  Facing = new Texture2D?[4];
+		public readonly Texture2D?[]  Listen = new Texture2D?[4];
+		public readonly Texture2D?[]  Idle   = new Texture2D?[IdleVariantCount];
+		public readonly Texture2D?[,] Walk   = new Texture2D?[4, 4];
+		public readonly Texture2D?[,] Mine   = new Texture2D?[4, 7];
+		public readonly Texture2D?[,] Plant  = new Texture2D?[4, 5];
+		public readonly Texture2D?[,] Throw  = new Texture2D?[4, 4];
+	}
+
+	private sealed class MinerSourceImages
+	{
+		public readonly Image?[]  Facing = new Image?[4];
+		public readonly Image?[]  Listen = new Image?[4];
+		public readonly Image?[]  Idle   = new Image?[IdleVariantCount];
+		public readonly Image?[,] Walk   = new Image?[4, 4];
+		public readonly Image?[,] Mine   = new Image?[4, 7];
+		public readonly Image?[,] Plant  = new Image?[4, 5];
+		public readonly Image?[,] Throw  = new Image?[4, 4];
+	}
+
+	// Loads a miner frame for a variant, falling back to the base (variant 0) art if the
+	// variant's own file is missing, so a not-yet-drawn variant still renders.
+	private static Image? LoadMinerImage(int variant, string relative)
+	{
+		string prefix = MinerVariants.Prefix(variant);
+		var img = GD.Load<CompressedTexture2D>($"res://assets/miners/{prefix}{relative}")?.GetImage();
+		if (img == null && prefix != "")
+			img = GD.Load<CompressedTexture2D>($"res://assets/miners/{relative}")?.GetImage();
+		if (img != null) img.Convert(Image.Format.Rgba8);
+		return img;
+	}
+
+	private MinerSourceImages GetVariantSources(int variant)
+	{
+		variant = MinerVariants.Clamp(variant);
+		if (_variantSources.TryGetValue(variant, out var cached)) return cached;
+		var s = new MinerSourceImages();
+		var dir = new[] { "n", "e", "s", "w" };
 		for (int d = 0; d < 4; d++)
 		{
-			var img = GD.Load<CompressedTexture2D>(paths[d])?.GetImage();
-			if (img != null) { img.Convert(Image.Format.Rgba8); srcs[d] = img; }
+			s.Facing[d] = LoadMinerImage(variant, $"miner_{dir[d]}.png");
+			s.Listen[d] = LoadMinerImage(variant, $"listen/{dir[d]}.png");
+			for (int f = 0; f < 4; f++) s.Walk[d, f]  = LoadMinerImage(variant, $"walk/{dir[d]}{f}.png");
+			for (int f = 0; f < 7; f++) s.Mine[d, f]  = LoadMinerImage(variant, $"mine/{dir[d]}{f}.png");
+			for (int f = 0; f < 5; f++) s.Plant[d, f] = LoadMinerImage(variant, $"plant/{dir[d]}{f}.png");
+			for (int f = 0; f < 4; f++) s.Throw[d, f] = LoadMinerImage(variant, $"throw/{dir[d]}{f}.png");
 		}
-		var tex = new Texture2D[PlayerColors.Palette.Length, 4];
-		for (int c = 0; c < PlayerColors.Palette.Length; c++)
-			for (int d = 0; d < 4; d++)
-				if (srcs[d] != null)
-					tex[c, d] = ImageTexture.CreateFromImage(TintMiner(srcs[d]!, PlayerColors.At(c)));
-		return tex;
+		for (int i = 0; i < IdleVariantCount; i++) s.Idle[i] = LoadMinerImage(variant, $"idle/idle{i}.png");
+		_variantSources[variant] = s;
+		return s;
 	}
 
-	private static Texture2D[,]? BuildMinerListenTextures()
+	private MinerTextureSet GetOrBuildSet(int variant, int color)
 	{
-		var dirLetter = new[] { "n", "e", "s", "w" };
-		var srcs = new Image?[4];
-		bool anyLoaded = false;
+		variant = MinerVariants.Clamp(variant);
+		if (_minerSets.TryGetValue((variant, color), out var set)) return set;
+		var src = GetVariantSources(variant);
+		var tint = PlayerColors.At(color);
+		set = new MinerTextureSet();
 		for (int d = 0; d < 4; d++)
 		{
-			string path = $"res://assets/miners/listen/{dirLetter[d]}.png";
-			var img = GD.Load<CompressedTexture2D>(path)?.GetImage();
-			if (img != null) { img.Convert(Image.Format.Rgba8); srcs[d] = img; anyLoaded = true; }
+			if (src.Facing[d] != null) set.Facing[d] = ImageTexture.CreateFromImage(TintMiner(src.Facing[d]!, tint));
+			if (src.Listen[d] != null) set.Listen[d] = ImageTexture.CreateFromImage(TintMiner(src.Listen[d]!, tint));
+			for (int f = 0; f < 4; f++) if (src.Walk[d, f]  != null) set.Walk[d, f]  = ImageTexture.CreateFromImage(TintMiner(src.Walk[d, f]!,  tint));
+			for (int f = 0; f < 7; f++) if (src.Mine[d, f]  != null) set.Mine[d, f]  = ImageTexture.CreateFromImage(TintMiner(src.Mine[d, f]!,  tint));
+			for (int f = 0; f < 5; f++) if (src.Plant[d, f] != null) set.Plant[d, f] = ImageTexture.CreateFromImage(TintMiner(src.Plant[d, f]!, tint));
+			for (int f = 0; f < 4; f++) if (src.Throw[d, f] != null) set.Throw[d, f] = ImageTexture.CreateFromImage(TintMiner(src.Throw[d, f]!, tint));
 		}
-		if (!anyLoaded) return null;
-		var tex = new Texture2D[PlayerColors.Palette.Length, 4];
-		for (int c = 0; c < PlayerColors.Palette.Length; c++)
-			for (int d = 0; d < 4; d++)
-				if (srcs[d] != null)
-					tex[c, d] = ImageTexture.CreateFromImage(TintMiner(srcs[d]!, PlayerColors.At(c)));
-		return tex;
+		for (int i = 0; i < IdleVariantCount; i++) if (src.Idle[i] != null) set.Idle[i] = ImageTexture.CreateFromImage(TintMiner(src.Idle[i]!, tint));
+		_minerSets[(variant, color)] = set;
+		return set;
 	}
 
-	private static Texture2D[,]? BuildMinerIdleTextures()
+	private static int MinerVariantIndex(int minerId)
 	{
-		var srcs = new Image?[IdleVariantCount];
-		bool anyLoaded = false;
-		for (int i = 0; i < IdleVariantCount; i++)
-		{
-			string path = $"res://assets/miners/idle/idle{i}.png";
-			var img = GD.Load<CompressedTexture2D>(path)?.GetImage();
-			if (img != null) { img.Convert(Image.Format.Rgba8); srcs[i] = img; anyLoaded = true; }
-		}
-		if (!anyLoaded) return null;
-		var tex = new Texture2D[PlayerColors.Palette.Length, IdleVariantCount];
-		for (int c = 0; c < PlayerColors.Palette.Length; c++)
-			for (int i = 0; i < IdleVariantCount; i++)
-				if (srcs[i] != null)
-					tex[c, i] = ImageTexture.CreateFromImage(TintMiner(srcs[i]!, PlayerColors.At(c)));
-		return tex;
-	}
-
-	private static Texture2D[,,] BuildMinerWalkTextures()
-	{
-		// direction suffix (N=0,E=1,S=2,W=3) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ folder letter
-		var dirLetter = new[] { "n", "e", "s", "w" };
-		var srcs = new Image?[4, 4]; // [facing, frame]
-		for (int d = 0; d < 4; d++)
-			for (int f = 0; f < 4; f++)
-			{
-				string path = $"res://assets/miners/walk/{dirLetter[d]}{f}.png";
-				var img = GD.Load<CompressedTexture2D>(path)?.GetImage();
-				if (img != null) { img.Convert(Image.Format.Rgba8); srcs[d, f] = img; }
-			}
-		var tex = new Texture2D[PlayerColors.Palette.Length, 4, 4];
-		for (int c = 0; c < PlayerColors.Palette.Length; c++)
-			for (int d = 0; d < 4; d++)
-				for (int f = 0; f < 4; f++)
-					if (srcs[d, f] != null)
-						tex[c, d, f] = ImageTexture.CreateFromImage(TintMiner(srcs[d, f]!, PlayerColors.At(c)));
-		return tex;
-	}
-
-	private static Texture2D[,,] BuildMinerActivityTextures(string folder, int frameCount)
-	{
-		var dirLetter = new[] { "n", "e", "s", "w" };
-		var srcs = new Image?[4, frameCount];
-		for (int d = 0; d < 4; d++)
-			for (int f = 0; f < frameCount; f++)
-			{
-				string path = $"res://assets/miners/{folder}/{dirLetter[d]}{f}.png";
-				var img = GD.Load<CompressedTexture2D>(path)?.GetImage();
-				if (img != null) { img.Convert(Image.Format.Rgba8); srcs[d, f] = img; }
-			}
-		var tex = new Texture2D[PlayerColors.Palette.Length, 4, frameCount];
-		for (int c = 0; c < PlayerColors.Palette.Length; c++)
-			for (int d = 0; d < 4; d++)
-				for (int f = 0; f < frameCount; f++)
-					if (srcs[d, f] != null)
-						tex[c, d, f] = ImageTexture.CreateFromImage(TintMiner(srcs[d, f]!, PlayerColors.At(c)));
-		return tex;
+		var nm = NetworkManager.Instance;
+		int idx = minerId - 1;
+		if (idx >= 0 && idx < nm.PeerOrder.Length &&
+			nm.Players.TryGetValue(nm.PeerOrder[idx], out var info))
+			return MinerVariants.Clamp(info.VariantIndex);
+		return 0;
 	}
 
 	private static Image TintMiner(Image src, Color tint)
