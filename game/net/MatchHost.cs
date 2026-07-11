@@ -50,7 +50,7 @@ public partial class MatchHost : Node
 	private readonly HashSet<int> _humanMinerIds = new();
 
 	// True when deaths draw from the shared life pool with per-miner respawns: any
-	// Expedition run with more than one being in the party — multiple humans, or bots
+	// Expedition run with more than one being in the party Ã¢â‚¬â€ multiple humans, or bots
 	// present. A death (human OR bot) spends one shared life and the being respawns only
 	// while lives remain. Pure solo (one human, no bots) keeps the full-wipe respawn model.
 	private bool UsesPerMinerRespawn =>
@@ -190,6 +190,7 @@ public partial class MatchHost : Node
 
 		var changes = new List<TileChange>();
 		var screeCollapses = new List<ScreeCollapseSnapshot>();
+		var stoneThrows = new List<StoneThrowSnapshot>();
 		foreach (var e in _sim.DrainEvents())
 		{
 			switch (e)
@@ -234,6 +235,12 @@ public partial class MatchHost : Node
 				case LifeRestored:
 					_livesRemaining = Math.Min(_livesRemaining + 1, _livesMax);
 					break;
+				case StoneThrown st:
+				{
+					var from = _sim.GetMiner(st.MinerId).Pos;
+					stoneThrows.Add(new StoneThrowSnapshot(st.MinerId, from.X, from.Y, st.LandingPos.X, st.LandingPos.Y));
+					break;
+				}
 			}
 		}
 
@@ -250,6 +257,8 @@ public partial class MatchHost : Node
 			snapshot = snapshot with { PortalUses = new List<PortalUseSnapshot>(_portalUses) };
 			_portalUses.Clear();
 		}
+		if (stoneThrows.Count > 0)
+			snapshot = snapshot with { Throws = stoneThrows };
 		var update = new TickUpdate(snapshot, changes);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
 	}
@@ -361,7 +370,7 @@ public partial class MatchHost : Node
 					// result.IsOver only fires when alive.Count == 0.
 					// If any respawn timers are still running, keep going.
 					if (_coopRespawnTimers.Count > 0) return;
-					// Otherwise all dead, no pending respawns, no lives → fall through to game over.
+					// Otherwise all dead, no pending respawns, no lives Ã¢â€ â€™ fall through to game over.
 				}
 				else
 				{
@@ -404,7 +413,7 @@ public partial class MatchHost : Node
 		}
 
 		// Detect miners that just died this tick and haven't been processed yet.
-		// Every being — human or bot — draws from the shared life pool; when it is empty,
+		// Every being Ã¢â‚¬â€ human or bot Ã¢â‚¬â€ draws from the shared life pool; when it is empty,
 		// the dead being stays down (no respawn timer scheduled).
 		foreach (var m in _sim.Miners)
 		{
