@@ -967,8 +967,12 @@ public partial class WorldRenderer : Node2D
 		float throwDur = (float)MatchClient.StoneFlightSeconds;
 		foreach (var (from, to, life) in _throws)
 		{
+			// Show the arc if either end is lit: the thrower is (almost) always visible,
+			// so a stone lobbed into the dark still sails out from a seen origin. Culling
+			// on the landing tile alone hid every throw that lands beyond vision range.
+			var fromTile = new GridPos((int)(from.X / ts), (int)(from.Y / ts));
 			var landTile = new GridPos((int)(to.X / ts), (int)(to.Y / ts));
-			if (!_client.Fog.IsVisible(landTile) && !throwSpectating) continue;
+			if (!throwSpectating && !_client.Fog.IsVisible(fromTile) && !_client.Fog.IsVisible(landTile)) continue;
 			float tt   = Mathf.Clamp(life / throwDur, 0f, 1f);
 			var flat   = from.Lerp(to, tt);
 			float hop  = ts * 0.6f * 4f * tt * (1f - tt);
