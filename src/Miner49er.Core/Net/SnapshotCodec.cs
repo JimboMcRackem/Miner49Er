@@ -86,6 +86,10 @@ public static class SnapshotCodec
         foreach (var pu in snap.PortalUses ?? System.Array.Empty<PortalUseSnapshot>())
         { w.Write(pu.X); w.Write(pu.Y); w.Write(pu.ToX); w.Write(pu.ToY); w.Write((int)pu.Kind); }
 
+        w.Write(snap.Throws?.Count ?? 0);
+        foreach (var th in snap.Throws ?? System.Array.Empty<StoneThrowSnapshot>())
+        { w.Write(th.ThrowerId); w.Write(th.FromX); w.Write(th.FromY); w.Write(th.ToX); w.Write(th.ToY); }
+
         w.Write(update.TileChanges.Count);
         foreach (var t in update.TileChanges)
         {
@@ -191,6 +195,13 @@ public static class SnapshotCodec
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
                 (PortalKind)r.ReadInt32()));
 
+        int throwCount = r.ReadInt32();
+        List<StoneThrowSnapshot>? throws = throwCount > 0
+            ? new List<StoneThrowSnapshot>(throwCount) : null;
+        for (int i = 0; i < throwCount; i++)
+            throws!.Add(new StoneThrowSnapshot(
+                r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32()));
+
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
@@ -199,6 +210,6 @@ public static class SnapshotCodec
         return new TickUpdate(new WorldSnapshot(tick, miners, charges, items, molds,
             monsters, secondsRemaining, escapeOpen, octopus, lives, reelCharges,
             treasureProgress, placedChests, tripCharges, ScreeCollapses: screeCollapses,
-            Whistles: whistles, PortalUses: portalUses), changes);
+            Whistles: whistles, PortalUses: portalUses, Throws: throws), changes);
     }
 }

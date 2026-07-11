@@ -41,14 +41,15 @@ public partial class MatchAudio : Node2D
 		_client.ScreeCollapsed += OnScreeCollapsed;
 		_client.Whistled += OnWhistled;
 		_client.Portaled += OnPortaled;
+		_client.StoneTossed += OnStoneTossed;
 		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed));
 		SpawnDrips();
 	}
 
 	public override void _ExitTree()
 	{
-		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; _client.Whistled -= OnWhistled; _client.Portaled -= OnPortaled; }
-		// Don't StopMusic here — the incoming scene (Lobby/MainMenu) always calls PlayMusic
+		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; _client.Whistled -= OnWhistled; _client.Portaled -= OnPortaled; _client.StoneTossed -= OnStoneTossed; }
+		// Don't StopMusic here Ã¢â‚¬â€ the incoming scene (Lobby/MainMenu) always calls PlayMusic
 		// and StopMusic can fire after the new scene's PlayMusic in some Godot orderings.
 		if (_lavaLoop != null && IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree();
 	}
@@ -140,7 +141,7 @@ public partial class MatchAudio : Node2D
 							OneShot(SfxLibrary.Plank, WorldOf(m.X, m.Y));       // laid a plank (hand emptied)
 						// SlowMold -> empty (mold dropped) is covered by the new-patch Squelch below
 					}
-					// Wire snap: Reel → empty with no explosion this frame means the wire pulled too far.
+					// Wire snap: Reel Ã¢â€ â€™ empty with no explosion this frame means the wire pulled too far.
 					if (prevHeld == (int)ItemKind.Reel && m.Held == -1 && !_hadExplosionThisFrame)
 						OneShot(SfxLibrary.ReelSnap, WorldOf(m.X, m.Y));
 				}
@@ -160,7 +161,7 @@ public partial class MatchAudio : Node2D
 			_prevMonsterAlive[mo.Id] = mo.Alive;
 		}
 
-		// Occasional goat bleat — sparse positional ambience from a random living goat.
+		// Occasional goat bleat Ã¢â‚¬â€ sparse positional ambience from a random living goat.
 		_bleatTimer -= delta;
 		if (_bleatTimer <= 0)
 		{
@@ -171,9 +172,9 @@ public partial class MatchAudio : Node2D
 			{
 				var g = goats[_bleatRng.Next(goats.Count)];
 				OneShot(SfxLibrary.GoatBleat, WorldOf(g.x, g.y));
-				_bleatTimer = 4.0 + _bleatRng.NextDouble() * 5.0; // 4–9s between bleats
+				_bleatTimer = 4.0 + _bleatRng.NextDouble() * 5.0; // 4Ã¢â‚¬â€œ9s between bleats
 			}
-			else _bleatTimer = 2.0; // no goats about — re-check shortly
+			else _bleatTimer = 2.0; // no goats about Ã¢â‚¬â€ re-check shortly
 		}
 
 		var localTile = LocalTile();
@@ -283,6 +284,13 @@ public partial class MatchAudio : Node2D
 			OneShot(SfxLibrary.PortalWhoosh, worldPos);
 		}
 
+	private void OnStoneTossed(Vector2 fromWorld, Vector2 toWorld)
+		{
+			OneShot(SfxLibrary.StoneThrow, fromWorld);
+			var timer = GetTree().CreateTimer(MatchClient.StoneFlightSeconds);
+			timer.Timeout += () => OneShot(SfxLibrary.StoneLand, toWorld);
+		}
+
 		private void SpawnDrips()
 	{
 		var grid = _client.Grid;
@@ -306,7 +314,7 @@ public partial class MatchAudio : Node2D
 	private void ScheduleDrip(AudioStreamPlayer2D p, System.Random rng)
 	{
 		if (!IsInstanceValid(p)) return;
-		float delay = 2f + (float)rng.NextDouble() * 5f; // 2–7s between drips
+		float delay = 2f + (float)rng.NextDouble() * 5f; // 2Ã¢â‚¬â€œ7s between drips
 		var timer = GetTree().CreateTimer(delay);
 		timer.Timeout += () =>
 		{
