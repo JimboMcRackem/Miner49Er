@@ -14,6 +14,8 @@ public partial class WorldRenderer : Node2D
 	private readonly List<(GridPos pos, float life)> _flashes = new();
 	private readonly List<(Vector2 center, float maxR, float life)> _rings = new();
 	private readonly List<(GridPos center, int radius, float life)> _rockfallDusts = new();
+	private readonly List<(Vector2 from, Vector2 to, float life)> _throws = new();
+	private readonly List<(Vector2 center, float life)> _stoneImpacts = new();
 
 	private static readonly Color CrackColor     = new Color(0.15f, 0.08f, 0.0f, 0.70f);
 	private static readonly Color LavaVentColor  = new("ff7a2a");
@@ -29,9 +31,9 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color BlastItemColor = new("e08a2f");
 	private static readonly Color ToolboxColor   = new("9a7b4f");
 	private static readonly Color ShimmerColor   = new("f5f0c0");
-	private static readonly Color ScreeColor     = new(1.0f, 0.67f, 0.0f, 1f);  // amber — probabilistic scree
-	private static readonly Color UnstableColor  = new(1.0f, 0.27f, 0.07f, 1f); // light red — certain, radius 1
-	private static readonly Color VolatileColor  = new(1.0f, 0.0f,  0.0f, 1f);  // bright red — certain, radius 2
+	private static readonly Color ScreeColor     = new(1.0f, 0.67f, 0.0f, 1f);  // amber Ã¢â‚¬â€ probabilistic scree
+	private static readonly Color UnstableColor  = new(1.0f, 0.27f, 0.07f, 1f); // light red Ã¢â‚¬â€ certain, radius 1
+	private static readonly Color VolatileColor  = new(1.0f, 0.0f,  0.0f, 1f);  // bright red Ã¢â‚¬â€ certain, radius 2
 	private static readonly Color RockfallDustColor = new(0.55f, 0.45f, 0.35f, 1f);
 	private static readonly Color PlankItemColor = new("c8a060");
 	private static readonly Color MoldItemColor  = new("8fae4f");
@@ -54,7 +56,7 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color DetonatorItemColor = new("ff3355");
 	private const int ListenItemRevealRadius = 6;
 
-	// Cached water draw data — computed once on first draw, valid for map lifetime since water tiles never change.
+	// Cached water draw data Ã¢â‚¬â€ computed once on first draw, valid for map lifetime since water tiles never change.
 	private GridPos[]? _waterTiles;
 	private Vector2[][]? _waterPolys;
 	// Singleton color arrays shared across all shallow / deep tiles to avoid per-frame allocations.
@@ -79,7 +81,7 @@ public partial class WorldRenderer : Node2D
 	private Texture2D?   _portalTex; // colour-coded teleport gate archway (tinted per state)
 	private Texture2D?[] _octopusIdleTex = new Texture2D?[9]; // idle_0..idle_8
 
-	// PixelLab monster sprites — [dir] order: 0=N 1=E 2=S 3=W
+	// PixelLab monster sprites Ã¢â‚¬â€ [dir] order: 0=N 1=E 2=S 3=W
 	private Texture2D?[] _ghostTex = new Texture2D?[4];
 	private Texture2D?[] _slimeTex = new Texture2D?[4];
 	private Texture2D?[] _goatTex  = new Texture2D?[4];
@@ -87,7 +89,7 @@ public partial class WorldRenderer : Node2D
 	private Texture2D?[,] _goatWalkTex  = new Texture2D?[4, 9]; // [dir, frame 0-8]
 	private Texture2D?[,] _slimeWalkTex = new Texture2D?[4, 9]; // [dir, frame 0-8]
 
-	// Zombie miner: miner sprites fully tinted sickly green — no skin/hat preservation.
+	// Zombie miner: miner sprites fully tinted sickly green Ã¢â‚¬â€ no skin/hat preservation.
 	private static readonly Color ZombieColor = new(0.42f, 0.78f, 0.38f);
 	private Texture2D?[]  _zombieIdleTex = new Texture2D?[4];          // [dir]
 	private Texture2D?[,] _zombieWalkTex = new Texture2D?[4, 4];       // [dir, frame]
@@ -293,7 +295,7 @@ public partial class WorldRenderer : Node2D
 		}
 	}
 
-	// Full-replacement tint: every non-transparent pixel becomes luminance × tint.
+	// Full-replacement tint: every non-transparent pixel becomes luminance Ãƒâ€” tint.
 	// Used for monsters (zombie) where we want the whole sprite recoloured.
 	private static Image TintFull(Image src, Color tint)
 	{
@@ -313,6 +315,7 @@ public partial class WorldRenderer : Node2D
 	public void AddExplosionFlash(GridPos pos) => _flashes.Add((pos, 0.4f));
 	public void AddExplosionRing(Vector2 center, float maxR) => _rings.Add((center, maxR, 0.5f));
 	public void AddRockfallDust(GridPos center, int radius) => _rockfallDusts.Add((center, radius, 0.6f));
+	public void AddThrownStone(Vector2 from, Vector2 to) => _throws.Add((from, to, 0f));
 
 	public override void _Process(double delta)
 	{
@@ -337,12 +340,28 @@ public partial class WorldRenderer : Node2D
 			if (d.life <= 0) _rockfallDusts.RemoveAt(i);
 			else _rockfallDusts[i] = d;
 		}
+		float flightDur = (float)MatchClient.StoneFlightSeconds;
+		for (int i = _throws.Count - 1; i >= 0; i--)
+		{
+			var t = _throws[i];
+			t.life += (float)delta;
+			if (t.life >= flightDur) { _stoneImpacts.Add((t.to, 0f)); _throws.RemoveAt(i); }
+			else _throws[i] = t;
+		}
+		const float ImpactDur = 0.45f;
+		for (int i = _stoneImpacts.Count - 1; i >= 0; i--)
+		{
+			var s = _stoneImpacts[i];
+			s.life += (float)delta;
+			if (s.life >= ImpactDur) _stoneImpacts.RemoveAt(i);
+			else _stoneImpacts[i] = s;
+		}
 		QueueRedraw();
 	}
 
 	// Visible tile range in grid coords, derived from the camera's world-space viewport
 	// rect (the active Camera2D drives GetViewport().CanvasTransform). Every full-grid
-	// _Draw pass culls to this so deep/flooded floors (up to ~112x112 ≈ 12k tiles) only
+	// _Draw pass culls to this so deep/flooded floors (up to ~112x112 Ã¢â€°Ë† 12k tiles) only
 	// pay for on-screen tiles each frame instead of redrawing the whole map.
 	private (int minX, int maxX, int minY, int maxY) VisibleTileRange(TileGrid grid, int ts)
 	{
@@ -390,7 +409,7 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
-		// Procedural rough-stone floor — covers the PixelLab floor texture with per-tile brightness
+		// Procedural rough-stone floor Ã¢â‚¬â€ covers the PixelLab floor texture with per-tile brightness
 		// variation and small grain marks, making the floor look like unworked natural stone.
 		foreach (var p in grid.Positions())
 		{
@@ -411,7 +430,7 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
-		// Scattered bone fragments on ~5% of floor tiles — 4 variants, seeded by position.
+		// Scattered bone fragments on ~5% of floor tiles Ã¢â‚¬â€ 4 variants, seeded by position.
 		foreach (var p in grid.Positions())
 		{
 			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue;
@@ -427,7 +446,7 @@ public partial class WorldRenderer : Node2D
 			var perp = new Vector2(-rot.Y, rot.X);
 			switch ((h >> 14) & 0x3u)
 			{
-				case 0: // Single rib — curved elongated bone
+				case 0: // Single rib Ã¢â‚¬â€ curved elongated bone
 				{
 					var a = new Vector2(cx, cy) - rot * 8f;
 					var b = new Vector2(cx, cy) + rot * 8f;
@@ -438,7 +457,7 @@ public partial class WorldRenderer : Node2D
 					DrawCircle(new Vector2(cx, cy) + perp * 2f, 1.2f, col);
 					break;
 				}
-				case 1: // Vertebrae cluster — 3–4 small ovals in a line
+				case 1: // Vertebrae cluster Ã¢â‚¬â€ 3Ã¢â‚¬â€œ4 small ovals in a line
 				{
 					for (int i = -1; i <= 2; i++)
 					{
@@ -448,7 +467,7 @@ public partial class WorldRenderer : Node2D
 					}
 					break;
 				}
-				case 2: // Finger / toe bones — several short parallel bones
+				case 2: // Finger / toe bones Ã¢â‚¬â€ several short parallel bones
 				{
 					for (int i = -1; i <= 1; i++)
 					{
@@ -460,7 +479,7 @@ public partial class WorldRenderer : Node2D
 					}
 					break;
 				}
-				default: // Skull fragment — partial dome with eye socket
+				default: // Skull fragment Ã¢â‚¬â€ partial dome with eye socket
 				{
 					DrawArc(new Vector2(cx, cy), 5f, angle - Mathf.DegToRad(120f),
 					        angle + Mathf.DegToRad(120f), 10, col, 2f);
@@ -492,7 +511,7 @@ public partial class WorldRenderer : Node2D
 				case TileType.CrystalRock:
 				{
 					float cx = p.X * ts + ts * 0.5f, cy = p.Y * ts + ts * 0.5f;
-					// The glow only shows when the crystal is in the local miner's current FOV —
+					// The glow only shows when the crystal is in the local miner's current FOV Ã¢â‚¬â€
 					// an explored-but-unseen crystal would otherwise bleed its bright halo through
 					// the dim fog overlay.
 					if (_client.FogRenderer?.SpectatorMode == true || _client.Fog.IsVisible(p))
@@ -566,8 +585,8 @@ public partial class WorldRenderer : Node2D
 		}
 
 		// Colour-coded teleport gates. A gate only draws once its tile is uncovered Floor.
-		// State: black void until BOTH ends are revealed (partner still buried) — then the
-		// pair goes live, stable gates cycle blue↔green and unstable gates pulse red. The
+		// State: black void until BOTH ends are revealed (partner still buried) Ã¢â‚¬â€ then the
+		// pair goes live, stable gates cycle blueÃ¢â€ â€green and unstable gates pulse red. The
 		// glow is gated on current FOV (like CrystalRock) so it doesn't bleed through fog.
 		foreach (var gate in _client.Portals)
 		{
@@ -596,7 +615,7 @@ public partial class WorldRenderer : Node2D
 			}
 			else
 			{
-				float t = 0.5f + 0.5f * Mathf.Sin(wTime * Mathf.Pi * 2f / 1.5f);   // ~1.5s blue↔green
+				float t = 0.5f + 0.5f * Mathf.Sin(wTime * Mathf.Pi * 2f / 1.5f);   // ~1.5s blueÃ¢â€ â€green
 				glow = new Color(0.1f, 0.6f + 0.3f * t, 0.9f - 0.4f * t);
 			}
 
@@ -605,7 +624,7 @@ public partial class WorldRenderer : Node2D
 			else DrawCircle(new Vector2(pos.X * ts + ts * 0.5f, pos.Y * ts + ts * 0.5f), ts * 0.35f, glow);
 		}
 
-		// Skeletal remains embedded in ~6% of rock walls — seeded, 4 archaeological variants.
+		// Skeletal remains embedded in ~6% of rock walls Ã¢â‚¬â€ seeded, 4 archaeological variants.
 		foreach (var p in grid.Positions())
 		{
 			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue;
@@ -618,7 +637,7 @@ public partial class WorldRenderer : Node2D
 			var col = new Color(0.76f, 0.70f, 0.60f, 0.42f);
 			switch ((h >> 12) & 0x3u)
 			{
-				case 0: // Human — side profile lying horizontally, spine + ribs visible
+				case 0: // Human Ã¢â‚¬â€ side profile lying horizontally, spine + ribs visible
 				{
 					// Skull oval at left
 					DrawArc(new Vector2(cx - 9f, cy), 4f, 0f, Mathf.Tau, 14, col, 1.5f);
@@ -637,7 +656,7 @@ public partial class WorldRenderer : Node2D
 					}
 					break;
 				}
-				case 1: // Dinosaur skull — long snout, teeth, large eye socket, neck vertebrae
+				case 1: // Dinosaur skull Ã¢â‚¬â€ long snout, teeth, large eye socket, neck vertebrae
 				{
 					// Upper skull ridge
 					DrawLine(new Vector2(cx - 11f, cy + 1f), new Vector2(cx + 8f, cy - 5f), col, 1.5f);
@@ -657,7 +676,7 @@ public partial class WorldRenderer : Node2D
 						DrawRect(new Rect2(cx - 12.5f - i * 3f, cy + 1.5f + i * 2f, 2f, 1.8f), col);
 					break;
 				}
-				case 2: // Human — top-down ribcage (burial pit view)
+				case 2: // Human Ã¢â‚¬â€ top-down ribcage (burial pit view)
 				{
 					// Skull above spine
 					DrawArc(new Vector2(cx, cy - 10f), 3f, 0f, Mathf.Tau, 12, col, 1f);
@@ -676,7 +695,7 @@ public partial class WorldRenderer : Node2D
 					}
 					break;
 				}
-				default: // Partial excavation — single large femur + scattered vertebrae
+				default: // Partial excavation Ã¢â‚¬â€ single large femur + scattered vertebrae
 				{
 					// Femur: long bone lying diagonally with rounded epiphyses
 					var fA = new Vector2(cx - 9f, cy - 6f);
@@ -775,7 +794,7 @@ public partial class WorldRenderer : Node2D
 					var font = ThemeDB.FallbackFont;
 					int fontSize = ts * 2 / 3;
 					DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
-						"♥", HorizontalAlignment.Center, -1, fontSize, new Color(1f, 0.15f, 0.15f, 0.95f));
+						"Ã¢â„¢Â¥", HorizontalAlignment.Center, -1, fontSize, new Color(1f, 0.15f, 0.15f, 0.95f));
 				}
 				continue;
 			}
@@ -789,7 +808,7 @@ public partial class WorldRenderer : Node2D
 					int fontSize = ts * 2 / 3;
 					DrawRect(r, new Color(0.9f, 0.75f, 0.1f, 0.9f));
 					DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
-						"★", HorizontalAlignment.Center, -1, fontSize, Colors.Black);
+						"Ã¢Ëœâ€¦", HorizontalAlignment.Center, -1, fontSize, Colors.Black);
 				}
 				continue;
 			}
@@ -803,7 +822,7 @@ public partial class WorldRenderer : Node2D
 					int fontSize = ts * 2 / 3;
 					DrawRect(r, ChestColor);
 					DrawString(font, new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts * 0.65f),
-						"♦", HorizontalAlignment.Center, -1, fontSize, Colors.Black);
+						"Ã¢â„¢Â¦", HorizontalAlignment.Center, -1, fontSize, Colors.Black);
 				}
 				continue;
 			}
@@ -872,7 +891,7 @@ public partial class WorldRenderer : Node2D
 		{
 			float t = (float)Time.GetTicksMsec() / 1000f;
 			float baseA = 0.18f + 0.22f * (0.5f + 0.5f * Mathf.Sin(t * Mathf.Pi * 2f / 0.8f));
-			// Wave expands from closest tile outward over 1 second (stage 3: 2–3s).
+			// Wave expands from closest tile outward over 1 second (stage 3: 2Ã¢â‚¬â€œ3s).
 			float wavePos = Mathf.Clamp(_client.ListenTime - 2.0f, 0f, 1.0f) * ListenItemRevealRadius;
 			foreach (var it in _client.Items)
 			{
@@ -920,28 +939,54 @@ public partial class WorldRenderer : Node2D
 			DrawRect(new Rect2(pos.X * ts, pos.Y * ts, ts, ts), col);
 		}
 
-		// Expanding shockwave ring — grows from 0 to maxR over 0.5 s, fading as it goes.
+		// Expanding shockwave ring Ã¢â‚¬â€ grows from 0 to maxR over 0.5 s, fading as it goes.
 		const float RingDuration = 0.5f;
 		foreach (var (center, maxR, life) in _rings)
 		{
-			float progress = 1f - life / RingDuration;           // 0 → 1
+			float progress = 1f - life / RingDuration;           // 0 Ã¢â€ â€™ 1
 			float radius   = progress * maxR;
 			float alpha    = Mathf.Pow(1f - progress, 0.6f);     // fast fade at edge
 			// Outer bright ring
 			DrawArc(center, radius, 0f, Mathf.Tau, 64,
 				new Color(1f, 0.80f, 0.25f, alpha * 0.85f), 5f);
-			// Inner softer halo — slightly smaller, whiter, thinner
+			// Inner softer halo Ã¢â‚¬â€ slightly smaller, whiter, thinner
 			DrawArc(center, radius * 0.75f, 0f, Mathf.Tau, 48,
 				new Color(1f, 1f, 0.70f, alpha * 0.40f), 3f);
 		}
 
-		// Rockfall dust burst — an earthy circle covering the collapse zone, fading over 0.6 s.
+		// Rockfall dust burst Ã¢â‚¬â€ an earthy circle covering the collapse zone, fading over 0.6 s.
 		const float DustDuration = 0.6f;
 		foreach (var (dcenter, dradius, dlife) in _rockfallDusts)
 		{
 			float alpha = Mathf.Clamp(dlife / DustDuration, 0f, 1f) * 0.45f;
 			var wc = new Vector2(dcenter.X * ts + ts / 2f, dcenter.Y * ts + ts / 2f);
 			DrawCircle(wc, dradius * ts + ts * 0.5f, RockfallDustColor with { A = alpha });
+		}
+		// Thrown stones: a pebble arcing from thrower to landing tile, with a ground shadow.
+		bool throwSpectating = _client.FogRenderer?.SpectatorMode == true;
+		float throwDur = (float)MatchClient.StoneFlightSeconds;
+		foreach (var (from, to, life) in _throws)
+		{
+			var landTile = new GridPos((int)(to.X / ts), (int)(to.Y / ts));
+			if (!_client.Fog.IsVisible(landTile) && !throwSpectating) continue;
+			float tt   = Mathf.Clamp(life / throwDur, 0f, 1f);
+			var flat   = from.Lerp(to, tt);
+			float hop  = ts * 0.6f * 4f * tt * (1f - tt);
+			float shadowR = ts * 0.16f * (1f - 0.5f * (hop / (ts * 0.6f)));
+			DrawCircle(flat, shadowR, new Color(0f, 0f, 0f, 0.28f));
+			DrawCircle(new Vector2(flat.X, flat.Y - hop), ts * 0.13f, new Color(0.62f, 0.60f, 0.56f));
+			DrawCircle(new Vector2(flat.X, flat.Y - hop), ts * 0.13f, new Color(0.30f, 0.28f, 0.26f), false, 1.2f);
+		}
+		// Landing noise ping + dust puff.
+		const float StoneImpactDur = 0.45f;
+		foreach (var (center, life) in _stoneImpacts)
+		{
+			var impTile = new GridPos((int)(center.X / ts), (int)(center.Y / ts));
+			if (!_client.Fog.IsVisible(impTile) && !throwSpectating) continue;
+			float pp = Mathf.Clamp(life / StoneImpactDur, 0f, 1f);
+			float alpha2 = 1f - pp;
+			DrawCircle(center, ts * 0.30f * (1f - pp), new Color(0.55f, 0.50f, 0.42f, alpha2 * 0.35f));
+			DrawArc(center, ts * 0.55f * pp, 0f, Mathf.Tau, 40, new Color(0.9f, 0.9f, 0.85f, alpha2 * 0.6f), 2f);
 		}
 
 		// Lantern light: radial amber glow centered on each active lantern source
@@ -1132,7 +1177,7 @@ public partial class WorldRenderer : Node2D
 				DrawRect(new Rect2(octSnap.X * ts, octSnap.Y * ts, ts, ts), OctopusColor);
 				var font = ThemeDB.FallbackFont;
 				DrawString(font, new Vector2(octSnap.X * ts + ts / 2f, octSnap.Y * ts + ts * 0.65f),
-					"✦", HorizontalAlignment.Center, -1, ts * 2 / 3, Colors.White);
+					"Ã¢Å“Â¦", HorizontalAlignment.Center, -1, ts * 2 / 3, Colors.White);
 			}
 		}
 
@@ -1190,10 +1235,10 @@ public partial class WorldRenderer : Node2D
 						DrawRect(new Rect2(bx, cy + 4, 2.5f, ts - 8), railCol);
 					}
 
-					// Pulsing star — bright gold, signals "go here now".
+					// Pulsing star Ã¢â‚¬â€ bright gold, signals "go here now".
 					var font = ThemeDB.FallbackFont;
 					DrawString(font, new Vector2(cx + ts / 2f, cy - 2f),
-						"★", HorizontalAlignment.Center, -1, ts - 4,
+						"Ã¢Ëœâ€¦", HorizontalAlignment.Center, -1, ts - 4,
 						new Color(1f, 0.92f, 0.2f, 0.70f + 0.30f * pulse));
 				}
 			}
@@ -1213,7 +1258,7 @@ public partial class WorldRenderer : Node2D
 					DrawRect(pcRect, TreasureChestColor);
 					var font = ThemeDB.FallbackFont;
 					DrawString(font, new Vector2(pcCenter.X, pc.Y * ts + ts * 0.68f),
-						"⬆", HorizontalAlignment.Center, -1, ts * 2 / 3, Colors.Black);
+						"Ã¢Â¬â€ ", HorizontalAlignment.Center, -1, ts * 2 / 3, Colors.Black);
 				}
 			}
 
@@ -1237,7 +1282,7 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
-		// Shopkeeper tile — arabian oil lamp sprite
+		// Shopkeeper tile Ã¢â‚¬â€ arabian oil lamp sprite
 		if (_client.ShopPos is GridPos sp && _client.Fog.IsVisible(sp))
 		{
 			float glow = 0.5f + 0.5f * Mathf.Sin((float)Time.GetTicksMsec() * 0.003f);
@@ -1398,7 +1443,7 @@ public partial class WorldRenderer : Node2D
 		_ => Vector2.Zero,
 	};
 
-	// Returns a perpendicular offset 90° clockwise from facing.
+	// Returns a perpendicular offset 90Ã‚Â° clockwise from facing.
 	private static Vector2 PerpendicularOffset(int facing, float scale) => facing switch
 	{
 		0 => new Vector2(scale, 0f),
@@ -1430,7 +1475,7 @@ public partial class WorldRenderer : Node2D
 		_                         => "?",
 	};
 
-	// Three yellow dots orbiting above a stunned miner's/goat's head, rotating at 180°/s.
+	// Three yellow dots orbiting above a stunned miner's/goat's head, rotating at 180Ã‚Â°/s.
 	private void DrawStunStars(Vector2 pos, double t, int ts)
 	{
 		float cx = pos.X;
@@ -1451,21 +1496,21 @@ public partial class WorldRenderer : Node2D
 	}
 
 	// Draws prominent diagonal gold ore veins on a GoldRock tile.
-	// Two veins per tile — direction and offset are deterministic from tile position.
+	// Two veins per tile Ã¢â‚¬â€ direction and offset are deterministic from tile position.
 	private void DrawGoldVeins(int tx, int ty, int ts)
 	{
 		uint h = (uint)(tx * 73856093 ^ ty * 19349663);
 		float x0 = tx * ts, y0 = ty * ts;
 
-		// Primary vein — diagonal, direction and inset randomised per tile
+		// Primary vein Ã¢â‚¬â€ diagonal, direction and inset randomised per tile
 		bool nw2se = (h & 1u) == 0;
-		float inA = 5f + (h >> 2 & 7u);   // 5–12 px inset at start
-		float inB = 5f + (h >> 6 & 7u);   // 5–12 px inset at end
+		float inA = 5f + (h >> 2 & 7u);   // 5Ã¢â‚¬â€œ12 px inset at start
+		float inB = 5f + (h >> 6 & 7u);   // 5Ã¢â‚¬â€œ12 px inset at end
 		var va = nw2se ? new Vector2(x0 + inA, y0 + inA)           : new Vector2(x0 + ts - inA, y0 + inA);
 		var vb = nw2se ? new Vector2(x0 + ts - inB, y0 + ts - inB) : new Vector2(x0 + inB,      y0 + ts - inB);
 		DrawLine(va, vb, new Color(0.90f, 0.72f, 0.04f, 0.55f), 2.0f);
 
-		// Secondary short vein — only drawn on ~60 % of tiles to add variety
+		// Secondary short vein Ã¢â‚¬â€ only drawn on ~60 % of tiles to add variety
 		if ((h >> 10 & 3u) != 0)
 		{
 			float ox = 6f + (h >> 4 & 7u);
