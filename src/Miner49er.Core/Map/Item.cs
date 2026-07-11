@@ -17,6 +17,7 @@ public enum ItemKind
     IdolUrn, IdolLamp, IdolMace, IdolSceptre, IdolGlobe,
     IdolTrophyCup, IdolChalice, IdolCrown, IdolSkull,
     CrystalShard,
+    Stone,      // throwable pickup scattered on the floor; grants 2-3 stones on walk-over
 }
 
 public static class ItemKindExtensions

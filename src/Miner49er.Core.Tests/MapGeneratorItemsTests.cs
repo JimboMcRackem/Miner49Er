@@ -16,9 +16,12 @@ public class MapGeneratorItemsTests
     }
 
     // The buff scatter (auto-apply kinds) is what these tests describe; carried items
-    // (water-plank, slow-mold) are a separate visible-Floor pass appended to Items.
+    // (water-plank, slow-mold), loose stone piles, and chests are separate passes
+    // appended to Items and excluded here.
     private static System.Collections.Generic.List<Item> BuffItems(GeneratedMap map) =>
-        map.Items.Where(it => !it.Kind.IsCarried()).ToList();
+        map.Items.Where(it => !it.Kind.IsCarried()
+                           && it.Kind != ItemKind.Stone
+                           && it.Kind != ItemKind.Chest).ToList();
 
     [Fact]
     public void Total_buff_item_count_scales_with_player_count()

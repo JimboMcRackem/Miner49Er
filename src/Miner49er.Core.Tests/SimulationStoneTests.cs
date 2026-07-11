@@ -66,6 +66,22 @@ public class SimulationStoneTests
         Assert.Equal(2, sim.GetMiner(1).StoneCount);
     }
 
+    // --- pickup from the floor ---
+
+    [Fact]
+    public void Stone_pickup_grants_two_or_three_stones_and_fires_event()
+    {
+        var sim = Sim(new TileGrid(5, 5, TileType.Floor));
+        var pos = new GridPos(2, 2);
+        sim.AddMiner(1, pos);
+        sim.AddItem(new Item(pos, ItemKind.Stone, ItemPlacement.Toolbox));
+
+        sim.Tick(0.01);
+
+        Assert.InRange(sim.GetMiner(1).StoneCount, 2, 3);
+        Assert.Contains(sim.DrainEvents(), e => e is ItemPickedUp ip && ip.Kind == ItemKind.Stone);
+    }
+
     // --- noise source distraction ---
 
     [Fact]

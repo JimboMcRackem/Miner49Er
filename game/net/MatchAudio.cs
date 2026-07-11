@@ -31,6 +31,8 @@ public partial class MatchAudio : Node2D
 	private readonly List<AudioStreamPlayer2D> _dripEmitters = new();
 	private AudioStreamPlayer2D? _lavaLoop;
 	private bool _hadExplosionThisFrame;
+	private readonly System.Random _bleatRng = new();
+	private double _bleatTimer = 3.0;
 
 	public void Begin(MatchClient client)
 	{
@@ -156,6 +158,22 @@ public partial class MatchAudio : Node2D
 			if (prevMonAlive && !mo.Alive)
 				OneShot(MonsterDeathSound(mo.Kind), WorldOf(mo.X, mo.Y));
 			_prevMonsterAlive[mo.Id] = mo.Alive;
+		}
+
+		// Occasional goat bleat — sparse positional ambience from a random living goat.
+		_bleatTimer -= delta;
+		if (_bleatTimer <= 0)
+		{
+			var goats = new List<(int x, int y)>();
+			foreach (var mo in _client.Monsters)
+				if (mo.Alive && mo.Kind == MonsterKind.Goat) goats.Add((mo.X, mo.Y));
+			if (goats.Count > 0)
+			{
+				var g = goats[_bleatRng.Next(goats.Count)];
+				OneShot(SfxLibrary.GoatBleat, WorldOf(g.x, g.y));
+				_bleatTimer = 4.0 + _bleatRng.NextDouble() * 5.0; // 4–9s between bleats
+			}
+			else _bleatTimer = 2.0; // no goats about — re-check shortly
 		}
 
 		var localTile = LocalTile();

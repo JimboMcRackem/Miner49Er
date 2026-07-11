@@ -926,6 +926,18 @@ public sealed class Simulation
         }
     }
 
+    // Rolls chest loot but skips any perm buff the miner has already capped, so a chest
+    // always does something. Falls back to a life restore when every perm buff is maxed.
+    private ItemKind RollUsefulChestLoot(Miner m)
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            var kind = ChestLootTable.Roll(_rng);
+            if (!IsPermBuffMaxed(m, kind)) return kind;
+        }
+        return ItemKind.LifePotion;
+    }
+
     private bool IsPermBuffMaxed(Miner m, ItemKind kind) => kind switch
     {
         ItemKind.SpeedPotion  => m.PermSpeedLevel  >= Config.MaxPermSpeedLevel,
@@ -1089,7 +1101,7 @@ public sealed class Simulation
                 m.PermBlastLevel = Math.Min(m.PermBlastLevel + 1, Config.MaxPermBlastLevel);
                 break;
             case ItemKind.Chest:
-                ApplyBuff(minerId, ChestLootTable.Roll(_rng));
+                ApplyBuff(minerId, RollUsefulChestLoot(m));
                 break;
             case ItemKind.BossChest:
                 if (!EscapeOpen && EscapeTile is not null)
@@ -1100,6 +1112,9 @@ public sealed class Simulation
                 break;
             case ItemKind.LifePotion:
                 _events.Add(new LifeRestored(minerId));
+                break;
+            case ItemKind.Stone:
+                AddStones(minerId, 2 + _rng.Next(2)); // a small pile: 2 or 3
                 break;
         }
     }

@@ -46,6 +46,9 @@ public partial class Main : Node2D
 	// Minimap
 	private MinimapOverlay _minimap = null!;
 
+	// F3 debug stats overlay
+	private StatsOverlay _stats = null!;
+
 	// Co-op Expedition floor-clear choice panel
 	private CanvasLayer? _floorChoicePanel;
 
@@ -219,6 +222,11 @@ public partial class Main : Node2D
 		_minimap = new MinimapOverlay { Name = "MinimapOverlay" };
 		AddChild(_minimap);
 		_minimap.Init(_client);
+
+		// F3 debug stats overlay
+		_stats = new StatsOverlay { Name = "StatsOverlay" };
+		AddChild(_stats);
+		_stats.Init(_client);
 
 		// Pause overlay (Escape menu)
 		_pauseOverlay = BuildPauseOverlay();
@@ -433,6 +441,9 @@ public partial class Main : Node2D
 		if (Input.IsActionJustPressed(InputBindings.Mute))
 			AudioManager.Instance.ToggleMute();
 
+		if (Input.IsActionJustPressed(InputBindings.Stats))
+			_stats.Toggle();
+
 		// Tab scoreboard — show while Tab held, hide when released.
 		bool wantScoreboard = !_pauseShown && Input.IsKeyPressed(Key.Tab);
 		if (wantScoreboard && !_scoreboard.Visible)
@@ -460,7 +471,8 @@ public partial class Main : Node2D
 
 	private static bool IsAnnounceKind(ItemKind k) =>
 		k is ItemKind.SpeedPotion or ItemKind.BiggerBlast or ItemKind.LongerVision
-		  or ItemKind.LifePotion or ItemKind.WaterPlank or ItemKind.Lantern;
+		  or ItemKind.LifePotion or ItemKind.WaterPlank or ItemKind.Lantern or ItemKind.Chest
+		  or ItemKind.Stone;
 
 	private string PickupMessage(ItemKind kind, bool isBlocked) =>
 		(kind, isBlocked) switch
@@ -474,6 +486,8 @@ public partial class Main : Node2D
 			(ItemKind.LifePotion,   false) => "Life Restored!",
 			(ItemKind.WaterPlank,   false) => "Water Plank — place it across deep water.",
 			(ItemKind.Lantern,      false) => "Lantern — drop it to light the area.",
+			(ItemKind.Chest,        false) => "Opened a chest!",
+			(ItemKind.Stone,        false) => "Picked up stones — throw to distract.",
 			_ => "",
 		};
 
@@ -502,7 +516,8 @@ public partial class Main : Node2D
 					SetAnnouncement(PickupMessage(ItemKind.WaterPlank, false));
 				else if (prev.Kind == ItemKind.Lantern && _tutorialShown.Add(ItemKind.Lantern))
 					SetAnnouncement(PickupMessage(ItemKind.Lantern, false));
-				else if (IsPermBuff(prev.Kind) || prev.Kind == ItemKind.LifePotion)
+				else if (IsPermBuff(prev.Kind) || prev.Kind == ItemKind.LifePotion
+					  || prev.Kind == ItemKind.Chest || prev.Kind == ItemKind.Stone)
 					SetAnnouncement(PickupMessage(prev.Kind, false));
 			}
 		}
