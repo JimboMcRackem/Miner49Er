@@ -14,6 +14,7 @@ public struct PlayerInfo
 {
 	public string Name;
 	public int ColorIndex;
+	public int VariantIndex;
 	public bool Ready;
 }
 
@@ -40,6 +41,7 @@ public partial class NetworkManager : Node
 
 	private string _pendingName = "Miner";
 	private int _pendingColor;
+	private int _pendingVariant;
 
 	// Bot management (host-only) ────────────────────────────────────────────
 	private long _nextBotFakeId = -1001;
@@ -62,7 +64,7 @@ public partial class NetworkManager : Node
 		Multiplayer.ServerDisconnected += OnServerDisconnected;
 	}
 
-	public Error HostGame(string playerName, int colorIndex, bool overInternet = false, int port = DefaultPort)
+	public Error HostGame(string playerName, int colorIndex, bool overInternet = false, int port = DefaultPort, int variantIndex = 0)
 	{
 		ResetPeer(); // free the port if a prior session's peer is still bound (e.g. replaying solo)
 		var peer = new ENetMultiplayerPeer();
@@ -73,7 +75,7 @@ public partial class NetworkManager : Node
 		_botSkills.Clear();
 		_nextBotFakeId = -1001;
 		Players.Clear();
-		Players[LocalId] = new PlayerInfo { Name = playerName, ColorIndex = colorIndex, Ready = false };
+		Players[LocalId] = new PlayerInfo { Name = playerName, ColorIndex = colorIndex, VariantIndex = variantIndex, Ready = false };
 		LobbyChanged?.Invoke();
 
 		if (overInternet)
@@ -103,7 +105,7 @@ public partial class NetworkManager : Node
 		InternetStatusChanged?.Invoke();
 	}
 
-	public Error JoinGame(string address, string playerName, int colorIndex, int port = DefaultPort)
+	public Error JoinGame(string address, string playerName, int colorIndex, int port = DefaultPort, int variantIndex = 0)
 	{
 		ResetPeer(); // drop any prior session's peer before connecting fresh
 		var peer = new ENetMultiplayerPeer();
@@ -113,16 +115,17 @@ public partial class NetworkManager : Node
 		IsHost = false;
 		_pendingName = playerName;
 		_pendingColor = colorIndex;
+		_pendingVariant = variantIndex;
 		return Error.Ok;
 	}
 
 	// Accepts either a share code or a raw address[:port]. Codes decode to ip+port;
 	// anything else is treated as a direct address with an optional :port suffix.
-	public Error JoinByCode(string input, string playerName, int colorIndex)
+	public Error JoinByCode(string input, string playerName, int colorIndex, int variantIndex = 0)
 	{
 		var trimmed = (input ?? "").Trim();
 		if (Miner49er.Core.Net.ConnectCode.TryDecode(trimmed, out var ip, out var port))
-			return JoinGame(new IPAddress(ip).ToString(), playerName, colorIndex, port);
+			return JoinGame(new IPAddress(ip).ToString(), playerName, colorIndex, port, variantIndex);
 
 		int p = DefaultPort;
 		int idx = trimmed.LastIndexOf(':');
@@ -131,7 +134,7 @@ public partial class NetworkManager : Node
 			p = parsed;
 			trimmed = trimmed[..idx];
 		}
-		return JoinGame(trimmed, playerName, colorIndex, p);
+		return JoinGame(trimmed, playerName, colorIndex, p, variantIndex);
 	}
 
 	public void Leave()
@@ -172,18 +175,18 @@ public partial class NetworkManager : Node
 
 	private void OnConnectedToServer()
 	{
-		RpcId(1, nameof(SubmitPlayerInfo), _pendingName, _pendingColor);
+		RpcId(1, nameof(SubmitPlayerInfo), _pendingName, _pendingColor, _pendingVariant);
 	}
 
 	private void OnConnectionFailed() { Multiplayer.MultiplayerPeer = null; JoinFailed?.Invoke(); }
 	private void OnServerDisconnected() { Multiplayer.MultiplayerPeer = null; Players.Clear(); Disconnected?.Invoke(); }
 
 	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
-	public void SubmitPlayerInfo(string name, int colorIndex)
+	public void SubmitPlayerInfo(string name, int colorIndex, int variantIndex)
 	{
 		if (!IsHost) return;
 		long sender = Multiplayer.GetRemoteSenderId();
-		Players[sender] = new PlayerInfo { Name = name, ColorIndex = colorIndex, Ready = false };
+		Players[sender] = new PlayerInfo { Name = name, ColorIndex = colorIndex, VariantIndex = variantIndex, Ready = false };
 		BroadcastLobby();
 	}
 
@@ -218,10 +221,12 @@ public partial class NetworkManager : Node
 		if (!IsHost || Players.Count >= 8) return;
 		long fakeId = _nextBotFakeId--;
 		string name = $"{PickBotName()} ({BotSkillDisplayName(skill)})";
-		Players[fakeId] = new PlayerInfo { Name = name, ColorIndex = PickBotColor(), Ready = true };
+		Players[fakeId] = new PlayerInfo { Name = name, ColorIndex = PickBotColor(), VariantIndex = PickBotVariant(), Ready = true };
 		_botSkills[fakeId] = skill;
 		BroadcastLobby();
 	}
+
+	private int PickBotVariant() => (int)(GD.Randi() % (uint)MinerVariants.Count);
 
 	public void RemoveBot(long fakePeerId)
 	{
@@ -284,22 +289,30 @@ public partial class NetworkManager : Node
 		var ids = new long[Players.Count];
 		var names = new string[Players.Count];
 		var colors = new int[Players.Count];
+		var variants = new int[Players.Count];
 		var readys = new int[Players.Count]; // bool[] is not a Godot Variant; use int (0/1) instead
 		int i = 0;
 		foreach (var (id, info) in Players)
 		{
-			ids[i] = id; names[i] = info.Name; colors[i] = info.ColorIndex; readys[i] = info.Ready ? 1 : 0; i++;
+			ids[i] = id; names[i] = info.Name; colors[i] = info.ColorIndex;
+			variants[i] = info.VariantIndex; readys[i] = info.Ready ? 1 : 0; i++;
 		}
-		Rpc(nameof(ReceiveLobby), ids, names, colors, readys);
-		ReceiveLobby(ids, names, colors, readys); // apply locally on host too
+		Rpc(nameof(ReceiveLobby), ids, names, colors, variants, readys);
+		ReceiveLobby(ids, names, colors, variants, readys); // apply locally on host too
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority)]
-	public void ReceiveLobby(long[] ids, string[] names, int[] colors, int[] readys)
+	public void ReceiveLobby(long[] ids, string[] names, int[] colors, int[] variants, int[] readys)
 	{
 		Players.Clear();
 		for (int i = 0; i < ids.Length; i++)
-			Players[ids[i]] = new PlayerInfo { Name = names[i], ColorIndex = colors[i], Ready = readys[i] != 0 };
+			Players[ids[i]] = new PlayerInfo
+			{
+				Name = names[i],
+				ColorIndex = colors[i],
+				VariantIndex = variants != null && i < variants.Length ? variants[i] : 0,
+				Ready = readys[i] != 0,
+			};
 		LobbyChanged?.Invoke();
 	}
 
