@@ -75,11 +75,12 @@ public partial class MatchClient : Node2D
 	private Node2D _camera = null!;
 	private Camera2D _cam = null!;
 	private Texture2D[,]?  _minerTex;       // [colorIndex 0-7, facing 0=N 1=E 2=S 3=W]
-	private Texture2D[,]?  _minerListenTex; // [colorIndex, facing] Ã¢â‚¬â€ null if sprites not yet placed
+	private Texture2D[,]?  _minerListenTex; // [colorIndex, facing] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â null if sprites not yet placed
 	private Texture2D[,]?  _minerIdleTex;   // [colorIndex, idleIdx] south-facing only; null until art placed
 	private Texture2D[,,]? _minerWalkTex;  // [colorIndex, facing, frame 0-3]
 	private Texture2D[,,]? _minerMineTex;  // [colorIndex, facing, frame 0-6]
 	private Texture2D[,,]? _minerPlantTex; // [colorIndex, facing, frame 0-4]
+	private Texture2D[,,]? _minerThrowTex; // [colorIndex, facing, frame 0-3]
 	private readonly Dictionary<int, (int X, int Y)> _lastMinerPos = new();
 	private readonly Dictionary<int, double> _walkUntil = new();
 	private readonly Dictionary<int, double> _throwUntil = new();
@@ -135,6 +136,7 @@ public partial class MatchClient : Node2D
 		_minerWalkTex   = BuildMinerWalkTextures();
 		_minerMineTex   = BuildMinerActivityTextures("mine",  7);
 		_minerPlantTex  = BuildMinerActivityTextures("plant", 5);
+		_minerThrowTex  = BuildMinerActivityTextures("throw", 4);
 
 		_camera = new Node2D { Name = "CameraRig" };
 		sceneRoot.AddChild(_camera);
@@ -304,7 +306,7 @@ public partial class MatchClient : Node2D
 		// Re-assert our camera after a scene swap: the previous scene's camera
 		// teardown can clobber this one's MakeCurrent() (a Godot _Ready ordering
 		// race), leaving the rig tracking the miner while the viewport stays at
-		// world origin Ã¢â‚¬â€ the symptom is a tracked-but-unseen miner and a fixed
+		// world origin ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the symptom is a tracked-but-unseen miner and a fixed
 		// offset view. Cheap to check every frame and self-heals immediately.
 		if (_cam != null && !_cam.IsCurrent())
 			_cam.MakeCurrent();
@@ -320,7 +322,7 @@ public partial class MatchClient : Node2D
 
 			bool hadLast = _lastMinerPos.TryGetValue(m.Id, out var last);
 			// A single-tile step is a walk; a non-adjacent jump (respawn teleport, floor
-			// warp) must NOT slide/animate across the map Ã¢â‚¬â€ snap straight to the destination.
+			// warp) must NOT slide/animate across the map ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â snap straight to the destination.
 			bool teleported = hadLast && Mathf.Max(Mathf.Abs(last.X - m.X), Mathf.Abs(last.Y - m.Y)) > 1;
 
 			if (teleported)
@@ -386,7 +388,7 @@ public partial class MatchClient : Node2D
 		// Camera and fog: follow local miner when alive; reveal full map when dead.
 		if (!foundLocal)
 		{
-			// No snapshot yet Ã¢â‚¬â€ leave camera where it is.
+			// No snapshot yet ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â leave camera where it is.
 		}
 		else if (localAlive && _cam != null)
 		{
@@ -396,7 +398,7 @@ public partial class MatchClient : Node2D
 		}
 		else if (_cam != null && NetworkManager.Instance.MatchMode != GameMode.Expedition)
 		{
-			// Dead Ã¢â‚¬â€ ease to a browsable zoom; camera stays near death position.
+			// Dead ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ease to a browsable zoom; camera stays near death position.
 			// Expedition uses its own black-fade overlay and respawns the miner, so we leave it alone.
 			_cam.Zoom = _cam.Zoom.Lerp(new Vector2(2.0f, 2.0f), Mathf.Min(1f, (float)delta * 2.5f));
 			if (_fogRenderer != null) _fogRenderer.SpectatorMode = true;
@@ -445,7 +447,14 @@ public partial class MatchClient : Node2D
 
 			double drawNow = Time.GetTicksMsec() / 1000.0;
 			Texture2D? tex;
-			if (m.Activity == 1 && m.ActivityRemaining > 0 && _minerMineTex != null)
+			bool throwing = _throwUntil.TryGetValue(m.Id, out double throwEnd) && drawNow < throwEnd && _minerThrowTex != null;
+			if (throwing)
+			{
+				double telapsed = MatchClient.StoneFlightSeconds - (throwEnd - drawNow);
+				int frame = Mathf.Clamp((int)(telapsed / MatchClient.StoneFlightSeconds * 4), 0, 3);
+				tex = _minerThrowTex![colorIdx, facing, frame];
+			}
+			else if (m.Activity == 1 && m.ActivityRemaining > 0 && _minerMineTex != null)
 			{
 				// Mining: loop 6 animated frames (1-6) at 6 fps
 				int frame = (int)(drawNow * 6 % 6) + 1;
@@ -566,7 +575,7 @@ public partial class MatchClient : Node2D
 
 	private static Texture2D[,,] BuildMinerWalkTextures()
 	{
-		// direction suffix (N=0,E=1,S=2,W=3) Ã¢â€ â€™ folder letter
+		// direction suffix (N=0,E=1,S=2,W=3) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ folder letter
 		var dirLetter = new[] { "n", "e", "s", "w" };
 		var srcs = new Image?[4, 4]; // [facing, frame]
 		for (int d = 0; d < 4; d++)
@@ -632,7 +641,7 @@ public partial class MatchClient : Node2D
 			var visible = Visibility.Compute(Grid, new GridPos(m.X, m.Y), m.VisionRadius);
 
 			// Crystal walls light their surroundings only once the player can actually see the
-			// crystal Ã¢â‚¬â€ i.e. it lies within their own line-of-sight vision. This makes a crystal an
+			// crystal ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â i.e. it lies within their own line-of-sight vision. This makes a crystal an
 			// "encountered in your FOV" light source, not a global map reveal. Per-crystal lit sets
 			// are precomputed once per floor (invalidated when a crystal is mined) so only the
 			// cheap Contains check runs per tick.
