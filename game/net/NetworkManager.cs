@@ -33,6 +33,8 @@ public partial class NetworkManager : Node
 	private int _internetPort = DefaultPort;
 	public InternetStatus Status { get; private set; } = InternetStatus.Off;
 	public string? HostCode { get; private set; }
+	// When Status == Failed, a one-line diagnostic explaining which UPnP step failed.
+	public string InternetFailHint { get; private set; } = "";
 	public event Action? InternetStatusChanged;
 
 	public event Action? LobbyChanged;
@@ -92,26 +94,38 @@ public partial class NetworkManager : Node
 			Status = InternetStatus.Discovering;
 			HostCode = null;
 			InternetStatusChanged?.Invoke();
-			_upnp.Open(port, (ok, ip) =>
-				Callable.From(() => OnUpnpComplete(ok, ip)).CallDeferred());   // back to main thread
+			_upnp.Open(port, (ok, ip, reason) =>
+				Callable.From(() => OnUpnpComplete(ok, ip, reason)).CallDeferred());   // back to main thread
 		}
 		return Error.Ok;
 	}
 
-	private void OnUpnpComplete(bool ok, string ip)
+	private void OnUpnpComplete(bool ok, string ip, UpnpFailure reason)
 	{
 		if (ok && IPAddress.TryParse(ip, out var addr))
 		{
 			HostCode = Miner49er.Core.Net.ConnectCode.Encode(addr.GetAddressBytes(), (ushort)_internetPort);
 			Status = InternetStatus.Mapped;
+			InternetFailHint = "";
 		}
 		else
 		{
 			HostCode = null;
 			Status = InternetStatus.Failed;
+			InternetFailHint = UpnpFailHint(reason);
 		}
 		InternetStatusChanged?.Invoke();
 	}
+
+	// One-line, player-facing explanation of a UPnP failure, tuned to the step that
+	// failed: router-fixable causes vs. CGNAT (which no port setting can fix).
+	private static string UpnpFailHint(UpnpFailure reason) => reason switch
+	{
+		UpnpFailure.NoGateway    => $"No UPnP gateway — enable UPnP on your router, or forward UDP {DefaultPort}.",
+		UpnpFailure.MappingRefused => $"Router refused the mapping — check UPnP is on / no conflict, or forward UDP {DefaultPort}.",
+		UpnpFailure.NoPublicIPv4 => "No public IPv4 (CGNAT or IPv6-only) — forwarding won't help; use a VPN relay.",
+		_                        => $"UPnP error — forward UDP {DefaultPort} for internet play.",
+	};
 
 	public Error JoinGame(string address, string playerName, int colorIndex, int port = DefaultPort, int variantIndex = 0)
 	{

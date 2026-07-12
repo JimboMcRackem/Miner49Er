@@ -184,7 +184,7 @@ public partial class Lobby : Control
 			Text = "",
 			Visible = false,
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
-			CustomMinimumSize = new Vector2(240, 66),
+			CustomMinimumSize = new Vector2(240, 92), // reserve for the longest UPnP-failure hint (~4 lines) so buttons don't shift
 		};
 		rightCol.AddChild(_codeLabel);
 
@@ -345,6 +345,7 @@ public partial class Lobby : Control
 				{
 					Text = $"{info.Name}  [{MinerVariants.Names[MinerVariants.Clamp(info.VariantIndex)]}]  [READY]",
 					SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+					ClipText = true, // never let a long name/variant widen the column (layout jump)
 				};
 				lbl.AddThemeColorOverride("font_color", PlayerColors.At(info.ColorIndex));
 				row.AddChild(lbl);
@@ -359,6 +360,7 @@ public partial class Lobby : Control
 				var row = new Label
 				{
 					Text = $"{info.Name}  [{MinerVariants.Names[MinerVariants.Clamp(info.VariantIndex)]}]  {(info.Ready ? "[READY]" : "[...]")}",
+					ClipText = true, // keep the column a fixed width so the layout doesn't jump
 				};
 				row.AddThemeColorOverride("font_color", PlayerColors.At(info.ColorIndex));
 				_list.AddChild(row);
@@ -393,7 +395,7 @@ public partial class Lobby : Control
 				break;
 			case InternetStatus.Failed:
 				_codeLabel.Visible = true;
-				_codeLabel.Text = $"{lanLine}\nUPnP failed — forward port {NetworkManager.DefaultPort} for internet play.";
+				_codeLabel.Text = $"{lanLine}\n{nm.InternetFailHint}";
 				_copyBtn.Visible = false;
 				break;
 			default: // Off — LAN host
