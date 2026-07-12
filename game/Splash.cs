@@ -2,44 +2,27 @@ using Godot;
 
 namespace Miner49er;
 
+// One-time bootstrap: applies saved display settings and window placement, then hands
+// straight off to the main menu. No dwell or title text — the engine boot-splash image
+// is the only splash the player sees, and we jump from it to the application.
 public partial class Splash : Control
 {
-	[Export] public float DwellSeconds = 1.5f;
-	private double _elapsed;
-	private bool _advancing;
-
 	public override void _Ready()
 	{
 		var (fs, vs, ww, wh) = SettingsStore.LoadDisplay();
 		DisplayServer.WindowSetMode(fs ? DisplayServer.WindowMode.Fullscreen : DisplayServer.WindowMode.Windowed);
 		DisplayServer.WindowSetVsyncMode(vs ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
-		if (!fs && ww > 0 && wh > 0)
-			DisplayServer.WindowSetSize(new Vector2I(ww, wh));
+		if (!fs)
+		{
+			if (ww > 0 && wh > 0)
+				DisplayServer.WindowSetSize(new Vector2I(ww, wh));
+			// Reopen where the window was last closed; on first launch there's no saved
+			// position, so leave it at the centered default (initial_position_type=1).
+			var (has, x, y) = SettingsStore.LoadWindowPosition();
+			if (has)
+				DisplayServer.WindowSetPosition(new Vector2I(x, y));
+		}
 
-		var center = new CenterContainer();
-		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		AddChild(center);
-
-		var title = new Label { Text = "MINER 49ER" };
-		title.AddThemeFontSizeOverride("font_size", 64);
-		center.AddChild(title);
-	}
-
-	public override void _Process(double delta)
-	{
-		_elapsed += delta;
-		if (_elapsed >= DwellSeconds) Advance();
-	}
-
-	public override void _UnhandledInput(InputEvent @event)
-	{
-		if (@event.IsPressed()) Advance();
-	}
-
-	private void Advance()
-	{
-		if (_advancing) return;
-		_advancing = true;
 		GetTree().ChangeSceneToFile("res://game/ui/MainMenu.tscn");
 	}
 }

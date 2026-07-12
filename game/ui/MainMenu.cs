@@ -327,6 +327,7 @@ public partial class MainMenu : Control
 		if (_creditsPanel.IsOpen)   { _creditsPanel.Close();   return; }
 		if (_soloPanel.Visible)     { ShowPanel(_modePanel);   return; }
 		if (_multiPanel.Visible)    { _status.Text = ""; ShowPanel(_modePanel); return; }
+		SettingsStore.SaveWindowGeometry();
 		GetTree().Quit();
 	}
 

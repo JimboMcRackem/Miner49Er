@@ -54,6 +54,14 @@ public partial class NetworkManager : Node
 
 	public override void _EnterTree() => Instance = this;
 
+	// Save window placement when the player closes the window (X / Alt+F4) so the app
+	// reopens where it was. In-app quit paths call SaveWindowGeometry() directly.
+	public override void _Notification(int what)
+	{
+		if (what == NotificationWMCloseRequest)
+			SettingsStore.SaveWindowGeometry();
+	}
+
 	public override void _Ready()
 	{
 		InputBindings.EnsureDefaults(); // register actions app-wide (menu/lobby/match), incl. Exit

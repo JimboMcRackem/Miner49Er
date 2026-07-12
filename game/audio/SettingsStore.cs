@@ -83,6 +83,35 @@ public static class SettingsStore
 		cfg.Save(Path);
 	}
 
+	// Returns the last-saved window position, or has=false when none is stored yet
+	// (first launch) so the caller can leave the window at its centered default.
+	public static (bool has, int x, int y) LoadWindowPosition()
+	{
+		var cfg = new ConfigFile();
+		if (cfg.Load(Path) != Error.Ok) return (false, 0, 0);
+		if (!cfg.HasSectionKey(DisplaySection, "window_x") || !cfg.HasSectionKey(DisplaySection, "window_y"))
+			return (false, 0, 0);
+		int x = (int)(long)cfg.GetValue(DisplaySection, "window_x", 0L);
+		int y = (int)(long)cfg.GetValue(DisplaySection, "window_y", 0L);
+		return (true, x, y);
+	}
+
+	// Persists the current window position + size so the app reopens where it was left.
+	// No-op in fullscreen (position/size aren't meaningful there).
+	public static void SaveWindowGeometry()
+	{
+		if (DisplayServer.WindowGetMode() != DisplayServer.WindowMode.Windowed) return;
+		var pos  = DisplayServer.WindowGetPosition();
+		var size = DisplayServer.WindowGetSize();
+		var cfg = new ConfigFile();
+		cfg.Load(Path);
+		cfg.SetValue(DisplaySection, "window_x",      (long)pos.X);
+		cfg.SetValue(DisplaySection, "window_y",      (long)pos.Y);
+		cfg.SetValue(DisplaySection, "window_width",  (long)size.X);
+		cfg.SetValue(DisplaySection, "window_height", (long)size.Y);
+		cfg.Save(Path);
+	}
+
 	// ── Player identity (name, color, last address, internet toggle) ──────────
 
 	private const string PlayerSection = "player";

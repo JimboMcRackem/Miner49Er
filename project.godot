@@ -13,6 +13,9 @@ config_version=5
 config/name="Miner49er"
 run/main_scene="res://game/Splash.tscn"
 config/features=PackedStringArray("4.6", "C#", "Forward Plus")
+boot_splash/image="uid://bkyrivb0bnb4x"
+config/icon="uid://dnk45jf5rhe6q"
+boot_splash/minimum_display_time=1500
 
 [autoload]
 
@@ -23,6 +26,7 @@ AudioManager="*res://game/audio/AudioManager.cs"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
+window/size/initial_position_type=1
 
 [dotnet]
 
