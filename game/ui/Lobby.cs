@@ -18,6 +18,7 @@ public partial class Lobby : Control
 	private CheckBox _pitsCheck = null!;
 	private CheckBox _caveInCheck = null!;
 	private CheckBox _lavaCheck = null!;
+	private CheckBox _prizeCheck = null!;
 	private OptionButton _explosivePicker = null!;
 	private OptionButton _speedPicker = null!;
 	private OptionButton _explosionSizePicker = null!;
@@ -47,7 +48,7 @@ public partial class Lobby : Control
 		leftCol.AddThemeConstantOverride("separation", 14);
 		columns.AddChild(leftCol);
 
-		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor, savedBlast, savedVision) = SettingsStore.LoadLobby();
+		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor, savedBlast, savedVision, savedPrize) = SettingsStore.LoadLobby();
 
 		_modePicker = new OptionButton();
 		_modePicker.AddItem("Last Man Standing",  (int)GameMode.LastManStanding);
@@ -118,6 +119,10 @@ public partial class Lobby : Control
 		_lavaCheck = new CheckBox { Text = "Lava", ButtonPressed = savedLava };
 		_lavaCheck.Visible = NetworkManager.Instance.IsHost;
 		leftCol.AddChild(_lavaCheck);
+
+		_prizeCheck = new CheckBox { Text = "Prize Events", ButtonPressed = savedPrize };
+		_prizeCheck.Visible = NetworkManager.Instance.IsHost;
+		leftCol.AddChild(_prizeCheck);
 
 		_explosivePicker = new OptionButton();
 		_explosivePicker.AddItem("Dynamite",           (int)ExplosiveMode.Dynamite);
@@ -228,7 +233,8 @@ public partial class Lobby : Control
 			int visionRadius = _visionPicker.GetSelectedId();
 			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), timeLimit,
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
-				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive, startFloor, blastRadius, visionRadius);
+				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive, startFloor, blastRadius, visionRadius,
+				_prizeCheck.ButtonPressed);
 			NetworkManager.Instance.StartMatch(
 				(GameMode)_modePicker.GetSelectedId(),
 				timeLimit,
@@ -241,7 +247,8 @@ public partial class Lobby : Control
 				(ExplosiveMode)explosive,
 				startFloor,
 				blastRadius,
-				visionRadius);
+				visionRadius,
+				_prizeCheck.ButtonPressed);
 		};
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		rightCol.AddChild(_startBtn);
@@ -287,6 +294,8 @@ public partial class Lobby : Control
 		_mapSizePicker.Visible     = isHost;
 		_startFloorPicker.Visible  = isHost && expedition;
 		_explosivePicker.Visible   = isHost && normalMode;
+		_prizeCheck.Visible        = isHost && !expedition; // competitive only
+
 		_modeDesc.Text = ModeDescription(_modePicker.GetSelectedId());
 	}
 

@@ -351,6 +351,8 @@ public partial class NetworkManager : Node
 	public bool MatchPits { get; private set; }
 	public bool MatchCaveIns { get; private set; }
 	public bool MatchLava { get; private set; }
+	// Host-only (only the host runs the sim): whether global prize events are on this match.
+	public bool MatchPrizeEvents { get; private set; }
 	public ExplosiveMode MatchExplosive { get; private set; }
 	public int MatchBlastRadius { get; private set; } = 1;   // host-set explosion size (rock + kill radius)
 	public int MatchVisionRadius { get; private set; } = 5;  // host-set base fog radius
@@ -399,9 +401,11 @@ public partial class NetworkManager : Node
 		_matchClient = client;
 	}
 
-	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1, int blastRadius = 1, int visionRadius = 5)
+	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1, int blastRadius = 1, int visionRadius = 5, bool prizeEvents = false)
 	{
 		if (!IsHost) return;
+		// Host-only: the sim runs on the host, so this never needs to travel in the BeginMatch RPC.
+		MatchPrizeEvents = prizeEvents && mode != GameMode.Expedition;
 		if (flooding && timeLimitSeconds <= 0) timeLimitSeconds = 60; // a flooded match needs a clock
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
 		int seed = System.Random.Shared.Next();

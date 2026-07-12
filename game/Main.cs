@@ -129,6 +129,8 @@ public partial class Main : Node2D
 				BlastRockRadius = nm.MatchBlastRadius,
 				BlastKillRadius = nm.MatchBlastRadius,
 				VisionRadius    = nm.MatchVisionRadius,
+				Mode            = nm.MatchMode,
+				PrizeEventsEnabled = nm.MatchPrizeEvents && nm.MatchMode != GameMode.Expedition,
 			};
 			if (nm.MatchMode == GameMode.DemolitionDerby)
 			{
