@@ -373,6 +373,15 @@ public partial class WorldRenderer : Node2D
 		return (minTx, maxTx, minTy, maxTy);
 	}
 
+	// Iterate only the on-screen tile rectangle. Avoids walking the whole grid
+	// (up to ~12k tiles) every frame just to skip off-screen tiles in _Draw.
+	private static System.Collections.Generic.IEnumerable<GridPos> VisibleTiles(int vx0, int vx1, int vy0, int vy1)
+	{
+		for (int y = vy0; y <= vy1; y++)
+			for (int x = vx0; x <= vx1; x++)
+				yield return new GridPos(x, y);
+	}
+
 	public override void _Draw()
 	{
 		if (_client == null) return;
@@ -411,9 +420,8 @@ public partial class WorldRenderer : Node2D
 
 		// Procedural rough-stone floor Ã¢â‚¬â€ covers the PixelLab floor texture with per-tile brightness
 		// variation and small grain marks, making the floor look like unworked natural stone.
-		foreach (var p in grid.Positions())
+		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
 		{
-			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue;
 			var t = grid.Get(p);
 			if (t != TileType.Floor && t != TileType.Cracked && t != TileType.Crumbling) continue;
 			float x0 = p.X * ts, y0 = p.Y * ts;
@@ -431,9 +439,8 @@ public partial class WorldRenderer : Node2D
 		}
 
 		// Scattered bone fragments on ~5% of floor tiles Ã¢â‚¬â€ 4 variants, seeded by position.
-		foreach (var p in grid.Positions())
+		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
 		{
-			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue;
 			if (grid.Get(p) != TileType.Floor) continue;
 			uint h = (uint)(p.X * 3266489917u ^ p.Y * 2246822519u ^ 0xBEEFu);
 			if ((h & 0x13u) != 1u) continue; // ~5% of floor tiles
@@ -490,9 +497,8 @@ public partial class WorldRenderer : Node2D
 		}
 
 		// Single-pass tile overlays on top of TerrainMap (FogRenderer at ZIndex -5 covers these naturally).
-		foreach (var p in grid.Positions())
+		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
 		{
-			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue;
 			var r = new Rect2(p.X * ts, p.Y * ts, ts, ts);
 			switch (grid.Get(p))
 			{
@@ -625,9 +631,8 @@ public partial class WorldRenderer : Node2D
 		}
 
 		// Skeletal remains embedded in ~6% of rock walls Ã¢â‚¬â€ seeded, 4 archaeological variants.
-		foreach (var p in grid.Positions())
+		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
 		{
-			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue;
 			if (grid.Get(p) != TileType.Rock) continue;
 			uint h = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xCAFEu);
 			if ((h & 0xFu) != 1u) continue;

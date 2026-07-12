@@ -69,12 +69,22 @@ public partial class FogRenderer : Node2D
 			_lastRadius = radius;
 		}
 
-		foreach (var p in grid.Positions())
-		{
-			if (fog.IsVisible(p) && radius > 0) continue;
-			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts),
-			         fog.IsExplored(p) ? Dim : Unexplored);
-		}
+		// Only cover on-screen tiles; walking the whole grid (up to ~12k tiles) each
+		// fog update was O(map) regardless of zoom. FogRenderer draws in world space
+		// at ZIndex -5, so it shares the viewport's canvas transform.
+		Rect2 vw = GetViewport().CanvasTransform.AffineInverse() * GetViewportRect();
+		int vx0 = Mathf.Max(0, (int)Mathf.Floor(vw.Position.X / ts) - 1);
+		int vy0 = Mathf.Max(0, (int)Mathf.Floor(vw.Position.Y / ts) - 1);
+		int vx1 = Mathf.Min(grid.Width  - 1, (int)Mathf.Floor((vw.Position.X + vw.Size.X) / ts) + 1);
+		int vy1 = Mathf.Min(grid.Height - 1, (int)Mathf.Floor((vw.Position.Y + vw.Size.Y) / ts) + 1);
+		for (int y = vy0; y <= vy1; y++)
+			for (int x = vx0; x <= vx1; x++)
+			{
+				var p = new GridPos(x, y);
+				if (fog.IsVisible(p) && radius > 0) continue;
+				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts),
+				         fog.IsExplored(p) ? Dim : Unexplored);
+			}
 
 		if (radius > 0 && _fogGradientTex != null)
 		{
