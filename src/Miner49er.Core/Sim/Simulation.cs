@@ -29,6 +29,23 @@ public sealed class Simulation
     private readonly Random _rng;
     private Octopus? _octopus;
 
+    // Global prize event (competitive only). One at a time; see AdvancePrizeEvent.
+    private PrizeState _prizeState = PrizeState.Idle;
+    private PrizeType  _prizeType;
+    private GridPos    _prizePos;
+    private bool       _prizeArmed;
+    private double     _prizeArmTimer;
+    private double     _prizeStateTimer;
+    private double     _prizeClaimProgress;
+    private int        _prizeHolderId = -1;
+
+    public PrizeState PrizeState => _prizeState;
+    public PrizeType  PrizeType  => _prizeType;
+    public GridPos    PrizePos   => _prizePos;
+    public double     PrizeClaimProgress    => _prizeClaimProgress;
+    public int        PrizeHolderId         => _prizeHolderId;
+    public double     PrizeSecondsRemaining => _prizeStateTimer;
+
     private enum NoiseKind { Stone, Explosion, Pickaxe }
     private sealed class NoiseSource
     {
@@ -137,6 +154,17 @@ public sealed class Simulation
 
     /// <summary>Test-only: force a portal tile to Floor to simulate mining it out.</summary>
     internal void RevealTileForTest(GridPos p) => Grid.Set(p, TileType.Floor);
+
+    /// <summary>Test-only: drop a prize of a chosen type straight into the Active state.</summary>
+    internal void ForcePrizeForTest(PrizeType type, GridPos pos)
+    {
+        _prizeArmed = true; _prizeType = type; _prizePos = pos; _prizeState = PrizeState.Active;
+        _prizeStateTimer = Config.PrizeExpirySeconds; _prizeClaimProgress = 0; _prizeHolderId = -1;
+    }
+
+    /// <summary>Test-only: teleport a miner (bypasses movement cadence).</summary>
+    internal void SetMinerPositionForTest(int id, GridPos p)
+    { if (_miners.TryGetValue(id, out var m)) m.Pos = p; }
 
     // A portal is "revealed" once its tile is uncovered Floor (buried ends are Rock).
     private bool IsRevealed(Portal p) => Grid.InBounds(p.Pos) && Grid.Get(p.Pos) == TileType.Floor;
@@ -968,6 +996,119 @@ public sealed class Simulation
 
     private int LiveChargeCount(int ownerId) => _charges.Count(c => c.OwnerId == ownerId);
 
+    // --- Global prize event -------------------------------------------------
+    // A single announced objective that spawns periodically in competitive modes and
+    // that players fight over. Host-authoritative; clients render from the snapshot.
+    private void AdvancePrizeEvent(double dt)
+    {
+        if (!Config.PrizeEventsEnabled || Config.Mode == GameMode.Expedition) return;
+        if (!_prizeArmed) { _prizeArmed = true; _prizeArmTimer = Config.PrizeFirstDelaySeconds; }
+
+        switch (_prizeState)
+        {
+            case PrizeState.Idle:
+                _prizeArmTimer -= dt;
+                if (_prizeArmTimer <= 0) EnterPrizeTelegraph();
+                break;
+            case PrizeState.Telegraph:
+                _prizeStateTimer -= dt;
+                if (_prizeStateTimer <= 0) { _prizeState = PrizeState.Active; _prizeStateTimer = Config.PrizeExpirySeconds; }
+                break;
+            case PrizeState.Active:
+                _prizeStateTimer -= dt;
+                UpdatePrizeClaim(dt);
+                if (_prizeState == PrizeState.Active && _prizeStateTimer <= 0) ExpirePrize();
+                break;
+        }
+    }
+
+    private void EnterPrizeTelegraph()
+    {
+        _prizeType = (PrizeType)_rng.Next(4);
+        _prizePos = SelectPrizeTile();
+        _prizeClaimProgress = 0;
+        _prizeHolderId = -1;
+        _prizeState = PrizeState.Telegraph;
+        _prizeStateTimer = Config.PrizeTelegraphSeconds;
+        _events.Add(new PrizeTelegraphed(_prizeType, _prizePos));
+    }
+
+    private void ExpirePrize()
+    {
+        _events.Add(new PrizeExpired());
+        ResetPrize();
+    }
+
+    private void ClaimPrize(int minerId)
+    {
+        ApplyPrizeReward(minerId);
+        _events.Add(new PrizeClaimed(minerId, _prizeType));
+        ResetPrize();
+    }
+
+    private void ResetPrize()
+    {
+        _prizeState = PrizeState.Idle;
+        _prizeHolderId = -1;
+        _prizeClaimProgress = 0;
+        _prizeArmTimer = Config.PrizeIntervalSeconds + _rng.NextDouble() * Config.PrizeJitterSeconds;
+    }
+
+    // A safe, dry floor tile clear of every living player, biased toward the tile that
+    // minimizes the farthest player's distance (pulls the pack together).
+    private GridPos SelectPrizeTile()
+    {
+        GridPos best = default; int bestScore = int.MinValue; bool found = false;
+        int spacing = Config.PrizeMinPlayerSpacing;
+        for (int attempt = 0; attempt < 200; attempt++)
+        {
+            var p = new GridPos(_rng.Next(Grid.Width), _rng.Next(Grid.Height));
+            if (Grid.Get(p) != TileType.Floor) continue;
+            if (_miners.Values.Any(m => m.Alive && m.Pos.ChebyshevTo(p) < spacing)) continue;
+            int maxD = _miners.Values.Where(m => m.Alive)
+                .Select(m => m.Pos.ChebyshevTo(p)).DefaultIfEmpty(0).Max();
+            int score = -maxD;
+            if (score > bestScore) { bestScore = score; best = p; found = true; }
+            if (attempt > 40 && found) break;
+        }
+        if (!found)
+            best = FirstFloorTile();
+        return best;
+    }
+
+    private GridPos FirstFloorTile()
+    {
+        for (int y = 0; y < Grid.Height; y++)
+            for (int x = 0; x < Grid.Width; x++)
+                if (Grid.Get(new GridPos(x, y)) == TileType.Floor) return new GridPos(x, y);
+        return new GridPos(Grid.Width / 2, Grid.Height / 2);
+    }
+
+    // Type-specific claim logic. Later phases fill in the other prize types.
+    private void UpdatePrizeClaim(double dt)
+    {
+        switch (_prizeType)
+        {
+            case PrizeType.GrabAndGo:
+                foreach (var m in _miners.Values)
+                    if (m.Alive && m.Pos == _prizePos) { ClaimPrize(m.Id); return; }
+                break;
+        }
+    }
+
+    // Mode-appropriate reward. Later phases fill in the full table.
+    private void ApplyPrizeReward(int minerId)
+    {
+        if (!_miners.TryGetValue(minerId, out var m)) return;
+        switch (Config.Mode)
+        {
+            case GameMode.GoldRush:
+            default:
+                m.GoldCollected += Config.PrizeGoldReward;
+                break;
+        }
+    }
+
     public void Tick(double dt)
     {
         Elapsed += dt;
@@ -976,6 +1117,7 @@ public sealed class Simulation
         AdvanceMolds(dt);
         AdvanceNoiseSources(dt);
         AdvanceCooldowns(dt);
+        AdvancePrizeEvent(dt);
         AdvancePortals(dt);
         AdvanceCracks(dt);
         AdvanceLava(dt);

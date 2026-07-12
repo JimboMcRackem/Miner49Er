@@ -16,6 +16,20 @@ public sealed class SimConfig
     public double ThrownDynamiteFuseSeconds { get; set; } = 1.2;
     public double ThrownDynamiteCooldownSeconds { get; set; } = 3.0;
 
+    // Global prize events (competitive only). Mode lets the sim pick mode-appropriate rewards.
+    public GameMode Mode { get; set; } = GameMode.GoldRush;
+    public bool PrizeEventsEnabled { get; set; } = false;
+    public double PrizeFirstDelaySeconds { get; set; } = 150.0;
+    public double PrizeIntervalSeconds  { get; set; } = 150.0;
+    public double PrizeJitterSeconds    { get; set; } = 30.0;
+    public double PrizeTelegraphSeconds { get; set; } = 5.0;
+    public double PrizeExpirySeconds    { get; set; } = 60.0;
+    public double PrizeMineSeconds      { get; set; } = 4.0;
+    public double PrizeHoldSeconds      { get; set; } = 5.0;
+    public int    PrizeHoldRadius       { get; set; } = 3;
+    public int    PrizeMinPlayerSpacing { get; set; } = 4;
+    public int    PrizeGoldReward       { get; set; } = 20;
+
     public double BaseMoveSeconds { get; set; } = 0.12;  // Standard preset (seconds per tile)
     public double MinMoveSeconds { get; set; } = 0.05;   // clamp floor — no teleporting
     public double MaxMoveSeconds { get; set; } = 0.40;   // clamp ceiling — never frozen
