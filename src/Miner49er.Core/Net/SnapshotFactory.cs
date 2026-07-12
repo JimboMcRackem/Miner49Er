@@ -63,8 +63,13 @@ public static class SnapshotFactory
             .Select(pf => new PendingFallSnapshot(pf.Pos.X, pf.Pos.Y, (float)pf.FractionElapsed))
             .ToList();
 
+        PrizeEventSnapshot? prize = sim.PrizeState == PrizeState.Idle ? null
+            : new PrizeEventSnapshot(
+                (byte)sim.PrizeType, (byte)sim.PrizeState, sim.PrizePos.X, sim.PrizePos.Y,
+                (float)sim.PrizeClaimProgress, sim.PrizeHolderId, (float)sim.PrizeSecondsRemaining);
+
         return new WorldSnapshot(tick, miners, charges, items, molds, monsters,
             (float)sim.SecondsRemaining, sim.EscapeOpen, octopus, lives, reelCharges,
-            treasureProgress, placedChests, tripCharges, pendingFalls);
+            treasureProgress, placedChests, tripCharges, pendingFalls, PrizeEvent: prize);
     }
 }

@@ -194,6 +194,7 @@ public partial class MatchHost : Node
 		var screeCollapses = new List<ScreeCollapseSnapshot>();
 		var stoneThrows = new List<StoneThrowSnapshot>();
 		var dynamiteThrows = new List<DynamiteThrowSnapshot>();
+		PrizeClaimSnapshot? prizeClaim = null;
 		foreach (var e in _sim.DrainEvents())
 		{
 			switch (e)
@@ -250,6 +251,9 @@ public partial class MatchHost : Node
 					dynamiteThrows.Add(new DynamiteThrowSnapshot(dt.MinerId, from.X, from.Y, dt.LandingPos.X, dt.LandingPos.Y));
 					break;
 				}
+				case PrizeClaimed pcl:
+					prizeClaim = new PrizeClaimSnapshot(pcl.MinerId, (byte)pcl.Type);
+					break;
 			}
 		}
 
@@ -270,6 +274,8 @@ public partial class MatchHost : Node
 			snapshot = snapshot with { Throws = stoneThrows };
 		if (dynamiteThrows.Count > 0)
 			snapshot = snapshot with { DynamiteThrows = dynamiteThrows };
+		if (prizeClaim is { } claim)
+			snapshot = snapshot with { PrizeClaim = claim };
 		var update = new TickUpdate(snapshot, changes);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
 	}

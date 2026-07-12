@@ -94,6 +94,15 @@ public static class SnapshotCodec
         foreach (var dt in snap.DynamiteThrows ?? System.Array.Empty<DynamiteThrowSnapshot>())
         { w.Write(dt.ThrowerId); w.Write(dt.FromX); w.Write(dt.FromY); w.Write(dt.ToX); w.Write(dt.ToY); }
 
+        w.Write(snap.PrizeEvent.HasValue);
+        if (snap.PrizeEvent is { } pe)
+        { w.Write(pe.Type); w.Write(pe.State); w.Write(pe.X); w.Write(pe.Y);
+          w.Write(pe.ClaimProgress); w.Write(pe.HolderId); w.Write(pe.SecondsRemaining); }
+
+        w.Write(snap.PrizeClaim.HasValue);
+        if (snap.PrizeClaim is { } pclaim)
+        { w.Write(pclaim.MinerId); w.Write(pclaim.Type); }
+
         w.Write(snap.PendingFalls?.Count ?? 0);
         foreach (var pf in snap.PendingFalls ?? System.Array.Empty<PendingFallSnapshot>())
         { w.Write(pf.X); w.Write(pf.Y); w.Write(pf.FractionElapsed); }
@@ -217,6 +226,16 @@ public static class SnapshotCodec
             dynamiteThrows!.Add(new DynamiteThrowSnapshot(
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32()));
 
+        PrizeEventSnapshot? prizeEvent = null;
+        if (r.ReadBoolean())
+            prizeEvent = new PrizeEventSnapshot(
+                r.ReadByte(), r.ReadByte(), r.ReadInt32(), r.ReadInt32(),
+                r.ReadSingle(), r.ReadInt32(), r.ReadSingle());
+
+        PrizeClaimSnapshot? prizeClaim = null;
+        if (r.ReadBoolean())
+            prizeClaim = new PrizeClaimSnapshot(r.ReadInt32(), r.ReadByte());
+
         int pendingFallCount = r.ReadInt32();
         List<PendingFallSnapshot>? pendingFalls = pendingFallCount > 0
             ? new List<PendingFallSnapshot>(pendingFallCount) : null;
@@ -232,6 +251,7 @@ public static class SnapshotCodec
             monsters, secondsRemaining, escapeOpen, octopus, lives, reelCharges,
             treasureProgress, placedChests, tripCharges, ScreeCollapses: screeCollapses,
             Whistles: whistles, PortalUses: portalUses, Throws: throws,
-            DynamiteThrows: dynamiteThrows, PendingFalls: pendingFalls), changes);
+            DynamiteThrows: dynamiteThrows, PrizeEvent: prizeEvent, PrizeClaim: prizeClaim,
+            PendingFalls: pendingFalls), changes);
     }
 }
