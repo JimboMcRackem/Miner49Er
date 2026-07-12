@@ -165,4 +165,54 @@ public class PrizeEventTests
         Assert.Equal(new GridPos(6, 6), sim.PrizePos); // at the death spot
         Assert.Equal(PrizeState.Active, sim.PrizeState);
     }
+
+    // --- mode-appropriate rewards ---
+
+    private static void ClaimGrabAndGo(Simulation sim, int minerId, GridPos at)
+    {
+        sim.ForcePrizeForTest(PrizeType.GrabAndGo, at);
+        sim.SetMinerPositionForTest(minerId, at);
+        sim.Tick(0.05);
+    }
+
+    [Fact]
+    public void TreasureHunt_reward_credits_an_idol()
+    {
+        var cfg = Cfg(); cfg.Mode = GameMode.TreasureHunt;
+        var sim = new Simulation(Grid(), cfg);
+        sim.AddMiner(1, new GridPos(2, 2));
+        ClaimGrabAndGo(sim, 1, new GridPos(7, 7));
+        Assert.Contains(sim.GetTreasureProgress(), p => p.MinerId == 1 && p.Found >= 1);
+    }
+
+    [Fact]
+    public void LMS_reward_grants_invulnerability()
+    {
+        var cfg = Cfg(); cfg.Mode = GameMode.LastManStanding;
+        var sim = new Simulation(Grid(), cfg);
+        sim.AddMiner(1, new GridPos(2, 2));
+        ClaimGrabAndGo(sim, 1, new GridPos(7, 7));
+        Assert.True(sim.GetMiner(1).InvulnerableRemaining > 0);
+    }
+
+    [Fact]
+    public void ReachCenter_reward_applies_move_speed_buff()
+    {
+        var cfg = Cfg(); cfg.Mode = GameMode.ReachCenter; cfg.BaseMoveSeconds = 0.20; // realistic (above the min-clamp)
+        var sim = new Simulation(Grid(), cfg);
+        sim.AddMiner(1, new GridPos(2, 2));
+        double baseSpeed = sim.EffectiveMoveSeconds(1);
+        ClaimGrabAndGo(sim, 1, new GridPos(7, 7));
+        Assert.True(sim.EffectiveMoveSeconds(1) < baseSpeed); // faster
+    }
+
+    [Fact]
+    public void Derby_reward_grants_stones()
+    {
+        var cfg = Cfg(); cfg.Mode = GameMode.DemolitionDerby;
+        var sim = new Simulation(Grid(), cfg);
+        sim.AddMiner(1, new GridPos(2, 2));
+        ClaimGrabAndGo(sim, 1, new GridPos(7, 7));
+        Assert.True(sim.GetMiner(1).StoneCount >= 3);
+    }
 }

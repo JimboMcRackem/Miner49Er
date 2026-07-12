@@ -93,7 +93,11 @@ public partial class Main : Node2D
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
 		_client.PrizeTelegraphed += (type, _) => SetAnnouncement($"⚡ {PrizeName(type)} incoming!", 4000);
-		_client.PrizeWon += (minerId, type) => SetAnnouncement($"{NameForMiner(minerId)} claimed the {PrizeName(type)}!", 3000);
+		_client.PrizeWon += (minerId, type) =>
+		{
+			SetAnnouncement($"{NameForMiner(minerId)} claimed the {PrizeName(type)}!", 3000);
+			_deathFeed?.PushMessage($"{NameForMiner(minerId)} claimed the {PrizeName(type)}");
+		};
 		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos, clientCenter,
 			expeditionTreasurePos: map.ExpeditionTreasurePos);
 

@@ -25,6 +25,26 @@ public partial class DeathFeed : CanvasLayer
 
 	public void Init(MatchClient client) => _client = client;
 
+	/// <summary>Push an arbitrary line into the toast feed (used by prize events, etc.).</summary>
+	public void PushMessage(string text)
+	{
+		var label = new Label
+		{
+			Text = text,
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AutowrapMode = TextServer.AutowrapMode.Off,
+		};
+		label.AddThemeFontSizeOverride("font_size", 18);
+		_feed.AddChild(label);
+		_toasts.Add((label, ToastSeconds));
+		while (_toasts.Count > MaxToasts)
+		{
+			var oldest = _toasts[0];
+			_toasts.RemoveAt(0);
+			if (IsInstanceValid(oldest.label)) oldest.label.QueueFree();
+		}
+	}
+
 	public override void _Ready()
 	{
 		_banner = new Label
@@ -123,22 +143,7 @@ public partial class DeathFeed : CanvasLayer
 			DeathCause.Bitten => $"{name} was bitten by a water snake",
 			_ => $"{name} died",
 		};
-		var label = new Label
-		{
-			Text = text,
-			HorizontalAlignment = HorizontalAlignment.Center,
-			AutowrapMode = TextServer.AutowrapMode.Off,
-		};
-		label.AddThemeFontSizeOverride("font_size", 18);
-		_feed.AddChild(label); // newest at bottom
-		_toasts.Add((label, ToastSeconds));
-
-		while (_toasts.Count > MaxToasts)
-		{
-			var oldest = _toasts[0];
-			_toasts.RemoveAt(0);
-			if (IsInstanceValid(oldest.label)) oldest.label.QueueFree();
-		}
+		PushMessage(text);
 	}
 
 	private void TickToasts(float delta)

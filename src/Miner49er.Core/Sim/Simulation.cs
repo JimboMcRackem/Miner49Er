@@ -1146,12 +1146,33 @@ public sealed class Simulation
         }
     }
 
-    // Mode-appropriate reward. Later phases fill in the full table.
+    // Mode-appropriate reward, tuned to how each mode is won. Reuses existing buff infra.
     private void ApplyPrizeReward(int minerId)
     {
         if (!_miners.TryGetValue(minerId, out var m)) return;
         switch (Config.Mode)
         {
+            case GameMode.TreasureHunt:
+                // A big leg-up: one of the two idols needed to win.
+                _idolsFound[minerId] = _idolsFound.GetValueOrDefault(minerId) + 1;
+                break;
+            case GameMode.LastManStanding:
+                // Survive-and-hunt: brief invulnerability + a bigger blast.
+                m.InvulnerableRemaining = Math.Max(m.InvulnerableRemaining, 4.0);
+                ApplyEffect(minerId, EffectKind.BiggerBlast, EffectChannel.BlastRadius,
+                    BuffTuning.BlastMagnitude, BuffTuning.BlastSeconds);
+                break;
+            case GameMode.ReachCenter:
+                // Win the race: a haste burst (SpeedPotion magnitude < 1 = faster).
+                ApplyEffect(minerId, EffectKind.SpeedPotion, EffectChannel.MoveSpeed,
+                    BuffTuning.SpeedMagnitude, BuffTuning.SpeedSeconds);
+                break;
+            case GameMode.DemolitionDerby:
+                // Combat loadout: extra throwing stones + a bigger blast.
+                AddStones(minerId, 3);
+                ApplyEffect(minerId, EffectKind.BiggerBlast, EffectChannel.BlastRadius,
+                    BuffTuning.BlastMagnitude, BuffTuning.BlastSeconds);
+                break;
             case GameMode.GoldRush:
             default:
                 m.GoldCollected += Config.PrizeGoldReward;

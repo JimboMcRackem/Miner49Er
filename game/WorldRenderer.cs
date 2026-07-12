@@ -1042,11 +1042,19 @@ public partial class WorldRenderer : Node2D
 				float lift = prize.HolderId >= 0 ? ts * 0.75f : 0f;
 				var pc = new Vector2(prize.X * ts + ts / 2f, prize.Y * ts + ts / 2f - lift);
 				float pulse = 0.6f + 0.4f * Mathf.Sin((float)Time.GetTicksMsec() / 200f);
-				DrawCircle(pc, ts * 0.55f * pulse, new Color(1f, 0.85f, 0.2f, 0.22f));
+				// Per-type accent so players can read the objective at a glance.
+				Color fill = (PrizeType)prize.Type switch
+				{
+					PrizeType.MineOut    => new Color(0.35f, 0.85f, 1f),  // gem cyan
+					PrizeType.HoldPoint  => new Color(1f, 0.55f, 0.15f),  // flag orange
+					PrizeType.CarryRelic => new Color(0.85f, 0.4f, 1f),   // relic violet
+					_                    => new Color(1f, 0.84f, 0.2f),   // coin gold
+				};
+				DrawCircle(pc, ts * 0.55f * pulse, fill with { A = 0.22f });
 				float r = ts * 0.30f;
 				var diamond = new Vector2[] { pc + new Vector2(0, -r), pc + new Vector2(r, 0), pc + new Vector2(0, r), pc + new Vector2(-r, 0) };
-				DrawColoredPolygon(diamond, new Color(1f, 0.84f, 0.2f));
-				DrawPolyline(new[] { diamond[0], diamond[1], diamond[2], diamond[3], diamond[0] }, new Color(0.45f, 0.3f, 0f), 1.5f);
+				DrawColoredPolygon(diamond, fill);
+				DrawPolyline(new[] { diamond[0], diamond[1], diamond[2], diamond[3], diamond[0] }, new Color(0f, 0f, 0f, 0.5f), 1.5f);
 				if (prize.ClaimProgress > 0.001f)
 					DrawArc(pc, ts * 0.42f, -Mathf.Pi / 2f, -Mathf.Pi / 2f + Mathf.Tau * prize.ClaimProgress, 32,
 						new Color(1f, 0.95f, 0.5f), 3f);
