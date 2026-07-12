@@ -1093,6 +1093,34 @@ public sealed class Simulation
                 foreach (var m in _miners.Values)
                     if (m.Alive && m.Pos == _prizePos) { ClaimPrize(m.Id); return; }
                 break;
+
+            case PrizeType.MineOut:
+            {
+                // Channel: a single un-stunned miner must stand on the tile. Leaving,
+                // dying, or being stunned resets the crack-open progress.
+                var channeler = _miners.Values.FirstOrDefault(m =>
+                    m.Alive && m.StunRemaining <= 0 && m.Pos == _prizePos);
+                if (channeler == null) { _prizeClaimProgress = 0; _prizeHolderId = -1; break; }
+                if (_prizeHolderId != channeler.Id) { _prizeHolderId = channeler.Id; _prizeClaimProgress = 0; }
+                _prizeClaimProgress += dt / Config.PrizeMineSeconds;
+                if (_prizeClaimProgress >= 1.0) ClaimPrize(channeler.Id);
+                break;
+            }
+
+            case PrizeType.HoldPoint:
+            {
+                // Hold the ring solo: empty pauses progress, two or more contests and resets it.
+                var inRing = _miners.Values
+                    .Where(m => m.Alive && m.Pos.ChebyshevTo(_prizePos) <= Config.PrizeHoldRadius)
+                    .ToList();
+                if (inRing.Count == 0) break;
+                if (inRing.Count > 1) { _prizeClaimProgress = 0; _prizeHolderId = -1; break; }
+                var holder = inRing[0];
+                if (_prizeHolderId != holder.Id) { _prizeHolderId = holder.Id; _prizeClaimProgress = 0; }
+                _prizeClaimProgress += dt / Config.PrizeHoldSeconds;
+                if (_prizeClaimProgress >= 1.0) ClaimPrize(holder.Id);
+                break;
+            }
         }
     }
 

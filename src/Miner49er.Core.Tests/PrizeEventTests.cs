@@ -77,4 +77,59 @@ public class PrizeEventTests
         Assert.Equal(PrizeState.Idle, sim.PrizeState);
         Assert.Equal(25, sim.GetMiner(1).GoldCollected);
     }
+
+    [Fact]
+    public void MineOut_accrues_while_standing_and_claims_at_threshold()
+    {
+        var cfg = Cfg(); cfg.PrizeMineSeconds = 1.0;
+        var sim = new Simulation(Grid(), cfg);
+        sim.AddMiner(1, new GridPos(7, 7));
+        sim.ForcePrizeForTest(PrizeType.MineOut, new GridPos(7, 7));
+        sim.Tick(0.5);
+        Assert.True(sim.PrizeClaimProgress > 0.4 && sim.PrizeState == PrizeState.Active);
+        sim.Tick(0.6);
+        Assert.Contains(sim.DrainEvents(), e => e is PrizeClaimed pc && pc.MinerId == 1);
+    }
+
+    [Fact]
+    public void MineOut_resets_when_channeler_leaves()
+    {
+        var cfg = Cfg(); cfg.PrizeMineSeconds = 2.0;
+        var sim = new Simulation(Grid(), cfg);
+        sim.AddMiner(1, new GridPos(7, 7));
+        sim.ForcePrizeForTest(PrizeType.MineOut, new GridPos(7, 7));
+        sim.Tick(0.5);
+        Assert.True(sim.PrizeClaimProgress > 0);
+        sim.SetMinerPositionForTest(1, new GridPos(9, 9));
+        sim.Tick(0.1);
+        Assert.Equal(0.0, sim.PrizeClaimProgress, 3);
+    }
+
+    [Fact]
+    public void HoldPoint_claims_when_held_solo()
+    {
+        var cfg = Cfg(); cfg.PrizeHoldSeconds = 1.0;
+        var sim = new Simulation(Grid(), cfg);
+        sim.AddMiner(1, new GridPos(7, 7));
+        sim.ForcePrizeForTest(PrizeType.HoldPoint, new GridPos(7, 7));
+        sim.Tick(0.5);
+        Assert.True(sim.PrizeClaimProgress > 0.4);
+        sim.Tick(0.6);
+        Assert.Contains(sim.DrainEvents(), e => e is PrizeClaimed pc && pc.MinerId == 1);
+    }
+
+    [Fact]
+    public void HoldPoint_resets_when_contested()
+    {
+        var cfg = Cfg(); cfg.PrizeHoldSeconds = 3.0;
+        var sim = new Simulation(Grid(), cfg);
+        sim.AddMiner(1, new GridPos(7, 7));
+        sim.AddMiner(2, new GridPos(14, 14)); // out of ring initially
+        sim.ForcePrizeForTest(PrizeType.HoldPoint, new GridPos(7, 7));
+        sim.Tick(0.5);
+        Assert.True(sim.PrizeClaimProgress > 0);
+        sim.SetMinerPositionForTest(2, new GridPos(8, 7)); // rival enters the ring
+        sim.Tick(0.1);
+        Assert.Equal(0.0, sim.PrizeClaimProgress, 3);
+    }
 }
