@@ -34,6 +34,7 @@ public readonly record struct ScreeCollapseSnapshot(int X, int Y, int Radius);
 public readonly record struct WhistleSnapshot(int X, int Y);
 public readonly record struct PortalUseSnapshot(int X, int Y, int ToX, int ToY, PortalKind Kind);
 public readonly record struct StoneThrowSnapshot(int ThrowerId, int FromX, int FromY, int ToX, int ToY);
+public readonly record struct DynamiteThrowSnapshot(int ThrowerId, int FromX, int FromY, int ToX, int ToY);
 
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,
@@ -49,6 +50,7 @@ public sealed record WorldSnapshot(
     IReadOnlyList<ScreeCollapseSnapshot>?    ScreeCollapses   = null,
     IReadOnlyList<WhistleSnapshot>?          Whistles         = null,
     IReadOnlyList<PortalUseSnapshot>?        PortalUses       = null,
-    IReadOnlyList<StoneThrowSnapshot>?       Throws           = null);
+    IReadOnlyList<StoneThrowSnapshot>?       Throws           = null,
+    IReadOnlyList<DynamiteThrowSnapshot>?    DynamiteThrows   = null);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);

@@ -27,8 +27,9 @@ public partial class InputSender : Node
 		bool plant = Input.IsActionJustPressed(InputBindings.Plant);
 		bool use   = Input.IsActionJustPressed(InputBindings.UseItem);
 		bool throwStone = Input.IsActionJustPressed(InputBindings.Throw);
-		if (mine || plant || use || throwStone)
-			NetworkManager.Instance.SendAction(mine, plant, use, throwStone);
+		bool throwDynamite = Input.IsActionJustPressed(InputBindings.ThrowDynamite);
+		if (mine || plant || use || throwStone || throwDynamite)
+			NetworkManager.Instance.SendAction(mine, plant, use, throwStone, throwDynamite);
 	}
 
 	private static int ReadDir()

@@ -47,6 +47,7 @@ public partial class SettingsPanel : CanvasLayer
 		[InputBindings.Mute] = "Mute",
 		[InputBindings.Settings] = "Settings",
 		[InputBindings.Throw] = "Throw Stone",
+		[InputBindings.ThrowDynamite] = "Throw Dynamite",
 		[InputBindings.Stats] = "Stats Overlay",
 	};
 

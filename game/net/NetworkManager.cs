@@ -445,18 +445,18 @@ public partial class NetworkManager : Node
 		RpcId(1, nameof(ReceiveDir), dir);
 	}
 
-	public void SendAction(bool mine, bool plant, bool use, bool throwStone = false)
+	public void SendAction(bool mine, bool plant, bool use, bool throwStone = false, bool throwDynamite = false)
 	{
-		if (IsHost) { _matchHost?.SetAction(LocalId, mine, plant, use, throwStone); return; }
-		RpcId(1, nameof(ReceiveAction), mine, plant, use, throwStone);
+		if (IsHost) { _matchHost?.SetAction(LocalId, mine, plant, use, throwStone, throwDynamite); return; }
+		RpcId(1, nameof(ReceiveAction), mine, plant, use, throwStone, throwDynamite);
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Unreliable)]
 	public void ReceiveDir(int dir) => _matchHost?.SetDir(Multiplayer.GetRemoteSenderId(), dir);
 
 	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
-	public void ReceiveAction(bool mine, bool plant, bool use, bool throwStone) =>
-		_matchHost?.SetAction(Multiplayer.GetRemoteSenderId(), mine, plant, use, throwStone);
+	public void ReceiveAction(bool mine, bool plant, bool use, bool throwStone, bool throwDynamite) =>
+		_matchHost?.SetAction(Multiplayer.GetRemoteSenderId(), mine, plant, use, throwStone, throwDynamite);
 
 	public void BuyShopItem(ShopItemKind kind)
 	{

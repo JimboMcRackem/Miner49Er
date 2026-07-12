@@ -15,6 +15,7 @@ public partial class WorldRenderer : Node2D
 	private readonly List<(Vector2 center, float maxR, float life)> _rings = new();
 	private readonly List<(GridPos center, int radius, float life)> _rockfallDusts = new();
 	private readonly List<(Vector2 from, Vector2 to, float life)> _throws = new();
+	private readonly List<(Vector2 from, Vector2 to, float life)> _dynamiteThrows = new();
 	private readonly List<(Vector2 center, float life)> _stoneImpacts = new();
 
 	private static readonly Color CrackColor     = new Color(0.15f, 0.08f, 0.0f, 0.70f);
@@ -316,6 +317,7 @@ public partial class WorldRenderer : Node2D
 	public void AddExplosionRing(Vector2 center, float maxR) => _rings.Add((center, maxR, 0.5f));
 	public void AddRockfallDust(GridPos center, int radius) => _rockfallDusts.Add((center, radius, 0.6f));
 	public void AddThrownStone(Vector2 from, Vector2 to) => _throws.Add((from, to, 0f));
+	public void AddThrownDynamite(Vector2 from, Vector2 to) => _dynamiteThrows.Add((from, to, 0f));
 
 	public override void _Process(double delta)
 	{
@@ -347,6 +349,15 @@ public partial class WorldRenderer : Node2D
 			t.life += (float)delta;
 			if (t.life >= flightDur) { _stoneImpacts.Add((t.to, 0f)); _throws.RemoveAt(i); }
 			else _throws[i] = t;
+		}
+		// Thrown dynamite arcs the same way; on landing the ticking stick + blast are driven
+		// by the ChargeSnapshot and Explosion event, so we just retire the flight visual.
+		for (int i = _dynamiteThrows.Count - 1; i >= 0; i--)
+		{
+			var t = _dynamiteThrows[i];
+			t.life += (float)delta;
+			if (t.life >= flightDur) _dynamiteThrows.RemoveAt(i);
+			else _dynamiteThrows[i] = t;
 		}
 		const float ImpactDur = 0.45f;
 		for (int i = _stoneImpacts.Count - 1; i >= 0; i--)
@@ -986,6 +997,28 @@ public partial class WorldRenderer : Node2D
 			DrawCircle(new Vector2(flat.X, flat.Y - hop), ts * 0.13f, new Color(0.62f, 0.60f, 0.56f));
 			DrawCircle(new Vector2(flat.X, flat.Y - hop), ts * 0.13f, new Color(0.30f, 0.28f, 0.26f), false, 1.2f);
 		}
+		// Thrown dynamite: a red stick tumbling from thrower to landing tile with a lit fuse spark.
+		float dynDur = (float)MatchClient.StoneFlightSeconds;
+		foreach (var (from, to, life) in _dynamiteThrows)
+		{
+			var fromTile = new GridPos((int)(from.X / ts), (int)(from.Y / ts));
+			var landTile = new GridPos((int)(to.X / ts), (int)(to.Y / ts));
+			if (!throwSpectating && !_client.Fog.IsVisible(fromTile) && !_client.Fog.IsVisible(landTile)) continue;
+			float tt   = Mathf.Clamp(life / dynDur, 0f, 1f);
+			var flat   = from.Lerp(to, tt);
+			float hop  = ts * 0.6f * 4f * tt * (1f - tt);
+			var pos    = new Vector2(flat.X, flat.Y - hop);
+			DrawCircle(flat, ts * 0.16f * (1f - 0.5f * (hop / (ts * 0.6f))), new Color(0f, 0f, 0f, 0.28f)); // shadow
+			// Stick: a short rotating red capsule.
+			float ang  = tt * Mathf.Tau * 2f;
+			var axis   = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * ts * 0.22f;
+			DrawLine(pos - axis, pos + axis, new Color(0.75f, 0.12f, 0.10f), ts * 0.16f);
+			DrawLine(pos - axis, pos + axis, new Color(0.35f, 0.05f, 0.05f), ts * 0.05f);
+			// Fuse spark at the leading end.
+			float spark = 0.6f + 0.4f * Mathf.Sin((float)Time.GetTicksMsec() / 40f);
+			DrawCircle(pos + axis, ts * 0.07f, new Color(1f, 0.85f, 0.30f, spark));
+		}
+
 		// Landing noise ping + dust puff.
 		const float StoneImpactDur = 0.45f;
 		foreach (var (center, life) in _stoneImpacts)

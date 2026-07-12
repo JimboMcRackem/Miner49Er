@@ -90,6 +90,10 @@ public static class SnapshotCodec
         foreach (var th in snap.Throws ?? System.Array.Empty<StoneThrowSnapshot>())
         { w.Write(th.ThrowerId); w.Write(th.FromX); w.Write(th.FromY); w.Write(th.ToX); w.Write(th.ToY); }
 
+        w.Write(snap.DynamiteThrows?.Count ?? 0);
+        foreach (var dt in snap.DynamiteThrows ?? System.Array.Empty<DynamiteThrowSnapshot>())
+        { w.Write(dt.ThrowerId); w.Write(dt.FromX); w.Write(dt.FromY); w.Write(dt.ToX); w.Write(dt.ToY); }
+
         w.Write(snap.PendingFalls?.Count ?? 0);
         foreach (var pf in snap.PendingFalls ?? System.Array.Empty<PendingFallSnapshot>())
         { w.Write(pf.X); w.Write(pf.Y); w.Write(pf.FractionElapsed); }
@@ -206,6 +210,13 @@ public static class SnapshotCodec
             throws!.Add(new StoneThrowSnapshot(
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32()));
 
+        int dynThrowCount = r.ReadInt32();
+        List<DynamiteThrowSnapshot>? dynamiteThrows = dynThrowCount > 0
+            ? new List<DynamiteThrowSnapshot>(dynThrowCount) : null;
+        for (int i = 0; i < dynThrowCount; i++)
+            dynamiteThrows!.Add(new DynamiteThrowSnapshot(
+                r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32()));
+
         int pendingFallCount = r.ReadInt32();
         List<PendingFallSnapshot>? pendingFalls = pendingFallCount > 0
             ? new List<PendingFallSnapshot>(pendingFallCount) : null;
@@ -221,6 +232,6 @@ public static class SnapshotCodec
             monsters, secondsRemaining, escapeOpen, octopus, lives, reelCharges,
             treasureProgress, placedChests, tripCharges, ScreeCollapses: screeCollapses,
             Whistles: whistles, PortalUses: portalUses, Throws: throws,
-            PendingFalls: pendingFalls), changes);
+            DynamiteThrows: dynamiteThrows, PendingFalls: pendingFalls), changes);
     }
 }

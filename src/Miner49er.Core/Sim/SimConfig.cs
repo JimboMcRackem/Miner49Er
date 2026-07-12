@@ -9,6 +9,13 @@ public sealed class SimConfig
     public int BlastKillRadius { get; set; } = 1;   // Chebyshev radius that kills miners
     public int MaxLiveChargesPerMiner { get; set; } = 3;
 
+    // Thrown dynamite: a lit stick lobbed in the facing direction that lands up to
+    // ThrownDynamiteRange tiles away (or the last open tile before a wall/edge) and
+    // detonates after a short, dodgeable fuse. Gated by DynamiteEnabled + a cooldown.
+    public int ThrownDynamiteRange { get; set; } = 5;
+    public double ThrownDynamiteFuseSeconds { get; set; } = 1.2;
+    public double ThrownDynamiteCooldownSeconds { get; set; } = 3.0;
+
     public double BaseMoveSeconds { get; set; } = 0.12;  // Standard preset (seconds per tile)
     public double MinMoveSeconds { get; set; } = 0.05;   // clamp floor — no teleporting
     public double MaxMoveSeconds { get; set; } = 0.40;   // clamp ceiling — never frozen

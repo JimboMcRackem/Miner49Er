@@ -332,6 +332,31 @@ public sealed class Simulation
         _events.Add(new StoneThrown(minerId, land));
     }
 
+    // Lob a lit stick in the facing direction: it travels up to Config.ThrownDynamiteRange
+    // tiles, stopping on the last open tile before a wall/edge, then lands as a live Charge
+    // that detonates after a short fuse (reusing the plant/detonate pipeline for the blast,
+    // networking, and rendering). Thrown into a wall right beside you, it lands at your feet.
+    public void TryThrowDynamite(int minerId)
+    {
+        if (!_miners.TryGetValue(minerId, out var m) || !m.Alive) return;
+        if (!Config.DynamiteEnabled) return;
+        if (m.StunRemaining > 0) return;
+        if (m.DynamiteThrowCooldown > 0) return;
+
+        var offset = m.Facing.ToOffset();
+        GridPos land = m.Pos;
+        for (int i = 1; i <= Config.ThrownDynamiteRange; i++)
+        {
+            var next = new GridPos(m.Pos.X + offset.X * i, m.Pos.Y + offset.Y * i);
+            if (!Grid.InBounds(next) || !Grid.Get(next).IsEnterable()) break;
+            land = next;
+        }
+
+        m.DynamiteThrowCooldown = Config.ThrownDynamiteCooldownSeconds;
+        _charges.Add(new Charge(minerId, land, Config.ThrownDynamiteFuseSeconds, EffectiveBlastBonus(m)));
+        _events.Add(new DynamiteThrown(minerId, land));
+    }
+
     public int TreasureWinner()
     {
         foreach (var kv in _idolsFound)
@@ -410,6 +435,8 @@ public sealed class Simulation
                 m.StunRemaining = Math.Max(0, m.StunRemaining - dt);
             if (m.StunCooldown > 0)
                 m.StunCooldown = Math.Max(0, m.StunCooldown - dt);
+            if (m.DynamiteThrowCooldown > 0)
+                m.DynamiteThrowCooldown = Math.Max(0, m.DynamiteThrowCooldown - dt);
         }
         foreach (var mo in _monsters)
             if (mo.StunRemaining > 0)

@@ -22,6 +22,7 @@ public partial class MatchHost : Node
 	private readonly HashSet<int> _pendingPlant = new();
 	private readonly HashSet<int> _pendingUse   = new();
 	private readonly HashSet<int> _pendingThrow = new();
+	private readonly HashSet<int> _pendingThrowDynamite = new();
 	private readonly List<WhistleSnapshot> _botWhistles = new();
 	private readonly List<PortalUseSnapshot> _portalUses = new();
 
@@ -126,13 +127,14 @@ public partial class MatchHost : Node
 		if (_peerToMiner.TryGetValue(peerId, out int minerId)) _pendingDir[minerId] = dir;
 	}
 
-	public void SetAction(long peerId, bool mine, bool plant, bool use, bool throwStone = false)
+	public void SetAction(long peerId, bool mine, bool plant, bool use, bool throwStone = false, bool throwDynamite = false)
 	{
 		if (!_peerToMiner.TryGetValue(peerId, out int minerId)) return;
-		if (mine)        _pendingMine.Add(minerId);
-		if (plant)       _pendingPlant.Add(minerId);
-		if (use)         _pendingUse.Add(minerId);
-		if (throwStone)  _pendingThrow.Add(minerId);
+		if (mine)          _pendingMine.Add(minerId);
+		if (plant)         _pendingPlant.Add(minerId);
+		if (use)           _pendingUse.Add(minerId);
+		if (throwStone)    _pendingThrow.Add(minerId);
+		if (throwDynamite) _pendingThrowDynamite.Add(minerId);
 	}
 
 	public void EliminatePeer(long peerId)
@@ -191,6 +193,7 @@ public partial class MatchHost : Node
 		var changes = new List<TileChange>();
 		var screeCollapses = new List<ScreeCollapseSnapshot>();
 		var stoneThrows = new List<StoneThrowSnapshot>();
+		var dynamiteThrows = new List<DynamiteThrowSnapshot>();
 		foreach (var e in _sim.DrainEvents())
 		{
 			switch (e)
@@ -241,6 +244,12 @@ public partial class MatchHost : Node
 					stoneThrows.Add(new StoneThrowSnapshot(st.MinerId, from.X, from.Y, st.LandingPos.X, st.LandingPos.Y));
 					break;
 				}
+				case DynamiteThrown dt:
+				{
+					var from = _sim.GetMiner(dt.MinerId).Pos;
+					dynamiteThrows.Add(new DynamiteThrowSnapshot(dt.MinerId, from.X, from.Y, dt.LandingPos.X, dt.LandingPos.Y));
+					break;
+				}
 			}
 		}
 
@@ -259,6 +268,8 @@ public partial class MatchHost : Node
 		}
 		if (stoneThrows.Count > 0)
 			snapshot = snapshot with { Throws = stoneThrows };
+		if (dynamiteThrows.Count > 0)
+			snapshot = snapshot with { DynamiteThrows = dynamiteThrows };
 		var update = new TickUpdate(snapshot, changes);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
 	}
@@ -313,6 +324,8 @@ public partial class MatchHost : Node
 		_pendingUse.Clear();
 		foreach (var minerId in _pendingThrow) _sim.TryThrowStone(minerId);
 		_pendingThrow.Clear();
+		foreach (var minerId in _pendingThrowDynamite) _sim.TryThrowDynamite(minerId);
+		_pendingThrowDynamite.Clear();
 
 		TickAndBroadcast();
 
@@ -556,6 +569,7 @@ public partial class MatchHost : Node
 		_pendingPlant.Clear();
 		_pendingUse.Clear();
 		_pendingThrow.Clear();
+		_pendingThrowDynamite.Clear();
 		_deadMiners.Clear();
 		_coopRespawnTimers.Clear();
 

@@ -216,6 +216,19 @@ public partial class MatchClient : Node2D
 				}
 			}
 
+			if (update.Snapshot.DynamiteThrows is { } dynThrows)
+			{
+				double now = Time.GetTicksMsec() / 1000.0;
+				foreach (var dt in dynThrows)
+				{
+					var from = new Vector2(dt.FromX * TileSize + TileSize / 2f, dt.FromY * TileSize + TileSize / 2f);
+					var to   = new Vector2(dt.ToX   * TileSize + TileSize / 2f, dt.ToY   * TileSize + TileSize / 2f);
+					_world?.AddThrownDynamite(from, to);
+					_throwUntil[dt.ThrowerId] = now + StoneFlightSeconds; // thrower plays the same overhand toss pose
+					StoneTossed?.Invoke(from, to);
+				}
+			}
+
 		_terrainMap?.UpdateTiles(update.TileChanges);
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
