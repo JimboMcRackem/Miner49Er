@@ -123,7 +123,7 @@ public sealed class Simulation
 
     public Miner AddMiner(int id, GridPos pos, double invulRemaining = 0.0)
     {
-        var m = new Miner(id, pos) { InvulnerableRemaining = invulRemaining };
+        var m = new Miner(id, pos) { InvulnerableRemaining = invulRemaining, SpawnPos = pos };
         _miners[id] = m;
         if (Config.TreasureHuntMode)
         {
@@ -1119,6 +1119,28 @@ public sealed class Simulation
                 if (_prizeHolderId != holder.Id) { _prizeHolderId = holder.Id; _prizeClaimProgress = 0; }
                 _prizeClaimProgress += dt / Config.PrizeHoldSeconds;
                 if (_prizeClaimProgress >= 1.0) ClaimPrize(holder.Id);
+                break;
+            }
+
+            case PrizeType.CarryRelic:
+            {
+                if (_prizeHolderId < 0)
+                {
+                    // Ungrabbed: the first miner to reach the relic tile picks it up.
+                    var picker = _miners.Values.FirstOrDefault(m => m.Alive && m.Pos == _prizePos);
+                    if (picker != null) _prizeHolderId = picker.Id;
+                }
+                else if (!_miners.TryGetValue(_prizeHolderId, out var h) || !h.Alive || h.StunRemaining > 0)
+                {
+                    // Holder died or was stunned: drop the relic at their last spot, grabbable again.
+                    if (_miners.TryGetValue(_prizeHolderId, out var dropper)) _prizePos = dropper.Pos;
+                    _prizeHolderId = -1;
+                }
+                else
+                {
+                    _prizePos = h.Pos;                          // the relic rides the carrier
+                    if (h.Pos == h.SpawnPos) ClaimPrize(h.Id);  // banked at home
+                }
                 break;
             }
         }

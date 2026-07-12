@@ -1038,7 +1038,9 @@ public partial class WorldRenderer : Node2D
 			var pcell = new GridPos(prize.X, prize.Y);
 			if (spectating || _client.Fog.IsVisible(pcell))
 			{
-				var pc = new Vector2(prize.X * ts + ts / 2f, prize.Y * ts + ts / 2f);
+				// A carried relic (HolderId >= 0) floats above the carrier's head; otherwise it sits on the tile.
+				float lift = prize.HolderId >= 0 ? ts * 0.75f : 0f;
+				var pc = new Vector2(prize.X * ts + ts / 2f, prize.Y * ts + ts / 2f - lift);
 				float pulse = 0.6f + 0.4f * Mathf.Sin((float)Time.GetTicksMsec() / 200f);
 				DrawCircle(pc, ts * 0.55f * pulse, new Color(1f, 0.85f, 0.2f, 0.22f));
 				float r = ts * 0.30f;

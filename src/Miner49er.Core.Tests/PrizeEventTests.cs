@@ -132,4 +132,37 @@ public class PrizeEventTests
         sim.Tick(0.1);
         Assert.Equal(0.0, sim.PrizeClaimProgress, 3);
     }
+
+    [Fact]
+    public void Relic_is_picked_up_carried_to_spawn_and_banked()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddMiner(1, new GridPos(3, 3));          // spawn = (3,3)
+        sim.ForcePrizeForTest(PrizeType.CarryRelic, new GridPos(10, 10));
+        sim.SetMinerPositionForTest(1, new GridPos(10, 10)); // step on the relic
+        sim.Tick(0.05);
+        Assert.Equal(1, sim.PrizeHolderId);          // picked up
+        Assert.Equal(PrizeState.Active, sim.PrizeState);
+        sim.SetMinerPositionForTest(1, new GridPos(3, 3));   // carry home
+        sim.Tick(0.05);
+        Assert.Contains(sim.DrainEvents(), e => e is PrizeClaimed pc && pc.MinerId == 1);
+        Assert.Equal(PrizeState.Idle, sim.PrizeState);
+    }
+
+    [Fact]
+    public void Relic_drops_when_holder_dies()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddMiner(1, new GridPos(3, 3));
+        sim.ForcePrizeForTest(PrizeType.CarryRelic, new GridPos(10, 10));
+        sim.SetMinerPositionForTest(1, new GridPos(10, 10));
+        sim.Tick(0.05);
+        Assert.Equal(1, sim.PrizeHolderId);
+        sim.SetMinerPositionForTest(1, new GridPos(6, 6));
+        sim.KillMiner(1);
+        sim.Tick(0.05);
+        Assert.Equal(-1, sim.PrizeHolderId);          // dropped
+        Assert.Equal(new GridPos(6, 6), sim.PrizePos); // at the death spot
+        Assert.Equal(PrizeState.Active, sim.PrizeState);
+    }
 }

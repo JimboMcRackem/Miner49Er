@@ -6,6 +6,7 @@ public sealed class Miner
 {
     public int Id { get; }
     public GridPos Pos { get; internal set; }
+    public GridPos SpawnPos { get; internal set; } // where this miner started; relic carry-back target
     public Direction Facing { get; internal set; } = Direction.South;
     public bool Alive { get; internal set; } = true;
     public DeathCause DeathCause { get; internal set; } = DeathCause.None;
