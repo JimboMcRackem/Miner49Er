@@ -781,6 +781,16 @@ public partial class Main : Node2D
 	{
 		if (_results != null) return;
 		HidePauseMenu();
+
+		// Fog is an alive-only mechanic. Once the local miner is dead and the results
+		// screen is up, lift the fog so the whole map is visible behind it. Competitive
+		// modes already spectate-on-death via MatchClient, but Expedition is excluded
+		// there, so set it explicitly here — a dead miner never re-enters the alive fog
+		// branch, so this sticks.
+		bool localDead = _client.Miners.Any(m => m.Id == _client.LocalMinerId && !m.Alive);
+		if (localDead && _client.FogRenderer != null)
+			_client.FogRenderer.SpectatorMode = true;
+
 		_results = new ResultsOverlay { Name = "ResultsOverlay" };
 		AddChild(_results);
 		var nm = NetworkManager.Instance;
