@@ -177,7 +177,15 @@ public partial class Lobby : Control
 		rightCol.AddThemeConstantOverride("separation", 14);
 		columns.AddChild(rightCol);
 
-		_codeLabel = new Label { Text = "", Visible = false };
+		// Fixed, word-wrapping area for the LAN/internet status. Reserving space here keeps a
+		// long "UPnP failed" message from widening the column or pushing the buttons below it.
+		_codeLabel = new Label
+		{
+			Text = "",
+			Visible = false,
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			CustomMinimumSize = new Vector2(240, 66),
+		};
 		rightCol.AddChild(_codeLabel);
 
 		_copyBtn = new Button { Text = "Copy code", Visible = false };
@@ -385,7 +393,7 @@ public partial class Lobby : Control
 				break;
 			case InternetStatus.Failed:
 				_codeLabel.Visible = true;
-				_codeLabel.Text = $"{lanLine}\nCouldn't open router (UPnP unavailable). For internet play, forward port {NetworkManager.DefaultPort} and share your public IP.";
+				_codeLabel.Text = $"{lanLine}\nUPnP failed — forward port {NetworkManager.DefaultPort} for internet play.";
 				_copyBtn.Visible = false;
 				break;
 			default: // Off — LAN host

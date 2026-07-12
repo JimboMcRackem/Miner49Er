@@ -240,7 +240,15 @@ public partial class MainMenu : Control
 		joinBtn.Pressed += OnJoin;
 		box.AddChild(joinBtn);
 
-		_status = new Label { Text = "" };
+		// Reserve a fixed, word-wrapping area so a connection message fills this box
+		// instead of growing the column and shoving the Back button to a new spot.
+		_status = new Label
+		{
+			Text = "",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			CustomMinimumSize = new Vector2(240, 44),
+		};
 		box.AddChild(_status);
 
 		var backBtn = new Button { Text = "Back" };
