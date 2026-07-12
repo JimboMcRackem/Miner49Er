@@ -396,7 +396,8 @@ public partial class MainMenu : Control
 				var px = img.GetPixel(x, y);
 				if (px.A < 0.05f) continue;
 				float lum = 0.299f * px.R + 0.587f * px.G + 0.114f * px.B;
-				if (px.S > 0.3f && px.H < 0.25f && lum > 0.25f) continue; // preserve skin/hat
+				// Preserve skin/hat (warm-hued AND bright); matches TintMiner in MatchClient.cs.
+				if (px.H < 0.14f && px.S > 0.18f && lum > 0.5f) continue;
 				float l = lum * 0.6f + 0.4f;
 				img.SetPixel(x, y, new Color(tint.R * l, tint.G * l, tint.B * l, px.A));
 			}

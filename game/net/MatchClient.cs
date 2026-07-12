@@ -602,8 +602,11 @@ public partial class MatchClient : Node2D
 				var px = img.GetPixel(x, y);
 				if (px.A < 0.05f) continue;
 				float lum = 0.299f * px.R + 0.587f * px.G + 0.114f * px.B;
-				// Preserve skin (warm peach) and yellow hard hat; tint dark clothing only.
-				if (px.S > 0.3f && px.H < 0.25f && lum > 0.25f) continue;
+				// Preserve skin and the yellow hard hat: both are warm-hued AND bright. Grey/dark
+				// clothing is either low-saturation or low-luminance and takes the team colour.
+				// (Keyed on luminance rather than a tight saturation floor so the variants' lighter,
+				// less-saturated skin tones — S as low as ~0.26 — are not tinted like the old S>0.3 test.)
+				if (px.H < 0.14f && px.S > 0.18f && lum > 0.5f) continue;
 				// Lift luminance floor so dark overalls show a vivid team colour, not near-black.
 				float l = lum * 0.6f + 0.4f;
 				img.SetPixel(x, y, new Color(tint.R * l, tint.G * l, tint.B * l, px.A));
