@@ -31,6 +31,7 @@ public partial class Main : Node2D
 	private const float FadeInSpeed  = 1.5f; // 1→0 in ~0.67s
 
 	private Label? _floorBanner;
+	private CanvasLayer? _floorBannerLayer;
 	private float  _floorBannerTimer;
 	private const float BannerFade  = 0.3f;
 	private const float BannerHold  = 1.5f;
@@ -284,7 +285,7 @@ public partial class Main : Node2D
 				alpha = 1f;
 			else
 				alpha = Math.Max(0f, _floorBannerTimer / BannerFade);
-			if (_floorBannerTimer <= 0f) { _floorBanner.QueueFree(); _floorBanner = null; }
+			if (_floorBannerTimer <= 0f) { _floorBannerLayer?.QueueFree(); _floorBannerLayer = null; _floorBanner = null; }
 			else _floorBanner.Modulate = new Color(1, 1, 1, alpha);
 		}
 
@@ -703,7 +704,7 @@ public partial class Main : Node2D
 		string bannerText = floor == 51 ? "BOSS FLOOR"
 			: bannerMod != FloorModifier.None ? $"FLOOR {floor}: {FloorModifiers.DisplayName(bannerMod)}"
 			: $"FLOOR {floor}";
-		_floorBanner?.QueueFree();
+		_floorBannerLayer?.QueueFree();
 		_floorBanner = new Label
 		{
 			Text = bannerText,
@@ -711,10 +712,13 @@ public partial class Main : Node2D
 			AnchorLeft = 0f, AnchorRight = 1f,
 			AnchorTop = 0.45f, AnchorBottom = 0.45f,
 			Modulate = new Color(1, 1, 1, 0f),
-			ZIndex = 20,
 		};
 		_floorBanner.AddThemeFontSizeOverride("font_size", 64);
-		AddChild(_floorBanner);
+		// Host on a CanvasLayer so the banner is fixed to the view window; added straight to
+		// Main (a Node2D) it would ride the Camera2D and pin to the map centre instead.
+		_floorBannerLayer = new CanvasLayer { Layer = 20, Name = "FloorBannerLayer" };
+		_floorBannerLayer.AddChild(_floorBanner);
+		AddChild(_floorBannerLayer);
 		_floorBannerTimer = BannerTotal;
 	}
 
