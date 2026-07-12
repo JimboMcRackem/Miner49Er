@@ -44,6 +44,8 @@ public partial class MatchClient : Node2D
 	public event System.Action<Vector2>? Whistled; // world position of a bot whistle
 		public event System.Action<Vector2, PortalKind>? Portaled; // world position + kind of a teleport
 		public event System.Action<Vector2, Vector2>? StoneTossed; // origin, landing (world coords)
+	public event System.Action<PrizeType, Vector2>? PrizeTelegraphed; // type + world position of an incoming prize
+	public event System.Action<int, PrizeType>? PrizeWon; // miner id + type of a claimed prize
 
 		// Portals are client-derived from the deterministic map gen (never networked);
 		// only the transient teleport event rides the wire. Track collapsed ends locally.
@@ -63,6 +65,8 @@ public partial class MatchClient : Node2D
 	private Node2D _sceneRoot = null!;
 	public int StartingGoldCount { get; private set; }
 	public OctopusSnapshot? Octopus { get; private set; }
+	public PrizeEventSnapshot? PrizeEvent { get; private set; }
+	private byte _prevPrizeState;
 	public IReadOnlyList<TreasureProgressSnapshot>? TreasureProgress { get; private set; }
 	public IReadOnlyList<PlacedChestSnapshot>?      PlacedChests     { get; private set; }
 	public IReadOnlyList<TripChargeSnapshot>?        TripCharges      { get; private set; }
@@ -228,6 +232,17 @@ public partial class MatchClient : Node2D
 					StoneTossed?.Invoke(from, to);
 				}
 			}
+
+			// Prize events: expose the active snapshot for the renderers, and raise
+			// one-shot signals for the banner/feed on telegraph entry and on a claim.
+			PrizeEvent = update.Snapshot.PrizeEvent;
+			byte prizeState = update.Snapshot.PrizeEvent?.State ?? 0;
+			if (prizeState == 1 && _prevPrizeState != 1 && update.Snapshot.PrizeEvent is { } pev)
+				PrizeTelegraphed?.Invoke((PrizeType)pev.Type,
+					new Vector2(pev.X * TileSize + TileSize / 2f, pev.Y * TileSize + TileSize / 2f));
+			_prevPrizeState = prizeState;
+			if (update.Snapshot.PrizeClaim is { } pclaim)
+				PrizeWon?.Invoke(pclaim.MinerId, (PrizeType)pclaim.Type);
 
 		_terrainMap?.UpdateTiles(update.TileChanges);
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);

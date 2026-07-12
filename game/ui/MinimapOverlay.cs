@@ -77,6 +77,13 @@ public partial class MinimapOverlay : CanvasLayer
 				DrawRect(new Rect2(ox + esc.X * px, oy + esc.Y * px, Mathf.Max(px, 2), Mathf.Max(px, 2)), c);
 			}
 
+			// Prize event ping (always shown — it's an announced, contested location).
+			if (Client.PrizeEvent is { } prize)
+			{
+				int m2 = Mathf.Max(px + 2, 4);
+				DrawRect(new Rect2(ox + prize.X * px - 1, oy + prize.Y * px - 1, m2, m2), new Color(1f, 0.84f, 0.2f));
+			}
+
 			// Local player dot (always white, drawn last so it's on top).
 			foreach (var m in Client.Miners)
 			{

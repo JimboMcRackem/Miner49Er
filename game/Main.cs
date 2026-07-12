@@ -92,6 +92,8 @@ public partial class Main : Node2D
 		GridPos? clientCenter = nm.MatchMode == GameMode.ReachCenter ? (GridPos?)map.Center : null;
 		_client = new MatchClient { Name = "MatchClient", ZIndex = 5 };
 		AddChild(_client);
+		_client.PrizeTelegraphed += (type, _) => SetAnnouncement($"⚡ {PrizeName(type)} incoming!", 4000);
+		_client.PrizeWon += (minerId, type) => SetAnnouncement($"{NameForMiner(minerId)} claimed the {PrizeName(type)}!", 3000);
 		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos, clientCenter,
 			expeditionTreasurePos: map.ExpeditionTreasurePos);
 
@@ -843,6 +845,21 @@ public partial class Main : Node2D
 
 	private static string NameOf(long peerId) =>
 		NetworkManager.Instance.Players.TryGetValue(peerId, out var info) ? info.Name : $"Peer {peerId}";
+
+	// Sim miner id (1-based spawn index) -> player name, via the peer order.
+	private static string NameForMiner(int minerId)
+	{
+		var order = NetworkManager.Instance.PeerOrder;
+		return (minerId >= 1 && minerId <= order.Length) ? NameOf(order[minerId - 1]) : $"Miner {minerId}";
+	}
+
+	private static string PrizeName(PrizeType type) => type switch
+	{
+		PrizeType.CarryRelic => "relic",
+		PrizeType.HoldPoint  => "prize point",
+		PrizeType.MineOut    => "gold cache",
+		_                    => "prize",
+	};
 
 	private static string DeathCauseLabel(DeathCause cause) => cause switch
 	{

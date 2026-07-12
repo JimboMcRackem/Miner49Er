@@ -1031,6 +1031,26 @@ public partial class WorldRenderer : Node2D
 			DrawArc(center, ts * 0.55f * pp, 0f, Mathf.Tau, 40, new Color(0.9f, 0.9f, 0.85f, alpha2 * 0.6f), 2f);
 		}
 
+		// Prize event: a pulsing gold marker on the tile, plus a claim-progress ring for
+		// the channel/hold types (progress is 0 for grab-and-go). Visible when in view or spectating.
+		if (_client.PrizeEvent is { } prize)
+		{
+			var pcell = new GridPos(prize.X, prize.Y);
+			if (spectating || _client.Fog.IsVisible(pcell))
+			{
+				var pc = new Vector2(prize.X * ts + ts / 2f, prize.Y * ts + ts / 2f);
+				float pulse = 0.6f + 0.4f * Mathf.Sin((float)Time.GetTicksMsec() / 200f);
+				DrawCircle(pc, ts * 0.55f * pulse, new Color(1f, 0.85f, 0.2f, 0.22f));
+				float r = ts * 0.30f;
+				var diamond = new Vector2[] { pc + new Vector2(0, -r), pc + new Vector2(r, 0), pc + new Vector2(0, r), pc + new Vector2(-r, 0) };
+				DrawColoredPolygon(diamond, new Color(1f, 0.84f, 0.2f));
+				DrawPolyline(new[] { diamond[0], diamond[1], diamond[2], diamond[3], diamond[0] }, new Color(0.45f, 0.3f, 0f), 1.5f);
+				if (prize.ClaimProgress > 0.001f)
+					DrawArc(pc, ts * 0.42f, -Mathf.Pi / 2f, -Mathf.Pi / 2f + Mathf.Tau * prize.ClaimProgress, 32,
+						new Color(1f, 0.95f, 0.5f), 3f);
+			}
+		}
+
 		// Lantern light: radial amber glow centered on each active lantern source
 		int glowPx = 5 * ts * 2;
 		foreach (var m in _client.Miners)
