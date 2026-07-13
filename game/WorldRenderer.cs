@@ -1106,20 +1106,8 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
-		// Dizzy stars over stunned miners: three orbiting asterisks above the head.
-		foreach (var m in _client.Miners)
-		{
-			if (m.StunRemaining <= 0f || !m.Alive) continue;
-			if (!_client.Fog.IsVisible(new GridPos(m.X, m.Y)) && !spectating) continue;
-			var c = new Vector2(m.X * ts + ts / 2f, m.Y * ts + ts / 2f - ts * 0.5f);
-			float baseA = (float)Time.GetTicksMsec() / 220f;
-			for (int i = 0; i < 3; i++)
-			{
-				float a = baseA + i * Mathf.Tau / 3f;
-				var p = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a) * 0.5f) * ts * 0.28f;
-				DrawString(ThemeDB.FallbackFont, p, "*", HorizontalAlignment.Center, -1, ts / 2, new Color(1f, 0.9f, 0.3f));
-			}
-		}
+		// (Dizzy stars over stunned miners are drawn by the shared DrawStunStars pass below,
+		// which already covers all stunned miners — including those stunned in Treasure Heist.)
 
 		// Lantern light: radial amber glow centered on each active lantern source
 		int glowPx = 5 * ts * 2;
