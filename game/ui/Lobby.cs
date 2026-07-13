@@ -20,6 +20,8 @@ public partial class Lobby : Control
 	private CheckBox _lavaCheck = null!;
 	private CheckBox _prizeCheck = null!;
 	private OptionButton _prizeFreqPicker = null!;
+	private OptionButton _heistWinByPicker = null!;
+	private OptionButton _heistRespawnPicker = null!;
 	private CheckButton _advancedToggle = null!;
 	private VBoxContainer _advancedBox = null!;
 	private OptionButton _explosivePicker = null!;
@@ -51,7 +53,7 @@ public partial class Lobby : Control
 		leftCol.AddThemeConstantOverride("separation", 14);
 		columns.AddChild(leftCol);
 
-		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor, savedBlast, savedVision, savedPrize, savedPrizeFreq, savedAdvanced) = SettingsStore.LoadLobby();
+		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor, savedBlast, savedVision, savedPrize, savedPrizeFreq, savedAdvanced, savedHeistWinBy, savedHeistRespawn) = SettingsStore.LoadLobby();
 
 		_modePicker = new OptionButton();
 		_modePicker.AddItem("Last Man Standing",  (int)GameMode.LastManStanding);
@@ -60,6 +62,7 @@ public partial class Lobby : Control
 		_modePicker.AddItem("Expedition",         (int)GameMode.Expedition);
 		_modePicker.AddItem("Treasure Hunt",      (int)GameMode.TreasureHunt);
 		_modePicker.AddItem("Demolition Derby",   (int)GameMode.DemolitionDerby);
+		_modePicker.AddItem("Treasure Heist",     (int)GameMode.TreasureHeist);
 		_modePicker.Select(savedMode);
 		_modePicker.Visible = NetworkManager.Instance.IsHost;
 		leftCol.AddChild(_modePicker);
@@ -183,6 +186,18 @@ public partial class Lobby : Control
 		_visionPicker.Visible = NetworkManager.Instance.IsHost;
 		_advancedBox.AddChild(_visionPicker);
 
+		_heistWinByPicker = new OptionButton();
+		_heistWinByPicker.AddItem("Win: Hold at buzzer", 0);
+		_heistWinByPicker.AddItem("Win: Most time",      1);
+		_heistWinByPicker.Select(savedHeistWinBy ? 1 : 0);
+		_advancedBox.AddChild(_heistWinByPicker);
+
+		_heistRespawnPicker = new OptionButton();
+		_heistRespawnPicker.AddItem("Respawns: Unlimited",   1);
+		_heistRespawnPicker.AddItem("Respawns: Death match", 0);
+		_heistRespawnPicker.Select(savedHeistRespawn ? 0 : 1);
+		_advancedBox.AddChild(_heistRespawnPicker);
+
 		// ── Center column: player list ─────────────────────────────────────────
 		var centerCol = new VBoxContainer { CustomMinimumSize = new Vector2(300, 0) };
 		centerCol.AddThemeConstantOverride("separation", 12);
@@ -259,7 +274,8 @@ public partial class Lobby : Control
 			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), timeLimit,
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
 				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive, startFloor, blastRadius, visionRadius,
-				_prizeCheck.ButtonPressed, _prizeFreqPicker.GetSelectedId(), _advancedToggle.ButtonPressed);
+				_prizeCheck.ButtonPressed, _prizeFreqPicker.GetSelectedId(), _advancedToggle.ButtonPressed,
+				_heistWinByPicker.GetSelectedId() == 1, _heistRespawnPicker.GetSelectedId() == 1);
 			NetworkManager.Instance.StartMatch(
 				(GameMode)_modePicker.GetSelectedId(),
 				timeLimit,
@@ -274,7 +290,9 @@ public partial class Lobby : Control
 				blastRadius,
 				visionRadius,
 				_prizeCheck.ButtonPressed,
-				_prizeFreqPicker.GetSelectedId());
+				_prizeFreqPicker.GetSelectedId(),
+				treasureWinByCumulative: _heistWinByPicker.GetSelectedId() == 1,
+				treasureRespawn: _heistRespawnPicker.GetSelectedId() == 1);
 		};
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		rightCol.AddChild(_startBtn);
@@ -315,6 +333,7 @@ public partial class Lobby : Control
 		bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
 		bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
 		bool derby      = _modePicker.GetSelectedId() == (int)GameMode.DemolitionDerby;
+		bool heist      = _modePicker.GetSelectedId() == (int)GameMode.TreasureHeist;
 		bool normalMode = !expedition && !treasure && !derby;
 		_advancedBox.Visible       = isHost && _advancedToggle.ButtonPressed;
 		_timePicker.Visible        = isHost && normalMode;
@@ -323,6 +342,8 @@ public partial class Lobby : Control
 		_explosivePicker.Visible   = isHost && normalMode;
 		_prizeCheck.Visible        = isHost && !expedition; // competitive only
 		_prizeFreqPicker.Visible   = isHost && !expedition;
+		_heistWinByPicker.Visible   = isHost && heist;
+		_heistRespawnPicker.Visible = isHost && heist;
 
 		_modeDesc.Text = ModeDescription(_modePicker.GetSelectedId());
 	}
@@ -345,6 +366,7 @@ public partial class Lobby : Control
 		GameMode.Expedition      => "Hearing rumours of ancient treasure you gain entry to the abandoned mine, only to find you are not alone. Survive with your life...and riches.",
 		GameMode.TreasureHunt    => "Someone moved the idols. Centuries-old relics, scattered through the dark by hands unknown — and your buyer wants two specific ones. You've got the descriptions, you've got a chest, and you've got competition. First to seal their haul wins.",
 		GameMode.DemolitionDerby => "No gold. No mercy. Just dynamite and bad intentions. Every miner starts with unlimited charges and one objective: be the last one breathing. Blow through walls, chase rivals into dead ends, and don't stand next to anything that's about to explode.",
+		GameMode.TreasureHeist   => "Grab the buried treasure and hold it when the clock runs out — stone rivals to make them drop it.",
 		_                        => "",
 	};
 
@@ -364,6 +386,7 @@ public partial class Lobby : Control
 		GameMode.Expedition      => "Expedition",
 		GameMode.TreasureHunt    => "Treasure Hunt",
 		GameMode.DemolitionDerby => "Demolition Derby",
+		GameMode.TreasureHeist   => "Treasure Heist",
 		_                        => "Unknown",
 	};
 

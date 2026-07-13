@@ -355,6 +355,9 @@ public partial class NetworkManager : Node
 	public bool MatchPrizeEvents { get; private set; }
 	// Host-only: prize-event frequency preset (0=Rare, 1=Occasional, 2=Frequent).
 	public int MatchPrizeFrequency { get; private set; } = 1;
+	// Host-only (host runs the sim): Treasure Heist rules.
+	public bool MatchTreasureWinByCumulative { get; private set; }
+	public bool MatchTreasureRespawn { get; private set; } = true;
 	public ExplosiveMode MatchExplosive { get; private set; }
 	public int MatchBlastRadius { get; private set; } = 1;   // host-set explosion size (rock + kill radius)
 	public int MatchVisionRadius { get; private set; } = 5;  // host-set base fog radius
@@ -403,12 +406,14 @@ public partial class NetworkManager : Node
 		_matchClient = client;
 	}
 
-	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1, int blastRadius = 1, int visionRadius = 5, bool prizeEvents = false, int prizeFrequency = 1)
+	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1, int blastRadius = 1, int visionRadius = 5, bool prizeEvents = false, int prizeFrequency = 1, bool treasureWinByCumulative = false, bool treasureRespawn = true)
 	{
 		if (!IsHost) return;
 		// Host-only: the sim runs on the host, so this never needs to travel in the BeginMatch RPC.
 		MatchPrizeEvents = prizeEvents && mode != GameMode.Expedition;
 		MatchPrizeFrequency = prizeFrequency;
+		MatchTreasureWinByCumulative = treasureWinByCumulative;
+		MatchTreasureRespawn = treasureRespawn;
 		if (flooding && timeLimitSeconds <= 0) timeLimitSeconds = 60; // a flooded match needs a clock
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
 		int seed = System.Random.Shared.Next();
