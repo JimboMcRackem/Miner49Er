@@ -195,6 +195,7 @@ public partial class MatchHost : Node
 		var stoneThrows = new List<StoneThrowSnapshot>();
 		var dynamiteThrows = new List<DynamiteThrowSnapshot>();
 		PrizeClaimSnapshot? prizeClaim = null;
+		TreasureToastSnapshot? treasureToast = null;
 		foreach (var e in _sim.DrainEvents())
 		{
 			switch (e)
@@ -254,6 +255,18 @@ public partial class MatchHost : Node
 				case PrizeClaimed pcl:
 					prizeClaim = new PrizeClaimSnapshot(pcl.MinerId, (byte)pcl.Type);
 					break;
+				case TreasureFound tf:
+					treasureToast = new TreasureToastSnapshot(0, tf.MinerId);
+					break;
+				case TreasureRecovered tr:
+					treasureToast = new TreasureToastSnapshot(1, tr.MinerId);
+					break;
+				case TreasureSneaking ts:
+					treasureToast = new TreasureToastSnapshot(2, ts.MinerId);
+					break;
+				case TreasureDropped td:
+					treasureToast = new TreasureToastSnapshot(3, td.MinerId);
+					break;
 			}
 		}
 
@@ -276,6 +289,8 @@ public partial class MatchHost : Node
 			snapshot = snapshot with { DynamiteThrows = dynamiteThrows };
 		if (prizeClaim is { } claim)
 			snapshot = snapshot with { PrizeClaim = claim };
+		if (treasureToast is { } tt)
+			snapshot = snapshot with { TreasureToast = tt };
 		var update = new TickUpdate(snapshot, changes);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
 	}

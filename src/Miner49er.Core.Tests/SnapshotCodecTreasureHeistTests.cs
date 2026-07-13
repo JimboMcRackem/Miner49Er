@@ -28,4 +28,24 @@ public class SnapshotCodecTreasureHeistTests
         Assert.Equal(2, back.HoldTimes!.Count);
         Assert.Equal(3.25f, back.HoldTimes![0].Seconds, 3);
     }
+
+    [Fact]
+    public void TreasureToast_snapshot_round_trips()
+    {
+        var snap = new WorldSnapshot(
+            Tick: 7,
+            Miners: new List<MinerSnapshot>(),
+            Charges: new List<ChargeSnapshot>(),
+            Items: new List<ItemSnapshot>(),
+            Molds: new List<MoldSnapshot>(),
+            Monsters: new List<MonsterSnapshot>(),
+            TreasureToast: new TreasureToastSnapshot(2, 5));
+        var update = new TickUpdate(snap, new List<TileChange>());
+
+        var back = SnapshotCodec.Read(SnapshotCodec.Write(update)).Snapshot;
+
+        Assert.NotNull(back.TreasureToast);
+        Assert.Equal(2, back.TreasureToast!.Value.Kind);
+        Assert.Equal(5, back.TreasureToast!.Value.MinerId);
+    }
 }
