@@ -37,4 +37,14 @@ public class TreasureHeistTests
         Assert.True(sim.TreasureFoundYet);
         Assert.Contains(sim.DrainEvents(), e => e is TreasureFound { MinerId: 1 });
     }
+
+    [Fact]
+    public void Buried_treasure_position_is_known_during_find_phase()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddMiner(1, new GridPos(2, 2));
+        sim.AddItem(new Item(new GridPos(8, 9), ItemKind.IdolUrn, ItemPlacement.Buried));
+        Assert.False(sim.TreasureUnearthed);
+        Assert.Equal(new GridPos(8, 9), sim.TreasurePos);
+    }
 }

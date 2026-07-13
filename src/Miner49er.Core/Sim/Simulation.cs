@@ -101,7 +101,15 @@ public sealed class Simulation
     public IReadOnlyList<ReelCharge> ReelCharges => _reelCharges;
     public IReadOnlyList<PendingFall> PendingFalls => _pendingFalls;
 
-    public void AddItem(Item item) => _items.Add(item);   // host seeds these from GeneratedMap.Items
+    public void AddItem(Item item)
+    {
+        _items.Add(item);   // host seeds these from GeneratedMap.Items
+        if (Config.TreasureHeistMode && !_treasureUnearthed && item.Placement == ItemPlacement.Buried)
+        {
+            _treasureKind = item.Kind;
+            _treasurePos = item.Pos;
+        }
+    }
 
     public GridPos? Center { get; }
     public int FirstToReachCenter { get; private set; } = -1;
@@ -146,15 +154,6 @@ public sealed class Simulation
         if (EscapeTile is not null && _goldRemaining == 0 && !Config.RequireChestForEscape
             && Config.ExpeditionTreasureKind is null)
             EscapeOpen = true;   // gold-less map: open at once (unless boss/treasure floor)
-
-        // Treasure Heist: adopt the buried treasure's kind/pos if items were seeded before
-        // construction (test seams do this); AddItem-seeded maps resolve this in AdvanceTreasureHeist
-        // instead, since the host adds items after the Simulation is constructed.
-        if (Config.TreasureHeistMode)
-        {
-            var buried = _items.FirstOrDefault(it => it.Placement == ItemPlacement.Buried);
-            if (buried != default) { _treasureKind = buried.Kind; _treasurePos = buried.Pos; }
-        }
     }
 
     public Miner AddMiner(int id, GridPos pos, double invulRemaining = 0.0)
