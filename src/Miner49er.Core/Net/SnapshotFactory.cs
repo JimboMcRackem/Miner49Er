@@ -68,8 +68,18 @@ public static class SnapshotFactory
                 (byte)sim.PrizeType, (byte)sim.PrizeState, sim.PrizePos.X, sim.PrizePos.Y,
                 (float)sim.PrizeClaimProgress, sim.PrizeHolderId, (float)sim.PrizeSecondsRemaining);
 
+        TreasureSnapshot? treasure = null;
+        IReadOnlyList<HoldTimeSnapshot>? holdTimes = null;
+        if (sim.Config.TreasureHeistMode)
+        {
+            byte state = (byte)(!sim.TreasureUnearthed ? 0 : sim.TreasureHolderId >= 0 ? 2 : 1);
+            treasure = new TreasureSnapshot(state, sim.TreasurePos.X, sim.TreasurePos.Y, sim.TreasureHolderId, 0f);
+            holdTimes = sim.Miners.Select(m => new HoldTimeSnapshot(m.Id, (float)sim.HoldSecondsOf(m.Id))).ToList();
+        }
+
         return new WorldSnapshot(tick, miners, charges, items, molds, monsters,
             (float)sim.SecondsRemaining, sim.EscapeOpen, octopus, lives, reelCharges,
-            treasureProgress, placedChests, tripCharges, pendingFalls, PrizeEvent: prize);
+            treasureProgress, placedChests, tripCharges, pendingFalls, PrizeEvent: prize,
+            Treasure: treasure, HoldTimes: holdTimes);
     }
 }

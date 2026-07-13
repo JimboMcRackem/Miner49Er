@@ -38,6 +38,9 @@ public readonly record struct DynamiteThrowSnapshot(int ThrowerId, int FromX, in
 public readonly record struct PrizeEventSnapshot(
     byte Type, byte State, int X, int Y, float ClaimProgress, int HolderId, float SecondsRemaining);
 public readonly record struct PrizeClaimSnapshot(int MinerId, byte Type); // transient: fired the tick a prize is claimed
+public readonly record struct TreasureSnapshot(
+    byte State, int X, int Y, int HolderId, float SuddenDeathProgress); // State: 0=buried,1=loose,2=carried
+public readonly record struct HoldTimeSnapshot(int MinerId, float Seconds);
 
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,
@@ -56,6 +59,8 @@ public sealed record WorldSnapshot(
     IReadOnlyList<StoneThrowSnapshot>?       Throws           = null,
     IReadOnlyList<DynamiteThrowSnapshot>?    DynamiteThrows   = null,
     PrizeEventSnapshot?                      PrizeEvent       = null,
-    PrizeClaimSnapshot?                      PrizeClaim       = null);
+    PrizeClaimSnapshot?                      PrizeClaim       = null,
+    TreasureSnapshot?                        Treasure         = null,
+    IReadOnlyList<HoldTimeSnapshot>?         HoldTimes        = null);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);

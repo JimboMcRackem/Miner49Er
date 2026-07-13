@@ -107,6 +107,15 @@ public static class SnapshotCodec
         foreach (var pf in snap.PendingFalls ?? System.Array.Empty<PendingFallSnapshot>())
         { w.Write(pf.X); w.Write(pf.Y); w.Write(pf.FractionElapsed); }
 
+        w.Write(snap.Treasure.HasValue);
+        if (snap.Treasure is { } tr)
+        {
+            w.Write(tr.State); w.Write(tr.X); w.Write(tr.Y); w.Write(tr.HolderId); w.Write(tr.SuddenDeathProgress);
+        }
+        var holds = snap.HoldTimes ?? System.Array.Empty<HoldTimeSnapshot>();
+        w.Write(holds.Count);
+        foreach (var h in holds) { w.Write(h.MinerId); w.Write(h.Seconds); }
+
         w.Write(update.TileChanges.Count);
         foreach (var t in update.TileChanges)
         {
@@ -242,6 +251,13 @@ public static class SnapshotCodec
         for (int i = 0; i < pendingFallCount; i++)
             pendingFalls!.Add(new PendingFallSnapshot(r.ReadInt32(), r.ReadInt32(), r.ReadSingle()));
 
+        TreasureSnapshot? treasure = null;
+        if (r.ReadBoolean())
+            treasure = new TreasureSnapshot(r.ReadByte(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadSingle());
+        int holdCount = r.ReadInt32();
+        var holdTimes = new List<HoldTimeSnapshot>(holdCount);
+        for (int i = 0; i < holdCount; i++) holdTimes.Add(new HoldTimeSnapshot(r.ReadInt32(), r.ReadSingle()));
+
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
@@ -252,6 +268,6 @@ public static class SnapshotCodec
             treasureProgress, placedChests, tripCharges, ScreeCollapses: screeCollapses,
             Whistles: whistles, PortalUses: portalUses, Throws: throws,
             DynamiteThrows: dynamiteThrows, PrizeEvent: prizeEvent, PrizeClaim: prizeClaim,
-            PendingFalls: pendingFalls), changes);
+            PendingFalls: pendingFalls, Treasure: treasure, HoldTimes: holdTimes), changes);
     }
 }
