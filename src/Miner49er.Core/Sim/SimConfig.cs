@@ -110,6 +110,18 @@ public sealed class SimConfig
     public bool DynamiteEnabled { get; set; } = true;
     public bool TreasureHuntMode { get; set; } = false;
 
+    // Treasure Heist: one buried treasure carried & held; winner decided by the treasure.
+    public bool TreasureHeistMode { get; set; } = false;
+    public bool TreasureWinByCumulative { get; set; } = false; // false = hold-at-buzzer
+    public bool TreasureRespawnEnabled { get; set; } = true;   // false = death match (permadeath)
+    public double TreasureCarrySlowFactor { get; set; } = 1.35; // move-cadence multiplier while carrying
+    public double TreasureSneakSeconds { get; set; } = 8.0;
+    public int    TreasureSneakRadius  { get; set; } = 6;      // Chebyshev tiles
+    public double TreasureSneakCooldown { get; set; } = 10.0;
+    public double SuddenDeathHoldSeconds { get; set; } = 3.0;
+    public double RespawnSeconds { get; set; } = 5.0;
+    public int    StartingStones { get; set; } = 9;
+
     public float MonsterCountMultiplier { get; set; } = 1.0f;
 
     // Floor traps — plant dynamite on floor tiles; triggers when a miner steps on it.

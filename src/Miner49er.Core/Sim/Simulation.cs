@@ -125,6 +125,7 @@ public sealed class Simulation
     {
         var m = new Miner(id, pos) { InvulnerableRemaining = invulRemaining, SpawnPos = pos };
         _miners[id] = m;
+        if (Config.TreasureHeistMode) m.StoneCount = Config.StartingStones;
         if (Config.TreasureHuntMode)
         {
             var (a, b)            = TreasureAssignment.For(Config.Seed, id);
