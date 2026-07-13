@@ -74,6 +74,7 @@ public partial class WorldRenderer : Node2D
 	private Texture2D? _lavaVentTex;
 	private Texture2D? _crumbledTex;
 	private Texture2D? _crackedTex;
+	private readonly Texture2D?[] _prizeTex = new Texture2D?[4]; // indexed by PrizeType
 	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
 	private ImageTexture _lanternGlowTex  = null!;
 	private ImageTexture _crystalGlowTex  = null!;
@@ -120,6 +121,10 @@ public partial class WorldRenderer : Node2D
 		_lavaVentTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_5.png");
 		_crumbledTex  = GD.Load<Texture2D>("res://assets/tiles/singletiles/tile_11.png");
 		_crackedTex   = GD.Load<Texture2D>("res://assets/tiles/cracked_floor.png");
+		LoadPrizeTex(PrizeType.GrabAndGo,  "res://assets/objects/prize_coin.png");
+		LoadPrizeTex(PrizeType.MineOut,    "res://assets/objects/prize_gem.png");
+		LoadPrizeTex(PrizeType.HoldPoint,  "res://assets/objects/prize_flag.png");
+		LoadPrizeTex(PrizeType.CarryRelic, "res://assets/objects/prize_relic.png");
 		LoadItemTex(ItemKind.SpeedPotion,  "res://assets/objects/item_speed.png");
 		LoadItemTex(ItemKind.LongerVision, "res://assets/objects/item_vision.png");
 		LoadItemTex(ItemKind.BiggerBlast,  "res://assets/objects/item_blast.png");
@@ -203,6 +208,11 @@ public partial class WorldRenderer : Node2D
 	{
 		var t = GD.Load<Texture2D>(path);
 		if (t != null) _itemTex[kind] = t;
+	}
+
+	private void LoadPrizeTex(PrizeType type, string path)
+	{
+		if (ResourceLoader.Exists(path)) _prizeTex[(int)type] = GD.Load<Texture2D>(path);
 	}
 
 	// Loads n/e/s/w.png from assets/monsters/<folder>/ into a [4] array (0=N 1=E 2=S 3=W).
@@ -1051,10 +1061,21 @@ public partial class WorldRenderer : Node2D
 					_                    => new Color(1f, 0.84f, 0.2f),   // coin gold
 				};
 				DrawCircle(pc, ts * 0.55f * pulse, fill with { A = 0.22f });
-				float r = ts * 0.30f;
-				var diamond = new Vector2[] { pc + new Vector2(0, -r), pc + new Vector2(r, 0), pc + new Vector2(0, r), pc + new Vector2(-r, 0) };
-				DrawColoredPolygon(diamond, fill);
-				DrawPolyline(new[] { diamond[0], diamond[1], diamond[2], diamond[3], diamond[0] }, new Color(0f, 0f, 0f, 0.5f), 1.5f);
+				var prizeTex = _prizeTex[prize.Type & 3];
+				if (prizeTex != null)
+				{
+					// Sprite gently bobs on the pulse so it stays eye-catching.
+					float sz = ts * (0.9f + 0.08f * (pulse - 0.6f) / 0.4f);
+					DrawTextureRect(prizeTex, new Rect2(pc.X - sz / 2f, pc.Y - sz / 2f, sz, sz), false);
+				}
+				else
+				{
+					// Fallback marker if the sprite is missing: a per-type diamond.
+					float r = ts * 0.30f;
+					var diamond = new Vector2[] { pc + new Vector2(0, -r), pc + new Vector2(r, 0), pc + new Vector2(0, r), pc + new Vector2(-r, 0) };
+					DrawColoredPolygon(diamond, fill);
+					DrawPolyline(new[] { diamond[0], diamond[1], diamond[2], diamond[3], diamond[0] }, new Color(0f, 0f, 0f, 0.5f), 1.5f);
+				}
 				if (prize.ClaimProgress > 0.001f)
 					DrawArc(pc, ts * 0.42f, -Mathf.Pi / 2f, -Mathf.Pi / 2f + Mathf.Tau * prize.ClaimProgress, 32,
 						new Color(1f, 0.95f, 0.5f), 3f);
