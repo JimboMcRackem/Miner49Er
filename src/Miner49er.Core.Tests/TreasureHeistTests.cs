@@ -109,4 +109,29 @@ public class TreasureHeistTests
         sim.TryThrowStone(1);
         Assert.Contains(sim.Items, it => it.Kind == ItemKind.Stone && it.Placement == ItemPlacement.Loose);
     }
+
+    [Fact]
+    public void Dead_miner_respawns_after_delay_when_respawns_enabled()
+    {
+        var cfg = Cfg(); cfg.TreasureRespawnEnabled = true; cfg.RespawnSeconds = 1.0;
+        var sim = new Simulation(Grid(), cfg);
+        sim.AddMiner(1, new GridPos(3, 3));
+        sim.KillMiner(1);
+        Assert.False(sim.GetMiner(1).Alive);
+        for (int i = 0; i < 12; i++) sim.Tick(0.1); // > 1s
+        Assert.True(sim.GetMiner(1).Alive);
+        Assert.Equal(new GridPos(3, 3), sim.GetMiner(1).Pos); // back at spawn
+        Assert.Equal(9, sim.GetMiner(1).StoneCount);
+    }
+
+    [Fact]
+    public void Death_match_keeps_dead_miner_out()
+    {
+        var cfg = Cfg(); cfg.TreasureRespawnEnabled = false;
+        var sim = new Simulation(Grid(), cfg);
+        sim.AddMiner(1, new GridPos(3, 3));
+        sim.KillMiner(1);
+        for (int i = 0; i < 100; i++) sim.Tick(0.1);
+        Assert.False(sim.GetMiner(1).Alive);
+    }
 }

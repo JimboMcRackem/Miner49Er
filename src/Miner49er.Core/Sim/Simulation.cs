@@ -1252,6 +1252,40 @@ public sealed class Simulation
         foreach (var m in _miners.Values)
             if (m.Held is { } held && (!m.Alive || m.StunRemaining > 0))
                 DropHeldItem(m, held);
+
+        if (Config.TreasureRespawnEnabled)
+            AdvanceRespawns(dt);
+
+        // Sudden-death accrual: after the clock expires, a lone uncontested holder wins.
+        if (TimeExpired && _treasureHolderId >= 0 && _miners.TryGetValue(_treasureHolderId, out var sh) && sh.Alive)
+        {
+            int nearest = _miners.Values
+                .Where(r => r.Id != sh.Id && r.Alive)
+                .Select(r => r.Pos.ChebyshevTo(sh.Pos))
+                .DefaultIfEmpty(int.MaxValue).Min();
+            if (nearest > Config.TreasureSneakRadius) _suddenDeathHold += dt; else _suddenDeathHold = 0;
+            if (_suddenDeathHold >= Config.SuddenDeathHoldSeconds) _suddenDeathWinner = sh.Id;
+        }
+        else _suddenDeathHold = 0;
+    }
+
+    private void AdvanceRespawns(double dt)
+    {
+        foreach (var m in _miners.Values)
+        {
+            if (m.Alive) { _respawnTimers.Remove(m.Id); continue; }
+            double t = _respawnTimers.GetValueOrDefault(m.Id) + dt;
+            if (t < Config.RespawnSeconds) { _respawnTimers[m.Id] = t; continue; }
+            _respawnTimers.Remove(m.Id);
+            m.Alive = true;
+            m.Pos = m.SpawnPos;
+            m.DeathCause = DeathCause.None;
+            m.StunRemaining = 0;
+            m.Held = null;
+            m.StoneCount = Config.StartingStones;
+            m.EffectsInternal.Clear();
+            _events.Add(new LifeRestored(m.Id));
+        }
     }
 
     private static readonly GridPos[] Neighbours8 =
