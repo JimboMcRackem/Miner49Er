@@ -892,7 +892,8 @@ public partial class Main : Node2D
 				: $"Winner: {NameOf(winnerPeerId)}";
 		}
 		_results.Show(label, nm.IsHost,
-			expedition ? "Return to Menu" : "Return to Lobby", scoreText, playAgain);
+			expedition ? "Return to Menu" : "Return to Lobby", scoreText, playAgain,
+			celebrate: winnerPeerId != -1); // fireworks for any actual win; draws get none
 	}
 
 	private static string NameOf(long peerId) =>
