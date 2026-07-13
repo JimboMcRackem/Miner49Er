@@ -184,11 +184,11 @@ public static class SettingsStore
 
 	private const string LobbySection = "lobby";
 
-	public static (int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor, int blast, int vision, bool prizeEvents) LoadLobby()
+	public static (int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor, int blast, int vision, bool prizeEvents, int prizeFreq, bool advanced) LoadLobby()
 	{
 		var cfg = new ConfigFile();
 		if (cfg.Load(Path) != Error.Ok)
-			return (0, 60, false, false, false, false, 1, 1, 0, 1, 1, 5, true);
+			return (0, 60, false, false, false, false, 1, 1, 0, 1, 1, 5, true, 1, false);
 		int  mode       = (int)(long)cfg.GetValue(LobbySection, "game_mode",    0L);
 		int  time       = (int)(long)cfg.GetValue(LobbySection, "time_limit",   60L);
 		bool flood      = (bool)cfg.GetValue(LobbySection, "flood",   false);
@@ -202,12 +202,15 @@ public static class SettingsStore
 		int  blast      = (int)(long)cfg.GetValue(LobbySection, "blast_radius", 1L);
 		int  vision     = (int)(long)cfg.GetValue(LobbySection, "vision_radius", 5L);
 		bool prize      = (bool)cfg.GetValue(LobbySection, "prize_events", true);
+		int  prizeFreq  = (int)(long)cfg.GetValue(LobbySection, "prize_freq", 1L);
+		bool advanced   = (bool)cfg.GetValue(LobbySection, "advanced", false);
 		return (Mathf.Clamp(mode, 0, 3), time, flood, pits, caveIns, lava,
 		        Mathf.Clamp(speed, 0, 2), Mathf.Clamp(scale, 1, 4), Mathf.Clamp(explosive, 0, 2),
-		        Mathf.Clamp(startFloor, 1, 20), Mathf.Clamp(blast, 1, 3), Mathf.Clamp(vision, 3, 8), prize);
+		        Mathf.Clamp(startFloor, 1, 20), Mathf.Clamp(blast, 1, 3), Mathf.Clamp(vision, 3, 8), prize,
+		        Mathf.Clamp(prizeFreq, 0, 2), advanced);
 	}
 
-	public static void SaveLobby(int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor = 1, int blast = 1, int vision = 5, bool prizeEvents = true)
+	public static void SaveLobby(int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor = 1, int blast = 1, int vision = 5, bool prizeEvents = true, int prizeFreq = 1, bool advanced = false)
 	{
 		var cfg = new ConfigFile();
 		cfg.Load(Path);
@@ -224,6 +227,8 @@ public static class SettingsStore
 		cfg.SetValue(LobbySection, "blast_radius", (long)blast);
 		cfg.SetValue(LobbySection, "vision_radius", (long)vision);
 		cfg.SetValue(LobbySection, "prize_events", prizeEvents);
+		cfg.SetValue(LobbySection, "prize_freq",   (long)prizeFreq);
+		cfg.SetValue(LobbySection, "advanced",     advanced);
 		cfg.Save(Path);
 	}
 

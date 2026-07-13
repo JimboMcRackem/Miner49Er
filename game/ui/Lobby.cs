@@ -19,6 +19,9 @@ public partial class Lobby : Control
 	private CheckBox _caveInCheck = null!;
 	private CheckBox _lavaCheck = null!;
 	private CheckBox _prizeCheck = null!;
+	private OptionButton _prizeFreqPicker = null!;
+	private CheckButton _advancedToggle = null!;
+	private VBoxContainer _advancedBox = null!;
 	private OptionButton _explosivePicker = null!;
 	private OptionButton _speedPicker = null!;
 	private OptionButton _explosionSizePicker = null!;
@@ -48,7 +51,7 @@ public partial class Lobby : Control
 		leftCol.AddThemeConstantOverride("separation", 14);
 		columns.AddChild(leftCol);
 
-		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor, savedBlast, savedVision, savedPrize) = SettingsStore.LoadLobby();
+		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor, savedBlast, savedVision, savedPrize, savedPrizeFreq, savedAdvanced) = SettingsStore.LoadLobby();
 
 		_modePicker = new OptionButton();
 		_modePicker.AddItem("Last Man Standing",  (int)GameMode.LastManStanding);
@@ -103,26 +106,48 @@ public partial class Lobby : Control
 			NetworkManager.Instance.BroadcastPendingMode(_modePicker.GetSelectedId());
 		};
 
+		// Advanced/Simple split: the toggle stays in the always-visible (Simple) column;
+		// every "bells & whistles" control below lives in _advancedBox, shown only when on.
+		_advancedToggle = new CheckButton { Text = "Advanced options", ButtonPressed = savedAdvanced };
+		_advancedToggle.Visible = NetworkManager.Instance.IsHost;
+		_advancedToggle.Toggled += _ => RefreshModeControls();
+		leftCol.AddChild(_advancedToggle);
+
+		_advancedBox = new VBoxContainer();
+		_advancedBox.AddThemeConstantOverride("separation", 14);
+		leftCol.AddChild(_advancedBox);
+
 		_floodCheck = new CheckBox { Text = "Flooding", ButtonPressed = savedFlood };
 		_floodCheck.Visible = NetworkManager.Instance.IsHost;
 		_floodCheck.Toggled += (bool on) => { if (on && _timePicker.Selected == 0) _timePicker.Select(1); };
-		leftCol.AddChild(_floodCheck);
+		_advancedBox.AddChild(_floodCheck);
 
 		_pitsCheck = new CheckBox { Text = "Pits", ButtonPressed = savedPits };
 		_pitsCheck.Visible = NetworkManager.Instance.IsHost;
-		leftCol.AddChild(_pitsCheck);
+		_advancedBox.AddChild(_pitsCheck);
 
 		_caveInCheck = new CheckBox { Text = "Cave-ins", ButtonPressed = savedCaveIn };
 		_caveInCheck.Visible = NetworkManager.Instance.IsHost;
-		leftCol.AddChild(_caveInCheck);
+		_advancedBox.AddChild(_caveInCheck);
 
 		_lavaCheck = new CheckBox { Text = "Lava", ButtonPressed = savedLava };
 		_lavaCheck.Visible = NetworkManager.Instance.IsHost;
-		leftCol.AddChild(_lavaCheck);
+		_advancedBox.AddChild(_lavaCheck);
 
 		_prizeCheck = new CheckBox { Text = "Prize Events", ButtonPressed = savedPrize };
 		_prizeCheck.Visible = NetworkManager.Instance.IsHost;
-		leftCol.AddChild(_prizeCheck);
+		_advancedBox.AddChild(_prizeCheck);
+
+		// Prize cadence preset — item id is the frequency level fed to SimConfig.SetPrizeFrequency.
+		_prizeFreqPicker = new OptionButton();
+		_prizeFreqPicker.AddItem("Events: Rare",       0);
+		_prizeFreqPicker.AddItem("Events: Occasional", 1);
+		_prizeFreqPicker.AddItem("Events: Frequent",   2);
+		SelectById(_prizeFreqPicker, savedPrizeFreq);
+		_prizeFreqPicker.Visible = NetworkManager.Instance.IsHost;
+		_prizeCheck.Toggled += on => _prizeFreqPicker.Disabled = !on;
+		_prizeFreqPicker.Disabled = !_prizeCheck.ButtonPressed;
+		_advancedBox.AddChild(_prizeFreqPicker);
 
 		_explosivePicker = new OptionButton();
 		_explosivePicker.AddItem("Dynamite",           (int)ExplosiveMode.Dynamite);
@@ -130,7 +155,7 @@ public partial class Lobby : Control
 		_explosivePicker.AddItem("Detonators Only",    (int)ExplosiveMode.DetonatorsOnly);
 		_explosivePicker.Select(savedExplosive);
 		_explosivePicker.Visible = NetworkManager.Instance.IsHost;
-		leftCol.AddChild(_explosivePicker);
+		_advancedBox.AddChild(_explosivePicker);
 
 		_speedPicker = new OptionButton();
 		_speedPicker.AddItem("Slow", 0);
@@ -138,7 +163,7 @@ public partial class Lobby : Control
 		_speedPicker.AddItem("Fast", 2);
 		_speedPicker.Select(savedSpeed);
 		_speedPicker.Visible = NetworkManager.Instance.IsHost;
-		leftCol.AddChild(_speedPicker);
+		_advancedBox.AddChild(_speedPicker);
 
 		// Explosion size — item id is the blast radius (rock + kill) applied to SimConfig.
 		_explosionSizePicker = new OptionButton();
@@ -147,7 +172,7 @@ public partial class Lobby : Control
 		_explosionSizePicker.AddItem("Blast: Huge",     3);
 		SelectById(_explosionSizePicker, savedBlast);
 		_explosionSizePicker.Visible = NetworkManager.Instance.IsHost;
-		leftCol.AddChild(_explosionSizePicker);
+		_advancedBox.AddChild(_explosionSizePicker);
 
 		// Vision — item id is the base fog radius applied to SimConfig.VisionRadius.
 		_visionPicker = new OptionButton();
@@ -156,7 +181,7 @@ public partial class Lobby : Control
 		_visionPicker.AddItem("Vision: Far",    7);
 		SelectById(_visionPicker, savedVision);
 		_visionPicker.Visible = NetworkManager.Instance.IsHost;
-		leftCol.AddChild(_visionPicker);
+		_advancedBox.AddChild(_visionPicker);
 
 		// ── Center column: player list ─────────────────────────────────────────
 		var centerCol = new VBoxContainer { CustomMinimumSize = new Vector2(300, 0) };
@@ -234,7 +259,7 @@ public partial class Lobby : Control
 			SettingsStore.SaveLobby(_modePicker.GetSelectedId(), timeLimit,
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
 				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive, startFloor, blastRadius, visionRadius,
-				_prizeCheck.ButtonPressed);
+				_prizeCheck.ButtonPressed, _prizeFreqPicker.GetSelectedId(), _advancedToggle.ButtonPressed);
 			NetworkManager.Instance.StartMatch(
 				(GameMode)_modePicker.GetSelectedId(),
 				timeLimit,
@@ -248,7 +273,8 @@ public partial class Lobby : Control
 				startFloor,
 				blastRadius,
 				visionRadius,
-				_prizeCheck.ButtonPressed);
+				_prizeCheck.ButtonPressed,
+				_prizeFreqPicker.GetSelectedId());
 		};
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		rightCol.AddChild(_startBtn);
@@ -290,11 +316,13 @@ public partial class Lobby : Control
 		bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
 		bool derby      = _modePicker.GetSelectedId() == (int)GameMode.DemolitionDerby;
 		bool normalMode = !expedition && !treasure && !derby;
+		_advancedBox.Visible       = isHost && _advancedToggle.ButtonPressed;
 		_timePicker.Visible        = isHost && normalMode;
 		_mapSizePicker.Visible     = isHost;
 		_startFloorPicker.Visible  = isHost && expedition;
 		_explosivePicker.Visible   = isHost && normalMode;
 		_prizeCheck.Visible        = isHost && !expedition; // competitive only
+		_prizeFreqPicker.Visible   = isHost && !expedition;
 
 		_modeDesc.Text = ModeDescription(_modePicker.GetSelectedId());
 	}
