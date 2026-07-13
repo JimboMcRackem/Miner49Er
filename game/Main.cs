@@ -98,6 +98,19 @@ public partial class Main : Node2D
 			SetAnnouncement($"{NameForMiner(minerId)} claimed the {PrizeName(type)}!", 3000);
 			_deathFeed?.PushMessage($"{NameForMiner(minerId)} claimed the {PrizeName(type)}");
 		};
+		_client.TreasureToast += (kind, minerId) =>
+		{
+			string who = NameForMiner(minerId);
+			string msg = kind switch
+			{
+				0 => $"{who} has found it!",
+				1 => $"{who} recovered it!",
+				2 => $"{who} is sneaking away with it!",
+				_ => $"{who} dropped the treasure!",
+			};
+			SetAnnouncement(msg, 3500);
+			_deathFeed?.PushMessage(msg);
+		};
 		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos, clientCenter,
 			expeditionTreasurePos: map.ExpeditionTreasurePos);
 
@@ -137,6 +150,9 @@ public partial class Main : Node2D
 				VisionRadius    = nm.MatchVisionRadius,
 				Mode            = nm.MatchMode,
 				PrizeEventsEnabled = nm.MatchPrizeEvents && nm.MatchMode != GameMode.Expedition,
+				TreasureHeistMode = nm.MatchMode == GameMode.TreasureHeist,
+				TreasureWinByCumulative = nm.MatchTreasureWinByCumulative,
+				TreasureRespawnEnabled = nm.MatchTreasureRespawn,
 			};
 			f1SimCfg.SetPrizeFrequency(nm.MatchPrizeFrequency);
 			if (nm.MatchMode == GameMode.DemolitionDerby)
@@ -383,6 +399,37 @@ public partial class Main : Node2D
 					else if (NetworkManager.Instance.MatchMode == GameMode.DemolitionDerby)
 					{
 						_hud.SetHud(0, "Demolition Derby", $"{status}{heldStr}");
+					}
+					else if (NetworkManager.Instance.MatchMode == GameMode.TreasureHeist)
+					{
+						var nm3 = NetworkManager.Instance;
+						string objective;
+						if (!nm3.MatchTreasureWinByCumulative)
+						{
+							var treasure = _client.Treasure;
+							objective = treasure is not { } tr || tr.State == 0
+								? "Treasure: buried — follow the compass"
+								: tr.State == 1
+									? "Treasure: loose — grab it!"
+									: $"Held by: {NameForMiner(tr.HolderId)}";
+						}
+						else
+						{
+							var top = new List<Core.Net.HoldTimeSnapshot>(_client.HoldTimes);
+							top.Sort((a, b) => b.Seconds.CompareTo(a.Seconds));
+							if (top.Count == 0)
+							{
+								objective = "Times: —";
+							}
+							else
+							{
+								var parts = new List<string>();
+								for (int ti = 0; ti < Math.Min(3, top.Count); ti++)
+									parts.Add($"{NameForMiner(top[ti].MinerId)} {top[ti].Seconds:0}s");
+								objective = $"Times: {string.Join(", ", parts)}";
+							}
+						}
+						_hud.SetHud(0, objective, $"{status}{timeStr}{heldStr}{stonesStr}");
 					}
 					else
 					{

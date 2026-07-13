@@ -46,6 +46,9 @@ public partial class MatchClient : Node2D
 		public event System.Action<Vector2, Vector2>? StoneTossed; // origin, landing (world coords)
 	public event System.Action<PrizeType, Vector2>? PrizeTelegraphed; // type + world position of an incoming prize
 	public event System.Action<int, PrizeType>? PrizeWon; // miner id + type of a claimed prize
+	public TreasureSnapshot? Treasure { get; private set; }
+	public IReadOnlyList<HoldTimeSnapshot> HoldTimes { get; private set; } = System.Array.Empty<HoldTimeSnapshot>();
+	public event System.Action<byte, int>? TreasureToast; // kind + miner id of a treasure event
 
 		// Portals are client-derived from the deterministic map gen (never networked);
 		// only the transient teleport event rides the wire. Track collapsed ends locally.
@@ -243,6 +246,11 @@ public partial class MatchClient : Node2D
 			_prevPrizeState = prizeState;
 			if (update.Snapshot.PrizeClaim is { } pclaim)
 				PrizeWon?.Invoke(pclaim.MinerId, (PrizeType)pclaim.Type);
+
+			Treasure = update.Snapshot.Treasure;
+			HoldTimes = update.Snapshot.HoldTimes ?? System.Array.Empty<HoldTimeSnapshot>();
+			if (update.Snapshot.TreasureToast is { } tt)
+				TreasureToast?.Invoke(tt.Kind, tt.MinerId);
 
 		_terrainMap?.UpdateTiles(update.TileChanges);
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
