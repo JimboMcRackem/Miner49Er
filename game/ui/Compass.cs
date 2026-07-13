@@ -26,13 +26,21 @@ public partial class Compass : CanvasLayer
 
 	public override void _Process(double delta)
 	{
-		Visible = Active;
-		if (!Active) return;
-		var (listenAngle, kind) = ComputeListenAngle();
-		_arc.TargetAngle  = listenAngle;
-		_arc.TargetKind   = kind;
-		_arc.ExitAngle    = ComputeExitAngle();
-		_arc.ExitSettle   = Mathf.Clamp(ListenTime, 0f, 1.0f); // 0→1 over first second
+		bool heist = NetworkManager.Instance.MatchMode == GameMode.TreasureHeist;
+		Visible = Active || heist;
+		if (!Active && !heist) return;
+		if (Active)
+		{
+			var (listenAngle, kind) = ComputeListenAngle();
+			_arc.TargetAngle = listenAngle;
+			_arc.TargetKind  = kind;
+		}
+		else
+		{
+			_arc.TargetAngle = null; // no Listen arcs outside Listen mode
+		}
+		_arc.ExitAngle  = ComputeExitAngle();
+		_arc.ExitSettle = Active ? Mathf.Clamp(ListenTime, 0f, 1.0f) : 1f; // heist w/o Listen: rose fully settled
 		_arc.QueueRedraw();
 	}
 
@@ -70,13 +78,23 @@ public partial class Compass : CanvasLayer
 
 	private float? ComputeExitAngle()
 	{
-		// On treasure floors the compass points to the hidden idol until it's found,
-		// then pivots to the exit once EscapeOpen (ExpeditionTreasurePos cleared on that transition).
-		GridPos? target = _client.ExpeditionTreasurePos
-			// In ReachCenter the goal is the centre tile, not an escape ladder.
-			?? (NetworkManager.Instance.MatchMode == GameMode.ReachCenter
-				? _client.CenterTile
-				: _client.EscapeTile);
+		GridPos? target;
+		if (NetworkManager.Instance.MatchMode == GameMode.TreasureHeist && _client.Treasure is { } t)
+		{
+			// Treasure Heist: point at the treasure in all states (including buried) so players
+			// can navigate to dig it out, then track it once it's loose or carried.
+			target = new GridPos(t.X, t.Y);
+		}
+		else
+		{
+			// On treasure floors the compass points to the hidden idol until it's found,
+			// then pivots to the exit once EscapeOpen (ExpeditionTreasurePos cleared on that transition).
+			target = _client.ExpeditionTreasurePos
+				// In ReachCenter the goal is the centre tile, not an escape ladder.
+				?? (NetworkManager.Instance.MatchMode == GameMode.ReachCenter
+					? _client.CenterTile
+					: _client.EscapeTile);
+		}
 		if (target is not { } et) return null;
 		GridPos? self = null;
 		foreach (var m in _client.Miners)

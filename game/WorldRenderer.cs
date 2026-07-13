@@ -1082,6 +1082,45 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
+		// Treasure Heist: the treasure idol, drawn once unearthed (loose or carried). Buried treasure
+		// stays hidden until dug up. A carried treasure floats above its carrier's head like the prize relic.
+		if (_client.Treasure is { } treasure && treasure.State != 0)
+		{
+			var tcell = new GridPos(treasure.X, treasure.Y);
+			if (spectating || _client.Fog.IsVisible(tcell))
+			{
+				float tlift = treasure.HolderId >= 0 ? ts * 0.75f : 0f;
+				var tc = new Vector2(treasure.X * ts + ts / 2f, treasure.Y * ts + ts / 2f - tlift);
+				if (_itemTex.TryGetValue(ItemKind.IdolUrn, out var urnTex) && urnTex != null)
+				{
+					DrawTextureRect(urnTex, new Rect2(tc.X - ts / 2f, tc.Y - ts / 2f, ts, ts), false);
+				}
+				else
+				{
+					// Fallback marker if the sprite is missing: a gold diamond.
+					float r = ts * 0.30f;
+					var diamond = new Vector2[] { tc + new Vector2(0, -r), tc + new Vector2(r, 0), tc + new Vector2(0, r), tc + new Vector2(-r, 0) };
+					DrawColoredPolygon(diamond, new Color(1f, 0.84f, 0.2f));
+					DrawPolyline(new[] { diamond[0], diamond[1], diamond[2], diamond[3], diamond[0] }, new Color(0f, 0f, 0f, 0.5f), 1.5f);
+				}
+			}
+		}
+
+		// Dizzy stars over stunned miners: three orbiting asterisks above the head.
+		foreach (var m in _client.Miners)
+		{
+			if (m.StunRemaining <= 0f || !m.Alive) continue;
+			if (!_client.Fog.IsVisible(new GridPos(m.X, m.Y)) && !spectating) continue;
+			var c = new Vector2(m.X * ts + ts / 2f, m.Y * ts + ts / 2f - ts * 0.5f);
+			float baseA = (float)Time.GetTicksMsec() / 220f;
+			for (int i = 0; i < 3; i++)
+			{
+				float a = baseA + i * Mathf.Tau / 3f;
+				var p = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a) * 0.5f) * ts * 0.28f;
+				DrawString(ThemeDB.FallbackFont, p, "*", HorizontalAlignment.Center, -1, ts / 2, new Color(1f, 0.9f, 0.3f));
+			}
+		}
+
 		// Lantern light: radial amber glow centered on each active lantern source
 		int glowPx = 5 * ts * 2;
 		foreach (var m in _client.Miners)

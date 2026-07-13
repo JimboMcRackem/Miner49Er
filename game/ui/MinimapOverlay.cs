@@ -84,6 +84,14 @@ public partial class MinimapOverlay : CanvasLayer
 				DrawRect(new Rect2(ox + prize.X * px - 1, oy + prize.Y * px - 1, m2, m2), new Color(1f, 0.84f, 0.2f));
 			}
 
+			// Treasure Heist: ping the carrier's position (only meaningful once someone is carrying it).
+			if (Client.Treasure is { HolderId: >= 0 } t)
+			{
+				int m3 = Mathf.Max(px + 2, 4);
+				float pulse = 0.7f + 0.3f * Mathf.Sin((float)Time.GetTicksMsec() / 180f);
+				DrawRect(new Rect2(ox + t.X * px - 1, oy + t.Y * px - 1, m3, m3), new Color(1f, 0.95f, 0.6f, pulse));
+			}
+
 			// Local player dot (always white, drawn last so it's on top).
 			foreach (var m in Client.Miners)
 			{
