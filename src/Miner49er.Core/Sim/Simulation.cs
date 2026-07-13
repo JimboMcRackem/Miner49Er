@@ -332,8 +332,10 @@ public sealed class Simulation
         foreach (var e in m.EffectsInternal)
             if (e.Channel == EffectChannel.MoveSpeed) mult *= e.Magnitude;
         double tile = Grid.Get(m.Pos).MoveCostMultiplier();   // shallow water = ×2
-        return Math.Clamp(Config.BaseMoveSeconds * tile * mult,
-                          Config.MinMoveSeconds, Config.MaxMoveSeconds);
+        double seconds = Config.BaseMoveSeconds * tile * mult;
+        if (Config.TreasureHeistMode && m.Id == _treasureHolderId)
+            seconds *= Config.TreasureCarrySlowFactor;
+        return Math.Clamp(seconds, Config.MinMoveSeconds, Config.MaxMoveSeconds);
     }
 
     public int EffectiveVisionRadius(int minerId) => EffectiveVisionRadius(_miners[minerId]);
@@ -1239,6 +1241,30 @@ public sealed class Simulation
 
         if (_treasureUnearthed)
             UpdateTreasureCarry(dt);
+
+        foreach (var m in _miners.Values)
+            if (m.Held is { } held && (!m.Alive || m.StunRemaining > 0))
+                DropHeldItem(m, held);
+    }
+
+    private static readonly GridPos[] Neighbours8 =
+    {
+        new(1,0), new(-1,0), new(0,1), new(0,-1),
+        new(1,1), new(1,-1), new(-1,1), new(-1,-1),
+    };
+
+    private void DropHeldItem(Miner m, ItemKind kind)
+    {
+        // Prefer an adjacent free floor tile so the miner does not instantly re-grab it on wake.
+        GridPos dest = m.Pos;
+        foreach (var off in Neighbours8)
+        {
+            var p = new GridPos(m.Pos.X + off.X, m.Pos.Y + off.Y);
+            if (Grid.InBounds(p) && Grid.Get(p) == TileType.Floor && _items.All(it => it.Pos != p))
+            { dest = p; break; }
+        }
+        _items.Add(new Item(dest, kind, ItemPlacement.Loose));
+        m.Held = null;
     }
 
     private void UpdateTreasureCarry(double dt)

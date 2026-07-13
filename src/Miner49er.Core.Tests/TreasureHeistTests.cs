@@ -47,4 +47,42 @@ public class TreasureHeistTests
         Assert.False(sim.TreasureUnearthed);
         Assert.Equal(new GridPos(8, 9), sim.TreasurePos);
     }
+
+    [Fact]
+    public void Stun_drops_the_treasure_for_others_to_grab()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddMiner(1, new GridPos(5, 5));
+        sim.ForceTreasureLooseForTest(new GridPos(5, 5));
+        sim.Tick(0.1);
+        Assert.Equal(1, sim.TreasureHolderId);
+        sim.GetMiner(1).StunRemaining = 0.8;        // internal setter (test assembly sees internals)
+        sim.Tick(0.1);
+        Assert.Equal(-1, sim.TreasureHolderId);     // dropped
+        Assert.Equal(new GridPos(5, 5), sim.TreasurePos);
+    }
+
+    [Fact]
+    public void Stun_drops_held_item_onto_a_free_tile()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddMiner(1, new GridPos(5, 5));
+        sim.GetMiner(1).Held = ItemKind.Lantern;
+        sim.GetMiner(1).StunRemaining = 0.8;
+        sim.Tick(0.1);
+        Assert.Null(sim.GetMiner(1).Held);
+        Assert.Contains(sim.Items, it => it.Kind == ItemKind.Lantern && it.Placement == ItemPlacement.Loose);
+    }
+
+    [Fact]
+    public void Carrying_the_treasure_slows_the_holder()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddMiner(1, new GridPos(5, 5));
+        double baseline = sim.EffectiveMoveSeconds(1);
+        sim.ForceTreasureLooseForTest(new GridPos(5, 5));
+        sim.Tick(0.1);
+        Assert.Equal(1, sim.TreasureHolderId);
+        Assert.True(sim.EffectiveMoveSeconds(1) > baseline);
+    }
 }
