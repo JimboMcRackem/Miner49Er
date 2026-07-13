@@ -226,10 +226,33 @@ public sealed class BotBrain
             }
         }
 
+        // Treasure Heist: carry it to safety, chase the carrier, or seek the (loose/buried) urn.
+        if (mode == GameMode.TreasureHeist)
+        {
+            if (sim.TreasureHolderId == MinerId)
+            {
+                // I'm carrying it — flee the nearest rival. No rival in sight: keep current goal.
+                var r = NearestRivalPos(sim, miner);
+                _goal = (r is { } rv ? FleeFrom(sim.Grid, miner.Pos, rv) : null) ?? _goal;
+            }
+            else if (sim.TreasureHolderId >= 0)
+            {
+                // A rival carries it — chase the carrier; re-evaluate every tick since they move.
+                _goal = sim.GetMiner(sim.TreasureHolderId).Pos;
+                _ticksUntilReeval = 0;
+            }
+            else
+            {
+                // Loose or still buried — head for its known position either way.
+                _goal = sim.TreasurePos;
+            }
+        }
+
         if (_goal == null) return BotAction.Idle;
 
         bool passRock = Skill >= BotSkill.Foreman
-            || (mode == GameMode.ReachCenter && miner.GoldCollected >= 5);
+            || (mode == GameMode.ReachCenter && miner.GoldCollected >= 5)
+            || (mode == GameMode.TreasureHeist && sim.TreasureHolderId < 0);
         bool hazardAware = Skill >= BotSkill.Miner;
         int dir = BotPathfinder.NextDir(sim.Grid, miner.Pos, _goal.Value, passRock, avoidHazards: hazardAware);
         // Two-pass fallback: if hazards box in the only route, accept the risk rather than freeze.
@@ -259,7 +282,8 @@ public sealed class BotBrain
         }
 
         // Aggressive swing: Derby/LMS-pursuing bots swing (pickaxe stun) at a rival in the step direction.
-        bool aggressiveTowardRivals = isPvP && (derby || (lms && Skill >= BotSkill.Foreman));
+        bool aggressiveTowardRivals = isPvP && (derby || (lms && Skill >= BotSkill.Foreman)
+            || (mode == GameMode.TreasureHeist && sim.TreasureHolderId >= 0 && sim.TreasureHolderId != MinerId));
         if (aggressiveTowardRivals && !mine && sim.Grid.InBounds(nextPos) && RivalAt(sim, nextPos, miner.Id))
             mine = true;
 
@@ -274,7 +298,9 @@ public sealed class BotBrain
                     || (Skill == BotSkill.DynamiteDan && GoldClusterAdjacent(sim.Grid, miner.Pos))
                 : Skill == BotSkill.DynamiteDan && GoldClusterAdjacent(sim.Grid, miner.Pos);
         bool throwStone = miner.StoneCount > 0 && NearestRivalDist(sim, miner) <= 2
-                          && (derby ? Skill >= BotSkill.Miner : Skill == BotSkill.DynamiteDan);
+                          && (derby ? Skill >= BotSkill.Miner : Skill == BotSkill.DynamiteDan
+                              || (mode == GameMode.TreasureHeist && Skill >= BotSkill.Miner
+                                  && sim.TreasureHolderId >= 0 && sim.TreasureHolderId != MinerId));
 
         return new BotAction(dir, mine, plant, throwStone: throwStone);
     }
