@@ -138,6 +138,7 @@ public partial class Main : Node2D
 				Mode            = nm.MatchMode,
 				PrizeEventsEnabled = nm.MatchPrizeEvents && nm.MatchMode != GameMode.Expedition,
 			};
+			f1SimCfg.SetPrizeFrequency(nm.MatchPrizeFrequency);
 			if (nm.MatchMode == GameMode.DemolitionDerby)
 			{
 				f1SimCfg.DynamiteEnabled = true;

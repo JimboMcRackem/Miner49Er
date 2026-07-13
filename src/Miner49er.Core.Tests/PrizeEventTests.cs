@@ -215,4 +215,25 @@ public class PrizeEventTests
         ClaimGrabAndGo(sim, 1, new GridPos(7, 7));
         Assert.True(sim.GetMiner(1).StoneCount >= 3);
     }
+
+    [Theory]
+    [InlineData(0, 240, 240, 45)] // Rare
+    [InlineData(1, 150, 150, 30)] // Occasional
+    [InlineData(2, 60, 75, 20)]   // Frequent
+    public void SetPrizeFrequency_applies_preset(int level, double firstDelay, double interval, double jitter)
+    {
+        var cfg = new SimConfig();
+        cfg.SetPrizeFrequency(level);
+        Assert.Equal(firstDelay, cfg.PrizeFirstDelaySeconds);
+        Assert.Equal(interval,   cfg.PrizeIntervalSeconds);
+        Assert.Equal(jitter,     cfg.PrizeJitterSeconds);
+    }
+
+    [Fact]
+    public void SetPrizeFrequency_unknown_level_falls_back_to_occasional()
+    {
+        var cfg = new SimConfig();
+        cfg.SetPrizeFrequency(99);
+        Assert.Equal(150, cfg.PrizeIntervalSeconds);
+    }
 }

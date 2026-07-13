@@ -30,6 +30,21 @@ public sealed class SimConfig
     public int    PrizeMinPlayerSpacing { get; set; } = 4;
     public int    PrizeGoldReward       { get; set; } = 20;
 
+    // Maps a lobby frequency preset (0=Rare, 1=Occasional, 2=Frequent) onto the
+    // first-delay / interval / jitter tunables. Occasional preserves the defaults.
+    public void SetPrizeFrequency(int level)
+    {
+        switch (level)
+        {
+            case 0: // Rare
+                PrizeFirstDelaySeconds = 240; PrizeIntervalSeconds = 240; PrizeJitterSeconds = 45; break;
+            case 2: // Frequent
+                PrizeFirstDelaySeconds = 60;  PrizeIntervalSeconds = 75;  PrizeJitterSeconds = 20; break;
+            default: // 1 = Occasional
+                PrizeFirstDelaySeconds = 150; PrizeIntervalSeconds = 150; PrizeJitterSeconds = 30; break;
+        }
+    }
+
     public double BaseMoveSeconds { get; set; } = 0.12;  // Standard preset (seconds per tile)
     public double MinMoveSeconds { get; set; } = 0.05;   // clamp floor — no teleporting
     public double MaxMoveSeconds { get; set; } = 0.40;   // clamp ceiling — never frozen
