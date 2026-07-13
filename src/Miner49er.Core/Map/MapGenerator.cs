@@ -49,6 +49,9 @@ public static class MapGenerator
             : (IReadOnlyList<PortalSpec>)System.Array.Empty<PortalSpec>();
         items.AddRange(PlaceStones(grid, rng, config.StonePileCount, region, spawns,
             items.Select(it => it.Pos).Concat(decoys).Concat(portals.Select(pt => pt.Pos))));
+        if (config.ScatterStones > 0)
+            items.AddRange(PlaceStones(grid, rng, config.ScatterStones, region, spawns,
+                items.Select(it => it.Pos).Concat(decoys).Concat(portals.Select(pt => pt.Pos))));
         if (config.CaveIns)
             PlaceCracks(grid, rng, config.CrackSiteCount + (config.PlayerCount - 1),
                         config.CrackPatchGrowChance, config.CrackPatchMax,

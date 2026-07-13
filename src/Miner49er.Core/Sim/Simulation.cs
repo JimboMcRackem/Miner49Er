@@ -202,6 +202,10 @@ public sealed class Simulation
     internal void SetMinerPositionForTest(int id, GridPos p)
     { if (_miners.TryGetValue(id, out var m)) m.Pos = p; }
 
+    /// <summary>Test-only: force a miner's facing direction.</summary>
+    internal void SetFacingForTest(int id, Direction dir)
+    { if (_miners.TryGetValue(id, out var m)) m.Facing = dir; }
+
     // A portal is "revealed" once its tile is uncovered Floor (buried ends are Rock).
     private bool IsRevealed(Portal p) => Grid.InBounds(p.Pos) && Grid.Get(p.Pos) == TileType.Floor;
 
@@ -396,6 +400,9 @@ public sealed class Simulation
         m.StoneCount--;
         _noiseSources.Add(new NoiseSource { Pos = land, LifetimeRemaining = 4.0, Kind = NoiseKind.Stone });
         _events.Add(new StoneThrown(minerId, land));
+
+        if (Config.TreasureHeistMode && Grid.Get(land) == TileType.Floor && _items.All(it => it.Pos != land))
+            _items.Add(new Item(land, ItemKind.Stone, ItemPlacement.Loose));
     }
 
     // Lob a lit stick in the facing direction: it travels up to Config.ThrownDynamiteRange
@@ -1295,6 +1302,19 @@ public sealed class Simulation
         {
             _treasurePos = h.Pos; // the treasure rides the carrier
             _holdSeconds[h.Id] = _holdSeconds.GetValueOrDefault(h.Id) + dt;
+
+            _sneakCooldownRemaining = Math.Max(0, _sneakCooldownRemaining - dt);
+            int nearest = _miners.Values
+                .Where(r => r.Id != h.Id && r.Alive)
+                .Select(r => r.Pos.ChebyshevTo(h.Pos))
+                .DefaultIfEmpty(int.MaxValue).Min();
+            if (nearest > Config.TreasureSneakRadius) _sneakHold += dt; else _sneakHold = 0;
+            if (_sneakHold >= Config.TreasureSneakSeconds && _sneakCooldownRemaining <= 0)
+            {
+                _events.Add(new TreasureSneaking(h.Id));
+                _sneakCooldownRemaining = Config.TreasureSneakCooldown;
+                _sneakHold = 0;
+            }
         }
     }
 

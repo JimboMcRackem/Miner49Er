@@ -18,6 +18,7 @@ public sealed class MapConfig
     public int SlowMoldCount { get; set; } = 3;     // visible carried slow-molds scattered on Floor
     public int LanternCount { get; set; } = 1;      // visible carried lanterns scattered on Floor
     public int StonePileCount { get; set; } = 8;     // throwable stone pickups scattered on Floor, biased toward scree
+    public int ScatterStones { get; set; } = 0;      // Treasure Heist: loose stones seeded on the floor
     public int DetonatorCount { get; set; } = 0;    // visible carried detonators scattered on Floor
     public int CrystalPatchCount { get; set; } = 0; // glowing crystal wall clusters
     public int ScreePatchCount    { get; set; } = 0; // amber scree: 50% trigger, radius-1 collapse
@@ -107,7 +108,10 @@ public sealed class MapConfig
             cfg.BuriedIdolKinds  = TreasureAssignment.AllAssigned(seed, playerCount);
         }
         if (mode == GameMode.TreasureHeist)
+        {
             cfg.BuriedIdolKinds = new[] { ItemKind.IdolUrn };
+            cfg.ScatterStones = 6;
+        }
         if (mode == GameMode.DemolitionDerby)
         {
             cfg.GoldVeinCount    = 0;

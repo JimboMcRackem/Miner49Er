@@ -85,4 +85,28 @@ public class TreasureHeistTests
         Assert.Equal(1, sim.TreasureHolderId);
         Assert.True(sim.EffectiveMoveSeconds(1) > baseline);
     }
+
+    [Fact]
+    public void Lone_carrier_triggers_sneaking_toast_after_threshold()
+    {
+        var cfg = Cfg(); cfg.TreasureSneakSeconds = 2.0; cfg.TreasureSneakRadius = 3;
+        var sim = new Simulation(Grid(20, 20), cfg);
+        sim.AddMiner(1, new GridPos(2, 2));
+        sim.AddMiner(2, new GridPos(18, 18)); // far away rival
+        sim.ForceTreasureLooseForTest(new GridPos(2, 2));
+        sim.Tick(0.1); // miner 1 grabs it
+        sim.DrainEvents();
+        for (int i = 0; i < 30; i++) sim.Tick(0.1); // 3s of lone carrying
+        Assert.Contains(sim.DrainEvents(), e => e is TreasureSneaking { MinerId: 1 });
+    }
+
+    [Fact]
+    public void Thrown_stone_lands_as_a_pickup_in_heist()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddMiner(1, new GridPos(2, 2));
+        sim.SetFacingForTest(1, Direction.East);
+        sim.TryThrowStone(1);
+        Assert.Contains(sim.Items, it => it.Kind == ItemKind.Stone && it.Placement == ItemPlacement.Loose);
+    }
 }
