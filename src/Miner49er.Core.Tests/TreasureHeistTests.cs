@@ -25,4 +25,16 @@ public class TreasureHeistTests
         sim.AddMiner(1, new GridPos(2, 2));
         Assert.Equal(9, sim.GetMiner(1).StoneCount);
     }
+
+    [Fact]
+    public void Stepping_onto_unearthed_treasure_picks_it_up_and_fires_found()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddMiner(1, new GridPos(5, 5));
+        sim.ForceTreasureLooseForTest(new GridPos(5, 5)); // treasure loose under miner 1
+        sim.Tick(0.1);
+        Assert.Equal(1, sim.TreasureHolderId);
+        Assert.True(sim.TreasureFoundYet);
+        Assert.Contains(sim.DrainEvents(), e => e is TreasureFound { MinerId: 1 });
+    }
 }

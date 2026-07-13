@@ -106,6 +106,8 @@ public sealed class MapConfig
             cfg.VisibleItemCount = 0;
             cfg.BuriedIdolKinds  = TreasureAssignment.AllAssigned(seed, playerCount);
         }
+        if (mode == GameMode.TreasureHeist)
+            cfg.BuriedIdolKinds = new[] { ItemKind.IdolUrn };
         if (mode == GameMode.DemolitionDerby)
         {
             cfg.GoldVeinCount    = 0;

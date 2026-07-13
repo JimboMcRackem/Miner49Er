@@ -47,3 +47,7 @@ public sealed record PortalUsed(int MinerId, GridPos From, GridPos To, PortalKin
 public sealed record PrizeTelegraphed(PrizeType Type, GridPos Pos) : SimEvent;
 public sealed record PrizeClaimed(int MinerId, PrizeType Type) : SimEvent;
 public sealed record PrizeExpired : SimEvent;
+public sealed record TreasureFound(int MinerId) : SimEvent;
+public sealed record TreasureRecovered(int MinerId) : SimEvent;
+public sealed record TreasureSneaking(int MinerId) : SimEvent;
+public sealed record TreasureDropped(int MinerId) : SimEvent;

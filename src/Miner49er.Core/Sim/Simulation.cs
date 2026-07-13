@@ -46,6 +46,33 @@ public sealed class Simulation
     public int        PrizeHolderId         => _prizeHolderId;
     public double     PrizeSecondsRemaining => _prizeStateTimer;
 
+    // ── Treasure Heist state ──────────────────────────────────────────────
+    private ItemKind _treasureKind = ItemKind.IdolUrn;
+    private bool     _treasureUnearthed;
+    private bool     _treasureFound;
+    private GridPos  _treasurePos;
+    private int      _treasureHolderId = -1;
+    private readonly Dictionary<int, double> _holdSeconds = new();
+    private double   _sneakHold;
+    private double   _sneakCooldownRemaining;
+    private double   _suddenDeathHold;
+    private int      _suddenDeathWinner = -1;
+    private readonly Dictionary<int, double> _respawnTimers = new();
+
+    public bool    TreasureUnearthed => _treasureUnearthed;
+    public bool    TreasureFoundYet  => _treasureFound;
+    public GridPos TreasurePos       => _treasurePos;
+    public int     TreasureHolderId  => _treasureHolderId;
+    public int     SuddenDeathWinner => _suddenDeathWinner;
+    public double  HoldSecondsOf(int minerId) => _holdSeconds.GetValueOrDefault(minerId);
+
+    internal void ForceTreasureLooseForTest(GridPos pos)
+    {
+        _treasureUnearthed = true;
+        _treasurePos = pos;
+        _treasureHolderId = -1;
+    }
+
     private enum NoiseKind { Stone, Explosion, Pickaxe }
     private sealed class NoiseSource
     {
@@ -119,6 +146,15 @@ public sealed class Simulation
         if (EscapeTile is not null && _goldRemaining == 0 && !Config.RequireChestForEscape
             && Config.ExpeditionTreasureKind is null)
             EscapeOpen = true;   // gold-less map: open at once (unless boss/treasure floor)
+
+        // Treasure Heist: adopt the buried treasure's kind/pos if items were seeded before
+        // construction (test seams do this); AddItem-seeded maps resolve this in AdvanceTreasureHeist
+        // instead, since the host adds items after the Simulation is constructed.
+        if (Config.TreasureHeistMode)
+        {
+            var buried = _items.FirstOrDefault(it => it.Placement == ItemPlacement.Buried);
+            if (buried != default) { _treasureKind = buried.Kind; _treasurePos = buried.Pos; }
+        }
     }
 
     public Miner AddMiner(int id, GridPos pos, double invulRemaining = 0.0)
@@ -1181,6 +1217,62 @@ public sealed class Simulation
         }
     }
 
+    private void AdvanceTreasureHeist(double dt)
+    {
+        if (!Config.TreasureHeistMode) return;
+
+        // Unearth detection: once the buried treasure item is revealed (Loose), adopt it as
+        // the mode's tracked treasure token and remove it from the generic item list so the
+        // normal pickup/buff path never touches it.
+        if (!_treasureUnearthed)
+        {
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].Kind == _treasureKind && _items[i].Placement == ItemPlacement.Loose)
+                {
+                    _treasurePos = _items[i].Pos;
+                    _items.RemoveAt(i);
+                    _treasureUnearthed = true;
+                    break;
+                }
+            }
+        }
+
+        if (_treasureUnearthed)
+            UpdateTreasureCarry(dt);
+    }
+
+    private void UpdateTreasureCarry(double dt)
+    {
+        if (_treasureHolderId < 0)
+        {
+            // Loose: first alive miner standing on it grabs it.
+            var picker = _miners.Values.FirstOrDefault(m => m.Alive && m.StunRemaining <= 0 && m.Pos == _treasurePos);
+            if (picker != null)
+            {
+                _treasureHolderId = picker.Id;
+                if (!_treasureFound) { _treasureFound = true; _events.Add(new TreasureFound(picker.Id)); }
+                else _events.Add(new TreasureRecovered(picker.Id));
+            }
+        }
+        else if (!_miners.TryGetValue(_treasureHolderId, out var h) || !h.Alive || h.StunRemaining > 0)
+        {
+            // Holder incapacitated: drop it where they stand, grabbable again.
+            if (_miners.TryGetValue(_treasureHolderId, out var dropper))
+            {
+                _treasurePos = dropper.Pos;
+                _events.Add(new TreasureDropped(_treasureHolderId));
+            }
+            _treasureHolderId = -1;
+            _sneakHold = 0;
+        }
+        else
+        {
+            _treasurePos = h.Pos; // the treasure rides the carrier
+            _holdSeconds[h.Id] = _holdSeconds.GetValueOrDefault(h.Id) + dt;
+        }
+    }
+
     public void Tick(double dt)
     {
         Elapsed += dt;
@@ -1190,6 +1282,7 @@ public sealed class Simulation
         AdvanceNoiseSources(dt);
         AdvanceCooldowns(dt);
         AdvancePrizeEvent(dt);
+        AdvanceTreasureHeist(dt);
         AdvancePortals(dt);
         AdvanceCracks(dt);
         AdvanceLava(dt);
