@@ -33,6 +33,9 @@ public static class RoundResolver
             return RoundResult.Ongoing();
         }
 
+        if (mode == GameMode.TreasureHeist)
+            return ResolveTreasureHeist(sim);
+
         // Universal last-man-standing.
         if (alive.Count <= 1)
             return new RoundResult(true, false, alive.Count == 1 ? alive[0].Id : -1);
@@ -58,5 +61,46 @@ public static class RoundResolver
         int max = alive.Max(m => m.GoldCollected);
         var leaders = alive.Where(m => m.GoldCollected == max).ToList();
         return leaders.Count == 1 ? leaders[0].Id : -1;
+    }
+
+    private static RoundResult ResolveTreasureHeist(Simulation sim)
+    {
+        // Death match wipe: everyone eliminated (respawns off) -> decide now by most time.
+        // Guarded on !RespawnEnabled because in respawn mode "all dead" is a transient state.
+        if (!sim.RespawnEnabled && sim.Miners.All(m => !m.Alive))
+            return CumulativeWinnerOrDraw(sim);
+
+        if (!sim.TimeExpired)
+            return RoundResult.Ongoing();
+
+        var miners = sim.Miners.ToList();
+
+        if (!sim.WinByCumulative())
+        {
+            // Buzzer: holder at expiry wins; else sudden-death.
+            if (sim.TreasureHolderId >= 0) return RoundResult.Win(sim.TreasureHolderId);
+            if (sim.SuddenDeathWinner >= 0) return RoundResult.Win(sim.SuddenDeathWinner);
+            return RoundResult.Ongoing(); // keep ticking through sudden-death
+        }
+
+        // Most-time: highest cumulative; tie or all-zero -> holder, else sudden-death.
+        double best = miners.Select(m => sim.HoldSecondsOf(m.Id)).DefaultIfEmpty(0).Max();
+        if (best > 0)
+        {
+            var leaders = miners.Where(m => sim.HoldSecondsOf(m.Id) == best).ToList();
+            if (leaders.Count == 1) return RoundResult.Win(leaders[0].Id);
+        }
+        if (sim.TreasureHolderId >= 0) return RoundResult.Win(sim.TreasureHolderId);
+        if (sim.SuddenDeathWinner >= 0) return RoundResult.Win(sim.SuddenDeathWinner);
+        if (best <= 0) return RoundResult.Loss(); // nobody ever held it and none left to contest -> draw
+        return RoundResult.Ongoing();
+    }
+
+    private static RoundResult CumulativeWinnerOrDraw(Simulation sim)
+    {
+        double best = sim.Miners.Select(m => sim.HoldSecondsOf(m.Id)).DefaultIfEmpty(0).Max();
+        if (best <= 0) return RoundResult.Loss(); // nobody ever held it -> draw
+        var leaders = sim.Miners.Where(m => sim.HoldSecondsOf(m.Id) == best).ToList();
+        return leaders.Count == 1 ? RoundResult.Win(leaders[0].Id) : RoundResult.Loss();
     }
 }

@@ -65,6 +65,8 @@ public sealed class Simulation
     public int     TreasureHolderId  => _treasureHolderId;
     public int     SuddenDeathWinner => _suddenDeathWinner;
     public double  HoldSecondsOf(int minerId) => _holdSeconds.GetValueOrDefault(minerId);
+    public bool    WinByCumulative() => Config.TreasureWinByCumulative;
+    public bool    RespawnEnabled    => Config.TreasureRespawnEnabled;
 
     internal void ForceTreasureLooseForTest(GridPos pos)
     {
@@ -72,6 +74,8 @@ public sealed class Simulation
         _treasurePos = pos;
         _treasureHolderId = -1;
     }
+
+    internal void SetTimeExpiredForTest() { _timeLimit = 0.0; Elapsed = 1.0; }
 
     private enum NoiseKind { Stone, Explosion, Pickaxe }
     private sealed class NoiseSource
@@ -122,7 +126,7 @@ public sealed class Simulation
     public double GoldCollectedFraction =>
         StartingGoldCount == 0 ? 1.0 : 1.0 - (double)_goldRemaining / StartingGoldCount;
 
-    private readonly double? _timeLimit;
+    private double? _timeLimit;
     private readonly bool _flooding;
     public double Elapsed { get; private set; }
     public double SecondsRemaining => _timeLimit is { } lim ? Math.Max(0, lim - Elapsed) : -1;
