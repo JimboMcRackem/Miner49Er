@@ -462,6 +462,27 @@ public sealed class Simulation
         return -1;
     }
 
+    // Treasure Hunt is unwinnable when every alive player has an assigned idol that can never
+    // be recovered — i.e. it is sitting loose on a lethal tile (submerged by the flood, or over
+    // a pit/lava). A deposited or held idol is not a loose world-item, so it never counts; a
+    // buried idol sits in rock (not lethal), so it is still recoverable. Only counts loose ones.
+    public bool TreasureHuntUnwinnable()
+    {
+        if (!Config.TreasureHuntMode) return false;
+        var alive = _miners.Values.Where(m => m.Alive).ToList();
+        if (alive.Count == 0) return false; // last-man-standing handles the empty case
+        foreach (var m in alive)
+        {
+            if (!_idolAssignments.TryGetValue(m.Id, out var a)) return false; // unknown -> assume winnable
+            if (!IsIdolLostToWater(a.A) && !IsIdolLostToWater(a.B))
+                return false; // this player can still complete their set
+        }
+        return true; // every alive player is blocked by an unrecoverable idol
+    }
+
+    private bool IsIdolLostToWater(ItemKind idol) =>
+        _items.Any(it => it.Kind == idol && it.Placement == ItemPlacement.Loose && Grid.Get(it.Pos).IsLethal());
+
     public IReadOnlyList<TreasureProgressData> GetTreasureProgress()
     {
         var list = new List<TreasureProgressData>(_idolsFound.Count);

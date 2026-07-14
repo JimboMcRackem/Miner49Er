@@ -49,6 +49,9 @@ public static class RoundResolver
                 => RoundResult.Win(MostGoldWinner(alive)),
             GameMode.TreasureHunt when sim.TreasureWinner() >= 0
                 => RoundResult.Win(sim.TreasureWinner()),
+            GameMode.TreasureHunt when sim.TreasureHuntUnwinnable()
+                => RoundResult.Loss(), // every alive player's idol is submerged -> draw
+
             _ when sim.TimeExpired
                 => RoundResult.Loss(),
             _ => RoundResult.Ongoing(),
