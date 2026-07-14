@@ -141,7 +141,8 @@ public partial class Main : Node2D
 				Seed             = floorSeed,
 				DynamiteEnabled  = nm.MatchExplosive != ExplosiveMode.DetonatorsOnly,
 				TreasureHuntMode = nm.MatchMode == GameMode.TreasureHunt,
-				TripMinesEnabled = nm.MatchMode == GameMode.LastManStanding || nm.MatchMode == GameMode.DemolitionDerby,
+				TripMinesEnabled = nm.MatchMode == GameMode.LastManStanding || nm.MatchMode == GameMode.DemolitionDerby
+					|| nm.MatchMode == GameMode.TreasureHeist,
 				UnstableFloorEnabled = nm.MatchMode == GameMode.LastManStanding
 					|| nm.MatchMode == GameMode.DemolitionDerby,
 				RockFallsEnabled = true,
