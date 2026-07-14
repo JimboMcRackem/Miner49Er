@@ -127,6 +127,12 @@ public partial class MainMenu : Control
 		creditsBtn.Pressed += () => _creditsPanel.Open();
 		box.AddChild(creditsBtn);
 
+		box.AddChild(new Label { Text = "" }); // spacer
+
+		var exitBtn = new Button { Text = "Exit" };
+		exitBtn.Pressed += () => { SettingsStore.SaveWindowGeometry(); GetTree().Quit(); };
+		box.AddChild(exitBtn);
+
 		return box;
 	}
 
