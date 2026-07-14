@@ -53,10 +53,16 @@ public partial class ResultsOverlay : CanvasLayer
 	}
 
 	public void Show(string text, bool hostControls, string buttonText = "Return to Lobby",
-	                 string scoreText = "", Action? playAgain = null, bool celebrate = false)
+	                 string scoreText = "", Action? playAgain = null, bool celebrate = false,
+	                 bool champion = false)
 	{
 		_fireworks.Active  = celebrate;
+		_fireworks.Grand   = champion;
 		_fireworks.Visible = celebrate;
+
+		// The winner's own screen gets a bigger, gold heading; everyone else stays white.
+		_label.AddThemeFontSizeOverride("font_size", champion ? 54 : 40);
+		_label.AddThemeColorOverride("font_color", champion ? new Color(1f, 0.85f, 0.25f) : Colors.White);
 		_label.Text         = text;
 		_scoreLabel.Text    = scoreText;
 		_scoreLabel.Visible = scoreText.Length > 0;
@@ -95,6 +101,7 @@ public partial class ResultsOverlay : CanvasLayer
 	private partial class Fireworks : Control
 	{
 		public bool Active;
+		public bool Grand; // denser, bigger bursts for the winner's own screen
 
 		private struct Spark { public Vector2 Pos, Vel; public Color Col; public float Life, MaxLife; }
 
@@ -123,7 +130,12 @@ public partial class ResultsOverlay : CanvasLayer
 			}
 
 			_nextBurst -= delta;
-			if (_nextBurst <= 0.0) { Burst(); _nextBurst = 0.45 + _rng.NextDouble() * 0.7; }
+			if (_nextBurst <= 0.0)
+			{
+				Burst();
+				if (Grand) Burst(); // two simultaneous bursts for the champion
+				_nextBurst = (Grand ? 0.25 : 0.45) + _rng.NextDouble() * (Grand ? 0.4 : 0.7);
+			}
 
 			float dt = (float)delta;
 			for (int i = _sparks.Count - 1; i >= 0; i--)
@@ -146,7 +158,7 @@ public partial class ResultsOverlay : CanvasLayer
 				(float)(size.X * (0.18 + 0.64 * _rng.NextDouble())),
 				(float)(size.Y * (0.12 + 0.38 * _rng.NextDouble())));
 			var col = Palette[_rng.Next(Palette.Length)];
-			int n = 28 + _rng.Next(18);
+			int n = (Grand ? 42 : 28) + _rng.Next(Grand ? 24 : 18);
 			for (int i = 0; i < n; i++)
 			{
 				float a = (float)(_rng.NextDouble() * Mathf.Tau);

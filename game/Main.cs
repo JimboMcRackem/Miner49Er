@@ -854,10 +854,12 @@ public partial class Main : Node2D
 		string label;
 		string scoreText = "";
 		Action? playAgain = null;
+		bool champion = false; // local player is the winner — grander celebration on their screen
 
 		if (expedition)
 		{
 			bool won = winnerPeerId != -1;
+			champion = won;
 			label = won
 				? (nm.MatchFloor == 51 ? "You conquered the dungeon!" : "You escaped with the gold!")
 				: "You died in the mine.";
@@ -887,13 +889,16 @@ public partial class Main : Node2D
 		}
 		else
 		{
+			bool localWon = winnerPeerId != -1 && winnerPeerId == nm.LocalId;
+			champion = localWon;
 			label = winnerPeerId == -1
 				? "Draw — no survivors"
-				: $"Winner: {NameOf(winnerPeerId)}";
+				: localWon ? "🏆 You Win!" : $"Winner: {NameOf(winnerPeerId)}";
 		}
 		_results.Show(label, nm.IsHost,
 			expedition ? "Return to Menu" : "Return to Lobby", scoreText, playAgain,
-			celebrate: winnerPeerId != -1); // fireworks for any actual win; draws get none
+			celebrate: winnerPeerId != -1, // fireworks for any actual win; draws get none
+			champion: champion);           // the winner's own screen gets the grander show
 	}
 
 	private static string NameOf(long peerId) =>
