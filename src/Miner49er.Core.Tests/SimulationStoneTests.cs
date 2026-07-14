@@ -66,6 +66,26 @@ public class SimulationStoneTests
         Assert.Equal(2, sim.GetMiner(1).StoneCount);
     }
 
+    [Fact]
+    public void TryThrowStone_stuns_first_miner_in_path_and_lands_at_their_feet()
+    {
+        // Thrower at col 1, victim at col 5, clear floor between. Stone should stop on the
+        // victim (not fly to the far wall), stun them, and land at their feet.
+        var grid = new TileGrid(9, 3, TileType.Floor);
+        var cfg = new SimConfig { BaseMoveSeconds = 0.01 };
+        var sim = Sim(grid, cfg);
+        sim.AddMiner(1, new GridPos(1, 1));
+        sim.AddMiner(2, new GridPos(5, 1));
+        sim.TryMove(1, Direction.East);  // thrower → col 2, facing East
+        sim.AddStones(1, 1);
+        sim.TryThrowStone(1);
+
+        Assert.True(sim.GetMiner(2).StunRemaining > 0);
+        var evs = sim.DrainEvents();
+        Assert.Equal(new GridPos(5, 1), evs.OfType<StoneThrown>().Single().LandingPos);
+        Assert.Contains(evs, e => e is MinerStunned ms && ms.AttackerId == 1 && ms.TargetId == 2);
+    }
+
     // --- pickup from the floor ---
 
     [Fact]

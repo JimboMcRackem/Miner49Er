@@ -1082,26 +1082,37 @@ public partial class WorldRenderer : Node2D
 			}
 		}
 
-		// Treasure Heist: the treasure idol, drawn once unearthed (loose or carried). Buried treasure
-		// stays hidden until dug up. A carried treasure floats above its carrier's head like the prize relic.
+		// Treasure Heist: the unearthed treasure. Loose on the ground it shows as the urn so
+		// players can see it to grab; carried, the urn is hidden and a small sack rides the
+		// carrier instead. Buried treasure stays hidden until dug up.
 		if (_client.Treasure is { } treasure && treasure.State != 0)
 		{
 			var tcell = new GridPos(treasure.X, treasure.Y);
 			if (spectating || _client.Fog.IsVisible(tcell))
 			{
-				float tlift = treasure.HolderId >= 0 ? ts * 0.75f : 0f;
-				var tc = new Vector2(treasure.X * ts + ts / 2f, treasure.Y * ts + ts / 2f - tlift);
-				if (_itemTex.TryGetValue(ItemKind.IdolUrn, out var urnTex) && urnTex != null)
+				if (treasure.HolderId >= 0)
 				{
-					DrawTextureRect(urnTex, new Rect2(tc.X - ts / 2f, tc.Y - ts / 2f, ts, ts), false);
+					// Carried: hide the urn; show a sack slung on the carrier so rivals can spot
+					// who holds it without the treasure itself floating out in the open.
+					var carrier = _client.MinerVisualPos(treasure.HolderId, treasure.X, treasure.Y);
+					DrawTreasureSack(carrier, ts);
 				}
 				else
 				{
-					// Fallback marker if the sprite is missing: a gold diamond.
-					float r = ts * 0.30f;
-					var diamond = new Vector2[] { tc + new Vector2(0, -r), tc + new Vector2(r, 0), tc + new Vector2(0, r), tc + new Vector2(-r, 0) };
-					DrawColoredPolygon(diamond, new Color(1f, 0.84f, 0.2f));
-					DrawPolyline(new[] { diamond[0], diamond[1], diamond[2], diamond[3], diamond[0] }, new Color(0f, 0f, 0f, 0.5f), 1.5f);
+					// Loose on the ground: draw the urn so it clearly reads as there to pick up.
+					var tc = new Vector2(treasure.X * ts + ts / 2f, treasure.Y * ts + ts / 2f);
+					if (_itemTex.TryGetValue(ItemKind.IdolUrn, out var urnTex) && urnTex != null)
+					{
+						DrawTextureRect(urnTex, new Rect2(tc.X - ts / 2f, tc.Y - ts / 2f, ts, ts), false);
+					}
+					else
+					{
+						// Fallback marker if the sprite is missing: a gold diamond.
+						float r = ts * 0.30f;
+						var diamond = new Vector2[] { tc + new Vector2(0, -r), tc + new Vector2(r, 0), tc + new Vector2(0, r), tc + new Vector2(-r, 0) };
+						DrawColoredPolygon(diamond, new Color(1f, 0.84f, 0.2f));
+						DrawPolyline(new[] { diamond[0], diamond[1], diamond[2], diamond[3], diamond[0] }, new Color(0f, 0f, 0f, 0.5f), 1.5f);
+					}
 				}
 			}
 		}
@@ -1613,6 +1624,24 @@ public partial class WorldRenderer : Node2D
 	{
 		var c = new Vector2(x * ts + ts / 2f, y * ts + ts / 2f);
 		DrawCircle(c, ts * 0.42f, col);
+	}
+
+	// A small burlap sack slung on the miner carrying the Treasure Heist treasure —
+	// shown in place of the urn itself while it is being carried.
+	private void DrawTreasureSack(Vector2 minerCenter, int ts)
+	{
+		var p = minerCenter + new Vector2(ts * 0.24f, ts * 0.02f); // slung at the hip
+		float r = ts * 0.20f;
+		var body = new Color(0.60f, 0.45f, 0.25f);
+		var tie  = new Color(0.42f, 0.30f, 0.16f);
+		DrawCircle(p + new Vector2(0f, r * 0.35f), r, body);              // rounded body
+		var nl  = p + new Vector2(-r * 0.5f, -r * 0.45f);
+		var nr  = p + new Vector2( r * 0.5f, -r * 0.45f);
+		var top = p + new Vector2( 0f,       -r * 1.15f);
+		DrawColoredPolygon(new[] { nl, nr, top }, body);                 // cinched neck
+		DrawLine(nl, nr, tie, 2f);                                        // tie band
+		DrawCircle(top, r * 0.18f, tie);                                 // knot
+		DrawCircle(p + new Vector2(0f, r * 0.35f), r * 0.30f, new Color(1f, 0.85f, 0.3f, 0.45f)); // gold glint
 	}
 
 	// Draws prominent diagonal gold ore veins on a GoldRock tile.

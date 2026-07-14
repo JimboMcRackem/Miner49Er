@@ -394,14 +394,24 @@ public sealed class Simulation
 
         var offset = m.Facing.ToOffset();
         GridPos land = m.Pos;
+        int hitId = -1;
         for (int i = 1; i <= 64; i++)
         {
             var next = new GridPos(m.Pos.X + offset.X * i, m.Pos.Y + offset.Y * i);
             if (!Grid.InBounds(next) || !Grid.Get(next).IsEnterable()) break;
             land = next;
+            // The stone stops at the first miner in its path: it stuns them (dropping any
+            // held item / the treasure) and comes to rest at their feet.
+            var target = _miners.Values.FirstOrDefault(r => r.Id != minerId && r.Alive && r.Pos == next);
+            if (target != null) { hitId = target.Id; break; }
         }
 
         m.StoneCount--;
+        if (hitId >= 0 && _miners.TryGetValue(hitId, out var victim))
+        {
+            victim.StunRemaining = 0.8;
+            _events.Add(new MinerStunned(minerId, hitId));
+        }
         _noiseSources.Add(new NoiseSource { Pos = land, LifetimeRemaining = 4.0, Kind = NoiseKind.Stone });
         _events.Add(new StoneThrown(minerId, land));
 
