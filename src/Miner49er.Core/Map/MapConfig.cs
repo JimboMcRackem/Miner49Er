@@ -109,8 +109,16 @@ public sealed class MapConfig
         }
         if (mode == GameMode.TreasureHeist)
         {
-            cfg.BuriedIdolKinds = new[] { ItemKind.IdolUrn };
-            cfg.ScatterStones = 6;
+            cfg.GoldVeinCount    = 0;
+            cfg.BaseItemCount    = 0;
+            cfg.VisibleItemCount = 0;
+            cfg.WaterPlankCount  = 0;
+            cfg.SlowMoldCount    = 0;
+            cfg.LanternCount     = 0;
+            cfg.ChestCount       = 0;
+            cfg.DecoyCount       = 0;
+            cfg.BuriedIdolKinds  = new[] { ItemKind.IdolUrn };
+            cfg.ScatterStones    = 6;
         }
         if (mode == GameMode.DemolitionDerby)
         {

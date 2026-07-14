@@ -108,7 +108,7 @@ public sealed class Simulation
     public void AddItem(Item item)
     {
         _items.Add(item);   // host seeds these from GeneratedMap.Items
-        if (Config.TreasureHeistMode && !_treasureUnearthed && item.Placement == ItemPlacement.Buried)
+        if (Config.TreasureHeistMode && !_treasureUnearthed && item.Placement == ItemPlacement.Buried && item.Kind.IsIdol())
         {
             _treasureKind = item.Kind;
             _treasurePos = item.Pos;

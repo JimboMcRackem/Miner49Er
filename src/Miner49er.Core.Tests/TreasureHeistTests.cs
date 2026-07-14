@@ -134,4 +134,23 @@ public class TreasureHeistTests
         for (int i = 0; i < 100; i++) sim.Tick(0.1);
         Assert.False(sim.GetMiner(1).Alive);
     }
+
+    [Fact]
+    public void Heist_map_has_no_scattered_gold_or_buff_items()
+    {
+        var cfg = MapConfig.For(GameMode.TreasureHeist, seed: 42, playerCount: 4,
+            pits: false, caveIns: false, lava: false, mapScale: 1, explosive: ExplosiveMode.Dynamite);
+        Assert.Equal(0, cfg.GoldVeinCount);
+        Assert.Equal(0, cfg.BaseItemCount);
+        Assert.Equal(0, cfg.VisibleItemCount);
+    }
+
+    [Fact]
+    public void Buried_non_idol_does_not_hijack_the_treasure()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddItem(new Item(new GridPos(8, 9), ItemKind.IdolUrn, ItemPlacement.Buried)); // the treasure
+        sim.AddItem(new Item(new GridPos(2, 2), ItemKind.SpeedPotion, ItemPlacement.Buried)); // must not hijack
+        Assert.Equal(new GridPos(8, 9), sim.TreasurePos);
+    }
 }
