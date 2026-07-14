@@ -1441,6 +1441,9 @@ public sealed class Simulation
         {
             var it = _items[i];
             if (it.Pos != m.Pos || it.Placement == ItemPlacement.Buried || !it.Kind.IsCarried()) continue;
+            // In Treasure Heist the tracked treasure is only adopted by walking onto it
+            // (UpdateTreasureCarry); never let the Use verb grab it as an ordinary idol.
+            if (Config.TreasureHeistMode && it.Kind == _treasureKind) continue;
             // Only the owner can pick up a placed TreasureChest
             if (it.Kind == ItemKind.TreasureChest &&
                 (!_chestPos.TryGetValue(m.Id, out var ownedAt) || ownedAt != it.Pos)) continue;

@@ -153,4 +153,16 @@ public class TreasureHeistTests
         sim.AddItem(new Item(new GridPos(2, 2), ItemKind.SpeedPotion, ItemPlacement.Buried)); // must not hijack
         Assert.Equal(new GridPos(8, 9), sim.TreasurePos);
     }
+
+    [Fact]
+    public void Space_cannot_grab_the_loose_treasure_urn_in_heist()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        var pos = new GridPos(5, 5);
+        sim.AddMiner(1, pos);
+        sim.AddItem(new Item(pos, ItemKind.IdolUrn, ItemPlacement.Loose)); // urn on the miner's tile
+        bool used = sim.TryUseItem(1);
+        Assert.False(used);                       // Space did nothing
+        Assert.Null(sim.GetMiner(1).Held);        // urn was NOT taken into the held slot
+    }
 }
