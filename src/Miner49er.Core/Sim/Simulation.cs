@@ -64,6 +64,10 @@ public sealed class Simulation
     public GridPos TreasurePos       => _treasurePos;
     public int     TreasureHolderId  => _treasureHolderId;
     public int     SuddenDeathWinner => _suddenDeathWinner;
+    public double  SuddenDeathProgress =>
+        Config.SuddenDeathHoldSeconds > 0
+            ? System.Math.Clamp(_suddenDeathHold / Config.SuddenDeathHoldSeconds, 0.0, 1.0)
+            : 0.0;
     public double  HoldSecondsOf(int minerId) => _holdSeconds.GetValueOrDefault(minerId);
     public bool    WinByCumulative() => Config.TreasureWinByCumulative;
     public bool    RespawnEnabled    => Config.TreasureRespawnEnabled;

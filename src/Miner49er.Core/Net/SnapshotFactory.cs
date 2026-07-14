@@ -73,7 +73,7 @@ public static class SnapshotFactory
         if (sim.Config.TreasureHeistMode)
         {
             byte state = (byte)(!sim.TreasureUnearthed ? 0 : sim.TreasureHolderId >= 0 ? 2 : 1);
-            treasure = new TreasureSnapshot(state, sim.TreasurePos.X, sim.TreasurePos.Y, sim.TreasureHolderId, 0f);
+            treasure = new TreasureSnapshot(state, sim.TreasurePos.X, sim.TreasurePos.Y, sim.TreasureHolderId, (float)sim.SuddenDeathProgress);
             holdTimes = sim.Miners.Select(m => new HoldTimeSnapshot(m.Id, (float)sim.HoldSecondsOf(m.Id))).ToList();
         }
 

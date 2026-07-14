@@ -412,6 +412,8 @@ public partial class Main : Node2D
 								: tr.State == 1
 									? "Treasure: loose — grab it!"
 									: $"Held by: {NameForMiner(tr.HolderId)}";
+							if (_client.Treasure is { SuddenDeathProgress: > 0f } sd)
+								objective = $"⏱ SUDDEN DEATH — holding {sd.SuddenDeathProgress * 100f:0}%";
 						}
 						else
 						{

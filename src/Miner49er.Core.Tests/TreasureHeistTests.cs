@@ -165,4 +165,18 @@ public class TreasureHeistTests
         Assert.False(used);                       // Space did nothing
         Assert.Null(sim.GetMiner(1).Held);        // urn was NOT taken into the held slot
     }
+
+    [Fact]
+    public void Sudden_death_progress_accrues_for_a_lone_holder_after_expiry()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddMiner(1, new GridPos(5, 5));
+        sim.ForceTreasureLooseForTest(new GridPos(5, 5));
+        sim.Tick(0.1);                       // miner 1 grabs it
+        Assert.Equal(0.0, sim.SuddenDeathProgress);
+        sim.SetTimeExpiredForTest();
+        for (int i = 0; i < 10; i++) sim.Tick(0.1); // ~1s of uncontested overtime holding
+        Assert.True(sim.SuddenDeathProgress > 0.0);
+        Assert.True(sim.SuddenDeathProgress <= 1.0);
+    }
 }
