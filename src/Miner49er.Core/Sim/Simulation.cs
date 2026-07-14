@@ -64,6 +64,12 @@ public sealed class Simulation
     public GridPos TreasurePos       => _treasurePos;
     public int     TreasureHolderId  => _treasureHolderId;
     public int     SuddenDeathWinner => _suddenDeathWinner;
+    // The unearthed, unheld treasure is sitting on a lethal tile (e.g. submerged by the
+    // flood, or over a pit/lava). Flooding never recedes, so it can never be recovered —
+    // the round is unwinnable and must end.
+    public bool    TreasureSubmerged =>
+        Config.TreasureHeistMode && _treasureUnearthed && _treasureHolderId < 0
+        && Grid.Get(_treasurePos).IsLethal();
     public double  SuddenDeathProgress =>
         Config.SuddenDeathHoldSeconds > 0
             ? System.Math.Clamp(_suddenDeathHold / Config.SuddenDeathHoldSeconds, 0.0, 1.0)

@@ -63,4 +63,34 @@ public class RoundResolverTreasureHeistTests
         Assert.True(r.IsOver);
         Assert.Equal(1, r.WinnerId); // most cumulative time wins
     }
+
+    [Fact]
+    public void Submerged_treasure_ends_the_round_for_longest_holder()
+    {
+        var grid = TreasureHeistTests.Grid();
+        var sim = new Simulation(grid, TreasureHeistTests.Cfg());
+        sim.AddMiner(1, new GridPos(3, 3));
+        sim.AddMiner(2, new GridPos(6, 6));
+        sim.ForceTreasureLooseForTest(new GridPos(3, 3)); // under miner 1
+        for (int i = 0; i < 10; i++) sim.Tick(0.1);       // miner 1 grabs & banks ~1s
+        sim.ForceTreasureLooseForTest(new GridPos(5, 5)); // now loose, no holder
+        grid.Set(new GridPos(5, 5), TileType.DeepWater);  // submerged — unrecoverable
+        var r = RoundResolver.Resolve(sim, GameMode.TreasureHeist);
+        Assert.True(r.IsOver);
+        Assert.Equal(1, r.WinnerId); // longest cumulative holder
+    }
+
+    [Fact]
+    public void Submerged_treasure_never_held_is_a_draw()
+    {
+        var grid = TreasureHeistTests.Grid();
+        var sim = new Simulation(grid, TreasureHeistTests.Cfg());
+        sim.AddMiner(1, new GridPos(3, 3));
+        sim.AddMiner(2, new GridPos(6, 6));
+        sim.ForceTreasureLooseForTest(new GridPos(5, 5)); // loose, nobody ever holds it
+        grid.Set(new GridPos(5, 5), TileType.DeepWater);
+        var r = RoundResolver.Resolve(sim, GameMode.TreasureHeist);
+        Assert.True(r.IsOver);
+        Assert.Equal(-1, r.WinnerId); // draw
+    }
 }

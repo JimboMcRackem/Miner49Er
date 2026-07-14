@@ -65,6 +65,12 @@ public static class RoundResolver
 
     private static RoundResult ResolveTreasureHeist(Simulation sim)
     {
+        // Treasure lost to a lethal tile (submerged by the flood, over a pit/lava) with no
+        // holder: it can never be recovered, so the round is unwinnable. End now — longest
+        // cumulative holder wins, else a draw.
+        if (sim.TreasureSubmerged)
+            return CumulativeWinnerOrDraw(sim);
+
         // Death match wipe: everyone eliminated (respawns off) -> decide now by most time.
         // Guarded on !RespawnEnabled because in respawn mode "all dead" is a transient state.
         if (!sim.RespawnEnabled && sim.Miners.All(m => !m.Alive))
