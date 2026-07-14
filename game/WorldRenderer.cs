@@ -742,6 +742,9 @@ public partial class WorldRenderer : Node2D
 		foreach (var c in _client.Charges)
 		{
 			if (!_client.Fog.IsVisible(new GridPos(c.X, c.Y)) && !spectating) continue;
+			// Hide the ticking stick while a thrown-dynamite arc is still in the air toward this
+			// tile — otherwise the bomb shows at the landing tile before the throw visually lands.
+			if (DynamiteArcCoveringTile(new Vector2(c.X * ts + ts / 2f, c.Y * ts + ts / 2f), ts)) continue;
 			float chargeScale = 0.60f;
 			float chargePad   = ts * (1f - chargeScale) / 2f;
 			var r = new Rect2(c.X * ts + chargePad, c.Y * ts + chargePad, ts * chargeScale, ts * chargeScale);
@@ -1624,6 +1627,16 @@ public partial class WorldRenderer : Node2D
 	{
 		var c = new Vector2(x * ts + ts / 2f, y * ts + ts / 2f);
 		DrawCircle(c, ts * 0.42f, col);
+	}
+
+	// True while a thrown-dynamite flight visual is still arcing toward the given tile centre,
+	// used to suppress the landed ticking-stick charge until the arc completes.
+	private bool DynamiteArcCoveringTile(Vector2 tileCenter, int ts)
+	{
+		float tol = ts * 0.5f;
+		foreach (var d in _dynamiteThrows)
+			if (d.to.DistanceSquaredTo(tileCenter) < tol * tol) return true;
+		return false;
 	}
 
 	// A small burlap sack slung on the miner carrying the Treasure Heist treasure —
