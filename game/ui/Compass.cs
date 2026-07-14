@@ -26,21 +26,15 @@ public partial class Compass : CanvasLayer
 
 	public override void _Process(double delta)
 	{
-		bool heist = NetworkManager.Instance.MatchMode == GameMode.TreasureHeist;
-		Visible = Active || heist;
-		if (!Active && !heist) return;
-		if (Active)
-		{
-			var (listenAngle, kind) = ComputeListenAngle();
-			_arc.TargetAngle = listenAngle;
-			_arc.TargetKind  = kind;
-		}
-		else
-		{
-			_arc.TargetAngle = null; // no Listen arcs outside Listen mode
-		}
-		_arc.ExitAngle  = ComputeExitAngle();
-		_arc.ExitSettle = Active ? Mathf.Clamp(ListenTime, 0f, 1.0f) : 1f; // heist w/o Listen: rose fully settled
+		Visible = Active;
+		if (!Active) return;
+		var (listenAngle, kind) = ComputeListenAngle();
+		_arc.TargetAngle  = listenAngle;
+		_arc.TargetKind   = kind;
+		// In Treasure Heist the exit rose points at the treasure (see ComputeExitAngle),
+		// but only while listening — the compass is a Listen tool in every mode.
+		_arc.ExitAngle    = ComputeExitAngle();
+		_arc.ExitSettle   = Mathf.Clamp(ListenTime, 0f, 1.0f); // 0→1 over first second
 		_arc.QueueRedraw();
 	}
 
