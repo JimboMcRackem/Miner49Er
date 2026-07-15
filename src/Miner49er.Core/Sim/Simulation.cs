@@ -285,7 +285,7 @@ public sealed class Simulation
         if (!_miners.TryGetValue(id, out var m)) return;
         m.Alive = true;
         m.DeathCause = DeathCause.None;
-        m.Pos = pos;
+        m.Pos = SafeSpawn(pos, id);
         m.Activity = ActivityKind.None;
         m.ActivitySecondsRemaining = 0;
         m.InvulnerableRemaining = invulRemaining;
@@ -1323,7 +1323,7 @@ public sealed class Simulation
             if (t < Config.RespawnSeconds) { _respawnTimers[m.Id] = t; continue; }
             _respawnTimers.Remove(m.Id);
             m.Alive = true;
-            m.Pos = m.SpawnPos;
+            m.Pos = SafeSpawn(m.SpawnPos, m.Id);
             m.DeathCause = DeathCause.None;
             m.StunRemaining = 0;
             m.Held = null;
@@ -1338,6 +1338,43 @@ public sealed class Simulation
         new(1,0), new(-1,0), new(0,1), new(0,-1),
         new(1,1), new(1,-1), new(-1,1), new(-1,-1),
     };
+
+    private static readonly GridPos[] Neighbours4 =
+        { new(1,0), new(-1,0), new(0,1), new(0,-1) };
+
+    // A spawn tile is safe if a miner can stand on it and it is dry: no drowning in deep water,
+    // no falling into a pit or lava, and not already occupied by another living miner. The miner
+    // being (re)spawned is excluded — it may still sit at this very tile from before it died.
+    private bool IsSafeSpawnTile(GridPos p, int selfId) =>
+        Grid.InBounds(p) && Grid.Get(p).IsWalkable() && !Grid.Get(p).IsWater()
+        && _miners.Values.All(m => m.Id == selfId || !m.Alive || m.Pos != p);
+
+    // Relocates a spawn to the nearest dry standable tile when its own tile has become unsafe —
+    // e.g. the rising flood has submerged a spawn point by the time a miner respawns there, which
+    // would otherwise drown them the instant they revive. Deterministic breadth-first search
+    // through open space (never tunnelling through rock), so host and clients stay in agreement.
+    private GridPos SafeSpawn(GridPos desired, int selfId)
+    {
+        if (IsSafeSpawnTile(desired, selfId)) return desired;
+
+        var seen = new HashSet<GridPos> { desired };
+        var queue = new Queue<GridPos>();
+        queue.Enqueue(desired);
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            foreach (var off in Neighbours4)
+            {
+                var p = new GridPos(cur.X + off.X, cur.Y + off.Y);
+                if (!Grid.InBounds(p) || !seen.Add(p)) continue;
+                if (IsSafeSpawnTile(p, selfId)) return p;
+                // Keep spreading only across tiles a miner could occupy, so we find dry ground in
+                // the same connected region rather than teleporting through a wall.
+                if (Grid.Get(p).IsEnterable()) queue.Enqueue(p);
+            }
+        }
+        return desired; // whole region is unsafe (degenerate) — nothing better to offer
+    }
 
     private void DropHeldItem(Miner m, ItemKind kind)
     {

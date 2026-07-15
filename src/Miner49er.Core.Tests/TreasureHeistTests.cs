@@ -125,6 +125,48 @@ public class TreasureHeistTests
     }
 
     [Fact]
+    public void Respawn_relocates_off_a_flooded_spawn_to_dry_land()
+    {
+        var cfg = Cfg(); cfg.TreasureRespawnEnabled = true; cfg.RespawnSeconds = 1.0;
+        var grid = Grid();
+        var sim = new Simulation(grid, cfg);
+        sim.AddMiner(1, new GridPos(3, 3));
+        sim.KillMiner(1);
+        grid.Set(new GridPos(3, 3), TileType.DeepWater); // spawn point submerged while dead
+        for (int i = 0; i < 12; i++) sim.Tick(0.1);      // respawn fires
+        var m = sim.GetMiner(1);
+        Assert.True(m.Alive);
+        Assert.NotEqual(new GridPos(3, 3), m.Pos);       // moved off the drowning tile
+        Assert.False(grid.Get(m.Pos).IsWater());         // relocated to dry land
+        Assert.True(grid.Get(m.Pos).IsWalkable());
+    }
+
+    [Fact]
+    public void ReviveMiner_relocates_off_deep_water_to_dry_land()
+    {
+        var grid = Grid();
+        var sim = new Simulation(grid, Cfg());
+        sim.AddMiner(1, new GridPos(3, 3));
+        sim.KillMiner(1);
+        grid.Set(new GridPos(3, 3), TileType.DeepWater);
+        sim.ReviveMiner(1, new GridPos(3, 3));
+        var m = sim.GetMiner(1);
+        Assert.True(m.Alive);
+        Assert.NotEqual(new GridPos(3, 3), m.Pos);
+        Assert.False(grid.Get(m.Pos).IsWater());
+    }
+
+    [Fact]
+    public void ReviveMiner_keeps_a_dry_spawn_in_place()
+    {
+        var sim = new Simulation(Grid(), Cfg());
+        sim.AddMiner(1, new GridPos(3, 3));
+        sim.KillMiner(1);
+        sim.ReviveMiner(1, new GridPos(4, 4)); // already dry floor
+        Assert.Equal(new GridPos(4, 4), sim.GetMiner(1).Pos);
+    }
+
+    [Fact]
     public void Death_match_keeps_dead_miner_out()
     {
         var cfg = Cfg(); cfg.TreasureRespawnEnabled = false;
