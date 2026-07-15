@@ -41,6 +41,7 @@ public class RoundResolverTests
         var result = RoundResolver.Resolve(sim, GameMode.LastManStanding);
         Assert.True(result.IsOver);
         Assert.Equal(-1, result.WinnerId);
+        Assert.Equal(RoundEndReason.AllEliminated, result.Reason);
     }
 
     [Fact]
@@ -87,6 +88,7 @@ public class RoundResolverTests
         var result = RoundResolver.Resolve(sim, GameMode.GoldRush);
         Assert.True(result.IsOver);
         Assert.Equal(-1, result.WinnerId);
+        Assert.Equal(RoundEndReason.Tie, result.Reason);
     }
 
     // --- Reach Center (first to center wins) ---
@@ -135,6 +137,7 @@ public class RoundResolverTests
         var result = RoundResolver.Resolve(sim, GameMode.LastManStanding);
         Assert.True(result.IsOver);
         Assert.Equal(-1, result.WinnerId);
+        Assert.Equal(RoundEndReason.TimeExpired, result.Reason);
     }
 
     [Fact]
@@ -145,5 +148,6 @@ public class RoundResolverTests
         var result = RoundResolver.Resolve(sim, GameMode.ReachCenter);
         Assert.True(result.IsOver);
         Assert.Equal(-1, result.WinnerId);
+        Assert.Equal(RoundEndReason.TimeExpired, result.Reason);
     }
 }

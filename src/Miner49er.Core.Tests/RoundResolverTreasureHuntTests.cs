@@ -67,6 +67,7 @@ public class RoundResolverTreasureHuntTests
         var r = RoundResolver.Resolve(sim, GameMode.TreasureHunt);
         Assert.True(r.IsOver);
         Assert.Equal(-1, r.WinnerId); // unwinnable -> draw
+        Assert.Equal(RoundEndReason.TreasureLost, r.Reason);
     }
 
     [Fact]

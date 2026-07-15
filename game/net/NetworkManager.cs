@@ -340,7 +340,7 @@ public partial class NetworkManager : Node
 
 	// Match bootstrap --------------------------------------------------------
 	public event System.Action? MatchStarting;
-	public event System.Action<long>? MatchEnded; // winner peerId, -1 = draw
+	public event System.Action<long, byte>? MatchEnded; // winner peerId (-1 = no win), RoundEndReason byte
 	public event System.Action? ReturnToLobbyRequested;
 
 	public int MatchSeed { get; private set; }
@@ -491,14 +491,14 @@ public partial class NetworkManager : Node
 	public void ReceiveTick(byte[] bytes) =>
 		_matchClient?.ApplyUpdate(Miner49er.Core.Net.SnapshotCodec.Read(bytes));
 
-	public void BroadcastResult(long winnerPeerId)
+	public void BroadcastResult(long winnerPeerId, byte reason = 0)
 	{
-		Rpc(nameof(ReceiveResult), winnerPeerId);
-		ReceiveResult(winnerPeerId);
+		Rpc(nameof(ReceiveResult), winnerPeerId, reason);
+		ReceiveResult(winnerPeerId, reason);
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority)]
-	public void ReceiveResult(long winnerPeerId) => MatchEnded?.Invoke(winnerPeerId);
+	public void ReceiveResult(long winnerPeerId, byte reason) => MatchEnded?.Invoke(winnerPeerId, reason);
 
 	// Return to lobby --------------------------------------------------------
 	public void ReturnToLobby()

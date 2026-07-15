@@ -65,8 +65,10 @@ public class RoundResolverTreasureHeistTests
     }
 
     [Fact]
-    public void Submerged_treasure_ends_the_round_for_longest_holder()
+    public void Submerged_treasure_is_a_draw_even_for_a_prior_holder()
     {
+        // A holder who drowns with the treasure loses it to the flood — they do NOT "win"
+        // the treasure they lost. Submerged & unrecoverable ends the round as a draw.
         var grid = TreasureHeistTests.Grid();
         var sim = new Simulation(grid, TreasureHeistTests.Cfg());
         sim.AddMiner(1, new GridPos(3, 3));
@@ -77,7 +79,8 @@ public class RoundResolverTreasureHeistTests
         grid.Set(new GridPos(5, 5), TileType.DeepWater);  // submerged — unrecoverable
         var r = RoundResolver.Resolve(sim, GameMode.TreasureHeist);
         Assert.True(r.IsOver);
-        Assert.Equal(1, r.WinnerId); // longest cumulative holder
+        Assert.Equal(-1, r.WinnerId); // draw — nobody secured the lost treasure
+        Assert.Equal(RoundEndReason.TreasureLost, r.Reason);
     }
 
     [Fact]
@@ -92,5 +95,6 @@ public class RoundResolverTreasureHeistTests
         var r = RoundResolver.Resolve(sim, GameMode.TreasureHeist);
         Assert.True(r.IsOver);
         Assert.Equal(-1, r.WinnerId); // draw
+        Assert.Equal(RoundEndReason.TreasureLost, r.Reason);
     }
 }

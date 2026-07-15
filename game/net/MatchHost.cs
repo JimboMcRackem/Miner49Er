@@ -368,7 +368,7 @@ public partial class MatchHost : Node
 			if (!anyHumanAlive && !anyHumanRespawnPending)
 			{
 				_running = false;
-				nm.BroadcastResult(-1);
+				nm.BroadcastResult(-1, (byte)RoundEndReason.AllEliminated);
 				return;
 			}
 		}
@@ -430,7 +430,7 @@ public partial class MatchHost : Node
 				SettingsStore.ClearExpeditionSave();
 			}
 			long winnerPeer = result.WinnerId == -1 ? -1 : FindWinnerPeer(result.WinnerId);
-			nm.BroadcastResult(winnerPeer);
+			nm.BroadcastResult(winnerPeer, (byte)result.Reason);
 		}
 	}
 

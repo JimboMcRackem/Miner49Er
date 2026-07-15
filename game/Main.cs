@@ -836,8 +836,9 @@ public partial class Main : Node2D
 		_floorChoicePanel = layer;
 	}
 
-	private void OnMatchEnded(long winnerPeerId)
+	private void OnMatchEnded(long winnerPeerId, byte reasonByte)
 	{
+		var endReason = (RoundEndReason)reasonByte;
 		if (_results != null) return;
 		HidePauseMenu();
 
@@ -895,7 +896,7 @@ public partial class Main : Node2D
 			bool localWon = winnerPeerId != -1 && winnerPeerId == nm.LocalId;
 			champion = localWon;
 			label = winnerPeerId == -1
-				? "Draw — no survivors"
+				? NoWinLabel(endReason)
 				: localWon ? "🏆 You Win!" : $"Winner: {NameOf(winnerPeerId)}";
 		}
 		_results.Show(label, nm.IsHost,
@@ -903,6 +904,16 @@ public partial class Main : Node2D
 			celebrate: winnerPeerId != -1, // fireworks for any actual win; draws get none
 			champion: champion);           // the winner's own screen gets the grander show
 	}
+
+	// Tells the contestant why the round ended without a winner.
+	private static string NoWinLabel(RoundEndReason reason) => reason switch
+	{
+		RoundEndReason.AllEliminated => "Draw — everyone perished",
+		RoundEndReason.TimeExpired   => "Time's up — no winner",
+		RoundEndReason.TreasureLost  => "The treasure was lost to the flood",
+		RoundEndReason.Tie           => "Draw — it's a tie",
+		_                            => "Draw — no survivors",
+	};
 
 	private static string NameOf(long peerId) =>
 		NetworkManager.Instance.Players.TryGetValue(peerId, out var info) ? info.Name : $"Peer {peerId}";

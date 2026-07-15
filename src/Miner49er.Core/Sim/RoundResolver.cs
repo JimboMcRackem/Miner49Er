@@ -3,11 +3,23 @@ using System.Linq;
 
 namespace Miner49er.Core;
 
-public readonly record struct RoundResult(bool IsOver, bool FloorCleared, int WinnerId)
+/// <summary>Why a round ended without a winner, so the results screen can tell the
+/// contestant what happened instead of a generic "draw".</summary>
+public enum RoundEndReason : byte
+{
+    None = 0,        // a win, or not applicable
+    AllEliminated,   // every miner died (last-man-standing wipe)
+    TimeExpired,     // the clock ran out with no qualifying winner
+    TreasureLost,    // the treasure / idols were submerged and can never be recovered
+    Tie,             // tied on the deciding metric (gold, hold time)
+}
+
+public readonly record struct RoundResult(bool IsOver, bool FloorCleared, int WinnerId,
+                                           RoundEndReason Reason = RoundEndReason.None)
 {
     public static RoundResult Ongoing()         => new(false, false, -1);
     public static RoundResult Win(int id)       => new(true,  false, id);
-    public static RoundResult Loss()            => new(true,  false, -1);
+    public static RoundResult Loss(RoundEndReason reason = RoundEndReason.None) => new(true, false, -1, reason);
     public static RoundResult NextFloor(int id) => new(false, true,  id);
 }
 
@@ -38,7 +50,9 @@ public static class RoundResolver
 
         // Universal last-man-standing.
         if (alive.Count <= 1)
-            return new RoundResult(true, false, alive.Count == 1 ? alive[0].Id : -1);
+            return alive.Count == 1
+                ? RoundResult.Win(alive[0].Id)
+                : RoundResult.Loss(RoundEndReason.AllEliminated);
 
         return mode switch
         {
@@ -46,16 +60,23 @@ public static class RoundResolver
                                       && sim.GetMiner(sim.FirstToReachCenter).Alive
                 => RoundResult.Win(sim.FirstToReachCenter),
             GameMode.GoldRush when sim.TimeExpired
-                => RoundResult.Win(MostGoldWinner(alive)),
+                => GoldRushResult(alive),
             GameMode.TreasureHunt when sim.TreasureWinner() >= 0
                 => RoundResult.Win(sim.TreasureWinner()),
             GameMode.TreasureHunt when sim.TreasureHuntUnwinnable()
-                => RoundResult.Loss(), // every alive player's idol is submerged -> draw
+                => RoundResult.Loss(RoundEndReason.TreasureLost), // every alive player's idol is submerged
 
             _ when sim.TimeExpired
-                => RoundResult.Loss(),
+                => RoundResult.Loss(RoundEndReason.TimeExpired),
             _ => RoundResult.Ongoing(),
         };
+    }
+
+    // Gold Rush at time-up: the richest miner wins; a tie for the lead is a draw.
+    private static RoundResult GoldRushResult(List<Miner> alive)
+    {
+        int w = MostGoldWinner(alive);
+        return w >= 0 ? RoundResult.Win(w) : RoundResult.Loss(RoundEndReason.Tie);
     }
 
     private static int MostGoldWinner(List<Miner> alive)
@@ -69,15 +90,15 @@ public static class RoundResolver
     private static RoundResult ResolveTreasureHeist(Simulation sim)
     {
         // Treasure lost to a lethal tile (submerged by the flood, over a pit/lava) with no
-        // holder: it can never be recovered, so the round is unwinnable. End now — longest
-        // cumulative holder wins, else a draw.
+        // holder: it can never be recovered, so the objective failed for everyone. Nobody wins
+        // — a drowned holder does not "win" the treasure they lost. It's a draw.
         if (sim.TreasureSubmerged)
-            return CumulativeWinnerOrDraw(sim);
+            return RoundResult.Loss(RoundEndReason.TreasureLost);
 
         // Death match wipe: everyone eliminated (respawns off) -> decide now by most time.
         // Guarded on !RespawnEnabled because in respawn mode "all dead" is a transient state.
         if (!sim.RespawnEnabled && sim.Miners.All(m => !m.Alive))
-            return CumulativeWinnerOrDraw(sim);
+            return CumulativeWinnerOrDraw(sim, RoundEndReason.AllEliminated);
 
         if (!sim.TimeExpired)
             return RoundResult.Ongoing();
@@ -101,15 +122,15 @@ public static class RoundResolver
         }
         if (sim.TreasureHolderId >= 0) return RoundResult.Win(sim.TreasureHolderId);
         if (sim.SuddenDeathWinner >= 0) return RoundResult.Win(sim.SuddenDeathWinner);
-        if (best <= 0) return RoundResult.Loss(); // nobody ever held it and none left to contest -> draw
-        return RoundResult.Ongoing();
+        if (best <= 0) return RoundResult.Loss(RoundEndReason.TimeExpired); // nobody ever held it
+        return RoundResult.Ongoing(); // tied leaders -> keep ticking through sudden-death
     }
 
-    private static RoundResult CumulativeWinnerOrDraw(Simulation sim)
+    private static RoundResult CumulativeWinnerOrDraw(Simulation sim, RoundEndReason drawReason)
     {
         double best = sim.Miners.Select(m => sim.HoldSecondsOf(m.Id)).DefaultIfEmpty(0).Max();
-        if (best <= 0) return RoundResult.Loss(); // nobody ever held it -> draw
+        if (best <= 0) return RoundResult.Loss(drawReason); // nobody ever held it -> draw
         var leaders = sim.Miners.Where(m => sim.HoldSecondsOf(m.Id) == best).ToList();
-        return leaders.Count == 1 ? RoundResult.Win(leaders[0].Id) : RoundResult.Loss();
+        return leaders.Count == 1 ? RoundResult.Win(leaders[0].Id) : RoundResult.Loss(RoundEndReason.Tie);
     }
 }
