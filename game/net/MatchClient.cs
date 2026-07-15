@@ -64,6 +64,10 @@ public partial class MatchClient : Node2D
 	private List<ReelChargeSnapshot> _reelChargeSnaps = new();
 	private readonly Dictionary<int, Vector2> _monsterVisualPos = new(); // monsterId -> smoothed pixels
 	private readonly Dictionary<int, Vector2> _visualPos = new(); // minerId -> smoothed pixels
+	// Camera shake: trauma decays each frame; screen offset scales with trauma squared.
+	private float _shakeTrauma;
+	private readonly System.Random _shakeRng = new();
+	private bool _localWasAlive;
 
 	private Node2D _sceneRoot = null!;
 	public int StartingGoldCount { get; private set; }
@@ -149,6 +153,32 @@ public partial class MatchClient : Node2D
 		_cam = new Camera2D { Zoom = new Vector2(2.5f, 2.5f) };
 		_camera.AddChild(_cam);
 		_cam.MakeCurrent();
+
+		AddGlowEnvironment(sceneRoot);
+	}
+
+	// 2D bloom: a WorldEnvironment whose glow blooms only pixels brighter than 1.0. With HDR-2D
+	// on (project setting), ordinary art stays crisp — only the emissive draws that deliberately
+	// push their colour past 1.0 (lava, crystals, lantern, explosions, gold) light up.
+	private void AddGlowEnvironment(Node sceneRoot)
+	{
+		if (sceneRoot.GetNodeOrNull("GlowEnv") != null) return;
+		var env = new Godot.Environment
+		{
+			BackgroundMode   = Godot.Environment.BGMode.Canvas,
+			GlowEnabled      = true,
+			GlowIntensity    = 0.7f,
+			GlowStrength     = 1.0f,
+			GlowBloom        = 0.0f,  // 0 = only >threshold pixels bloom; >0 lifts the whole scene (wash)
+			GlowBlendMode    = Godot.Environment.GlowBlendModeEnum.Additive, // adds light at bright spots only
+			GlowHdrThreshold = 1.05f, // just above white so ordinary UI + base art stay untouched
+			GlowHdrScale     = 2.0f,
+		};
+		// Soft, wide spread across the mid glow levels.
+		env.SetGlowLevel(2, 1f);
+		env.SetGlowLevel(3, 1f);
+		env.SetGlowLevel(4, 1f);
+		sceneRoot.AddChild(new WorldEnvironment { Name = "GlowEnv", Environment = env });
 	}
 
 	public void ApplyUpdate(TickUpdate update)
@@ -191,6 +221,7 @@ public partial class MatchClient : Node2D
 				}
 			_world?.AddExplosionRing(c, maxR + TileSize * 0.7f);
 			Exploded?.Invoke(c);
+			ShakeFromWorld(c, 0.7f);
 		}
 
 		if (update.Snapshot.ScreeCollapses is { } screeCollapses)
@@ -199,6 +230,7 @@ public partial class MatchClient : Node2D
 				var wpos = new Vector2(sc.X * TileSize + TileSize / 2f, sc.Y * TileSize + TileSize / 2f);
 				_world?.AddRockfallDust(new GridPos(sc.X, sc.Y), sc.Radius);
 				ScreeCollapsed?.Invoke(wpos, sc.Radius);
+				ShakeFromWorld(wpos, 0.4f + 0.12f * sc.Radius);
 			}
 
 		if (update.Snapshot.Whistles is { } whistles)
@@ -262,6 +294,11 @@ public partial class MatchClient : Node2D
 
 		ApplyTilePaints(update.TileChanges, floodAdvances);
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
+		// Your own death always jolts the camera, regardless of what caused it.
+		bool localAliveNow = false;
+		foreach (var mm in _miners) if (mm.Id == LocalMinerId && mm.Alive) { localAliveNow = true; break; }
+		if (_localWasAlive && !localAliveNow) AddShake(0.6f);
+		_localWasAlive = localAliveNow;
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
 		_items = new List<ItemSnapshot>(update.Snapshot.Items);
 		_molds = new List<MoldSnapshot>(update.Snapshot.Molds);
@@ -504,7 +541,36 @@ public partial class MatchClient : Node2D
 			}
 		}
 
+		// Camera shake: trauma decays; the screen offset scales with its square so small
+		// tremors fade smoothly while big hits punch hard.
+		if (_cam != null)
+		{
+			_shakeTrauma = Mathf.Max(0f, _shakeTrauma - (float)delta * 1.6f);
+			if (_shakeTrauma > 0f)
+			{
+				float s = _shakeTrauma * _shakeTrauma;
+				const float maxOffset = 9f;
+				_cam.Offset = new Vector2(
+					((float)_shakeRng.NextDouble() * 2f - 1f) * maxOffset * s,
+					((float)_shakeRng.NextDouble() * 2f - 1f) * maxOffset * s);
+			}
+			else if (_cam.Offset != Vector2.Zero)
+				_cam.Offset = Vector2.Zero;
+		}
+
 		QueueRedraw();
+	}
+
+	// Adds camera-shake trauma (clamped to 1). Called on explosions, cave-ins, and local death.
+	public void AddShake(float amount) => _shakeTrauma = Mathf.Min(1f, _shakeTrauma + amount);
+
+	// Shake scaled by how close a world-space event is to the camera focus — distant booms
+	// barely register, nearby ones jolt.
+	private void ShakeFromWorld(Vector2 worldPos, float baseAmount)
+	{
+		Vector2 focus = _camera?.Position ?? worldPos;
+		float near = Mathf.Clamp(1f - focus.DistanceTo(worldPos) / (TileSize * 10f), 0f, 1f);
+		if (near > 0f) AddShake(baseAmount * near);
 	}
 
 	public override void _Draw()
@@ -574,6 +640,7 @@ public partial class MatchClient : Node2D
 				}
 			}
 
+			WorldRenderer.DrawGroundShadow(this, new Vector2(p.X, p.Y + 11f), 9f, 3.5f);
 			if (tex != null)
 				DrawTextureRect(tex, new Rect2(p.X - 16, p.Y - 16, 32, 32), false, new Color(1, 1, 1, alpha));
 			else

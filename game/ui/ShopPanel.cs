@@ -33,22 +33,26 @@ public partial class ShopPanel : Control
 
 	public override void _Ready()
 	{
-		AnchorLeft = 0.3f; AnchorRight = 0.7f;
-		AnchorTop  = 0.2f; AnchorBottom = 0.8f;
+		// Fill the screen and centre a self-sizing panel inside it. A CenterContainer keeps the
+		// panel centred regardless of window size, and the PanelContainer grows to fit the text
+		// so long labels are never pushed off-screen.
+		SetAnchorsPreset(LayoutPreset.FullRect);
 
-		var bg = new ColorRect
-		{
-			Color = new Color(0.05f, 0.05f, 0.05f, 0.92f),
-			AnchorRight = 1f, AnchorBottom = 1f,
-		};
-		AddChild(bg);
+		var center = new CenterContainer();
+		center.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(center);
 
-		var vbox = new VBoxContainer
-		{
-			AnchorRight = 1f, AnchorBottom = 1f,
-			OffsetLeft = 12, OffsetRight = -12, OffsetTop = 12, OffsetBottom = -12,
-		};
-		AddChild(vbox);
+		var panel = new PanelContainer { CustomMinimumSize = new Vector2(560, 0) };
+		center.AddChild(panel);
+
+		// Opaque dark fill with an amber frame — nothing behind it (world or bloom) bleeds through.
+		var style = new StyleBoxFlat { BgColor = new Color(0.04f, 0.04f, 0.05f, 1f), BorderColor = new Color(0.85f, 0.72f, 0.35f, 1f) };
+		style.SetBorderWidthAll(2);
+		style.SetContentMarginAll(16);
+		panel.AddThemeStyleboxOverride("panel", style);
+
+		var vbox = new VBoxContainer();
+		panel.AddChild(vbox);
 
 		var title = new Label { Text = "=== SHOP ===", HorizontalAlignment = HorizontalAlignment.Center };
 		title.AddThemeFontSizeOverride("font_size", 20);

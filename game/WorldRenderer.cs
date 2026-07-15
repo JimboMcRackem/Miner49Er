@@ -56,6 +56,26 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color WireColor         = new Color(0.9f, 0.55f, 0.1f, 0.75f);
 	private static readonly Color DetonatorItemColor = new("ff3355");
 	private const int ListenItemRevealRadius = 6;
+	private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.30f);
+	// HDR tints (>1.0) so these emissive draws bloom through the glow environment. Their own
+	// alpha/falloff is preserved; only the bright core pushes past the 1.0 glow threshold.
+	private static readonly Color LanternGlowBoost = new(1.15f, 0.98f, 0.60f);
+	private static readonly Color CrystalGlowCore  = new(1.60f, 1.40f, 2.30f);
+	private static readonly Color LavaGlowBoost    = new(1.55f, 1.10f, 0.65f);
+
+	// A soft flattened ellipse under an actor's feet — grounds sprites and adds depth. Static so
+	// both the monster pass here and the miner pass in MatchClient share one definition.
+	public static void DrawGroundShadow(CanvasItem ci, Vector2 feet, float rx, float ry)
+	{
+		const int N = 14;
+		var pts = new Vector2[N];
+		for (int i = 0; i < N; i++)
+		{
+			float a = i * Mathf.Tau / N;
+			pts[i] = new Vector2(feet.X + Mathf.Cos(a) * rx, feet.Y + Mathf.Sin(a) * ry);
+		}
+		ci.DrawColoredPolygon(pts, ShadowColor);
+	}
 
 	// Cached water draw data Ã¢â‚¬â€ computed once on first draw, valid for map lifetime since water tiles never change.
 	private GridPos[]? _waterTiles;
@@ -586,8 +606,8 @@ public partial class WorldRenderer : Node2D
 					if (_plankTex != null) DrawTextureRect(_plankTex, r, false);
 					break;
 				case TileType.LavaVent:
-					if (_lavaVentTex != null) DrawTextureRect(_lavaVentTex, r, false);
-					else DrawRect(r, LavaVentColor);
+					if (_lavaVentTex != null) DrawTextureRect(_lavaVentTex, r, false, LavaGlowBoost);
+					else DrawRect(r, new Color(2.0f, 0.95f, 0.35f));
 					break;
 				case TileType.CrystalRock:
 				{
@@ -601,7 +621,7 @@ public partial class WorldRenderer : Node2D
 						float pulse = 0.70f + 0.30f * Mathf.Sin(wTime * Mathf.Pi * 2f / 1.65f);
 						DrawTextureRect(_crystalGlowTex,
 							new Rect2(cx - crystalGlowPx / 2f, cy - crystalGlowPx / 2f, crystalGlowPx, crystalGlowPx),
-							false, new Color(1f, 1f, 1f, 0.40f * pulse));
+							false, CrystalGlowCore with { A = 0.40f * pulse });
 					}
 					if (_crystalRockTex != null)
 					{
@@ -932,7 +952,7 @@ public partial class WorldRenderer : Node2D
 				float shardGlowPx = ts * 1.4f;
 				DrawTextureRect(_crystalGlowTex,
 					new Rect2(icenter.X - shardGlowPx / 2f, icenter.Y - shardGlowPx / 2f, shardGlowPx, shardGlowPx),
-					false, new Color(1f, 1f, 1f, 0.30f));
+					false, CrystalGlowCore with { A = 0.30f });
 				if (_crystalShardTex != null)
 					DrawTextureRect(_crystalShardTex, r, false);
 				else
@@ -1018,7 +1038,8 @@ public partial class WorldRenderer : Node2D
 
 		foreach (var (pos, life) in _flashes)
 		{
-			var col = FlashColor with { A = Mathf.Clamp(life / 0.4f, 0f, 1f) };
+			// HDR core so the blast blooms through the glow environment, fading via alpha.
+			var col = new Color(2.6f, 2.0f, 1.2f, Mathf.Clamp(life / 0.4f, 0f, 1f));
 			DrawRect(new Rect2(pos.X * ts, pos.Y * ts, ts, ts), col);
 		}
 
@@ -1186,7 +1207,7 @@ public partial class WorldRenderer : Node2D
 			var center = new Vector2(m.X * ts + ts / 2f, m.Y * ts + ts / 2f);
 			DrawTextureRect(_lanternGlowTex,
 				new Rect2(center.X - glowPx / 2f, center.Y - glowPx / 2f, glowPx, glowPx),
-				false);
+				false, LanternGlowBoost);
 		}
 		foreach (var it in _client.Items)
 		{
@@ -1194,7 +1215,7 @@ public partial class WorldRenderer : Node2D
 			var center = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
 			DrawTextureRect(_lanternGlowTex,
 				new Rect2(center.X - glowPx / 2f, center.Y - glowPx / 2f, glowPx, glowPx),
-				false);
+				false, LanternGlowBoost);
 		}
 
 		// Crystal shard halo: soft cyan ring around any miner holding a shard
@@ -1214,6 +1235,8 @@ public partial class WorldRenderer : Node2D
 			var c = _client.MonsterVisualPos(mo.Id, mo.X, mo.Y);
 			var fwd  = FacingOffset(mo.Facing, ts * 0.12f);
 			var side = PerpendicularOffset(mo.Facing, ts * 0.10f);
+			if (mo.Kind != MonsterKind.Ghost) // ghosts float — no ground shadow
+				DrawGroundShadow(this, new Vector2(c.X, c.Y + ts * 0.34f), ts * 0.30f, ts * 0.12f);
 			switch (mo.Kind)
 			{
 				case MonsterKind.Slime:

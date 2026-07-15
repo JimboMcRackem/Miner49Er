@@ -26,8 +26,11 @@ AudioManager="*res://game/audio/AudioManager.cs"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/size/initial_position_type=1
 
 [dotnet]
 
 project/assembly_name="Miner49er"
+
+[rendering]
+
+viewport/hdr_2d=true
