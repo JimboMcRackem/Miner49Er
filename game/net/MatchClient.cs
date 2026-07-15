@@ -79,6 +79,9 @@ public partial class MatchClient : Node2D
 	private TerrainMap _terrainMap = null!;
 	private WorldRenderer _world = null!;
 	private FogRenderer _fogRenderer = null!;
+	// Flood tiles whose settled tilemap paint is held back while WorldRenderer animates the
+	// water creeping in; flushed to the tilemap once the animation's duration has elapsed.
+	private readonly List<(GridPos pos, TileChange change, float remaining)> _pendingFloodPaints = new();
 	private Node2D _camera = null!;
 	private Camera2D _cam = null!;
 	// Tinted miner textures, built lazily one set per (variant, colour) pair actually in the match.
@@ -152,11 +155,16 @@ public partial class MatchClient : Node2D
 	{
 		float bx = 0f, by = 0f;
 		int blastCount = 0;
+		List<GridPos>? floodAdvances = null;
 		foreach (var t in update.TileChanges)
 		{
 			var p = new GridPos(t.X, t.Y);
 			if (Grid.InBounds(p))
 			{
+				// A dry tile turning to water is the flood front conquering it: animate the
+				// creep instead of an instant square (a shallow->deep upgrade is not "new water").
+				if (!Grid.Get(p).IsWater() && t.NewType.IsWater())
+					(floodAdvances ??= new()).Add(p);
 				Grid.Set(p, t.NewType);
 				if (t.NewType == TileType.Floor && _crystalPositions != null)
 				{
@@ -252,7 +260,7 @@ public partial class MatchClient : Node2D
 			if (update.Snapshot.TreasureToast is { } tt)
 				TreasureToast?.Invoke(tt.Kind, tt.MinerId);
 
-		_terrainMap?.UpdateTiles(update.TileChanges);
+		ApplyTilePaints(update.TileChanges, floodAdvances);
 		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
 		_items = new List<ItemSnapshot>(update.Snapshot.Items);
@@ -271,6 +279,34 @@ public partial class MatchClient : Node2D
 		PendingFalls     = update.Snapshot.PendingFalls;
 		_reelChargeSnaps = new List<ReelChargeSnapshot>(update.Snapshot.ReelCharges ?? System.Array.Empty<ReelChargeSnapshot>());
 		UpdateFog();
+	}
+
+	// Paints tile changes to the tilemap, but holds back flood-front tiles: WorldRenderer
+	// animates those creeping in, and _PhysicsProcess paints the settled tile once its
+	// animation completes, so the fill hands off without a visible pop.
+	private void ApplyTilePaints(IReadOnlyList<TileChange> changes, List<GridPos>? floodAdvances)
+	{
+		if (floodAdvances == null)
+		{
+			_terrainMap?.UpdateTiles(changes);
+			return;
+		}
+		var immediate = new List<TileChange>(changes.Count);
+		foreach (var t in changes)
+		{
+			var p = new GridPos(t.X, t.Y);
+			bool isFlood = floodAdvances.Contains(p);
+			// Any pending paint for this tile is stale — a newer change (flood or not) wins.
+			for (int i = _pendingFloodPaints.Count - 1; i >= 0; i--)
+				if (_pendingFloodPaints[i].pos.Equals(p)) _pendingFloodPaints.RemoveAt(i);
+			if (isFlood)
+			{
+				_world?.AddFloodAdvance(p, t.NewType);
+				_pendingFloodPaints.Add((p, t, WorldRenderer.FloodAnimSeconds));
+			}
+			else immediate.Add(t);
+		}
+		if (immediate.Count > 0) _terrainMap?.UpdateTiles(immediate);
 	}
 
 	public void ResetFloor(int floor)
@@ -314,6 +350,7 @@ public partial class MatchClient : Node2D
 		_lastMinerPos.Clear();
 		_walkUntil.Clear();
 		_throwUntil.Clear();
+		_pendingFloodPaints.Clear(); // stale flood animations don't carry to the new floor
 		_monsterVisualPos.Clear();
 		_miners.Clear();
 		_monsters.Clear();
@@ -342,6 +379,20 @@ public partial class MatchClient : Node2D
 		// offset view. Cheap to check every frame and self-heals immediately.
 		if (_cam != null && !_cam.IsCurrent())
 			_cam.MakeCurrent();
+
+		// Flush deferred flood paints whose creep animation has finished, handing the tile
+		// over to the settled tilemap render.
+		for (int i = _pendingFloodPaints.Count - 1; i >= 0; i--)
+		{
+			var pf = _pendingFloodPaints[i];
+			pf.remaining -= (float)delta;
+			if (pf.remaining <= 0f)
+			{
+				_terrainMap?.UpdateTiles(new[] { pf.change });
+				_pendingFloodPaints.RemoveAt(i);
+			}
+			else _pendingFloodPaints[i] = pf;
+		}
 
 		// Smooth each miner visual toward its authoritative tile position.
 		double now = Time.GetTicksMsec() / 1000.0;

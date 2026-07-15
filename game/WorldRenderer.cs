@@ -60,9 +60,26 @@ public partial class WorldRenderer : Node2D
 	// Cached water draw data Ã¢â‚¬â€ computed once on first draw, valid for map lifetime since water tiles never change.
 	private GridPos[]? _waterTiles;
 	private Vector2[][]? _waterPolys;
+	private byte[]? _waterEdges; // parallel to _waterTiles: shoreline sides facing dry land (N=1,E=2,S=4,W=8)
+	private HashSet<GridPos>? _staticWaterSet; // pool tiles, to tell settled flood water apart from pre-placed pools
+	private readonly HashSet<GridPos> _animatingTiles = new(); // flood tiles mid-creep this frame (reused, cleared per draw)
 	// Singleton color arrays shared across all shallow / deep tiles to avoid per-frame allocations.
 	private static readonly Color[] _shallowWaterCol = { new Color(0.06f, 0.17f, 0.46f) };
 	private static readonly Color[] _deepWaterCol    = { new Color(0.02f, 0.07f, 0.24f) };
+
+	// Rising-flood animation: tiles the flood just conquered creep in with a wavy leading
+	// edge over FloodAnimSeconds instead of popping a full square. MatchClient defers the
+	// settled tilemap paint by the same duration so the fill hands off seamlessly.
+	public const float FloodAnimSeconds = 0.6f;
+	private readonly List<(GridPos pos, TileType type, int fromDir, float life)> _floodAdvances = new();
+	private const float FloodWaveAmp   = 2.4f; // px, leading-edge ripple amplitude
+	private const float FloodWaveLen   = 9f;   // px per wave along the front
+	private const float FloodWaveSpeed = 6f;   // rad/sec front scroll
+	// Living shoreline ripple on static pools: a wavy foam line just inside each dry-facing edge.
+	private const float ShoreWaveAmp   = 1.6f; // px
+	private const float ShoreWaveLen   = 11f;  // px per wave
+	private const float ShoreWaveSpeed = 2.2f; // rad/sec
+	private static readonly Color ShoreFoamCol = new Color(0.55f, 0.80f, 1f, 0.45f);
 
 	private Texture2D? _shopLampTex;
 	private Texture2D? _chargeTex;
@@ -377,6 +394,13 @@ public partial class WorldRenderer : Node2D
 			if (s.life >= ImpactDur) _stoneImpacts.RemoveAt(i);
 			else _stoneImpacts[i] = s;
 		}
+		for (int i = _floodAdvances.Count - 1; i >= 0; i--)
+		{
+			var fa = _floodAdvances[i];
+			fa.life += (float)delta;
+			if (fa.life >= FloodAnimSeconds) _floodAdvances.RemoveAt(i);
+			else _floodAdvances[i] = fa;
+		}
 		QueueRedraw();
 	}
 
@@ -437,6 +461,36 @@ public partial class WorldRenderer : Node2D
 					deep ? new Color(0.55f, 0.75f, 1f, alpha)
 					     : new Color(0.70f, 0.88f, 1f, alpha));
 			}
+
+			// Living shoreline: a wavy foam line just inside each dry-facing edge.
+			byte edges = _waterEdges![wi];
+			if (edges != 0)
+				for (int side = 0; side < 4; side++)
+					if ((edges & (1 << side)) != 0)
+						DrawShoreEdge(wx0, wy0, ts, side, wTime);
+		}
+
+		// Rising-flood front: each conquered tile fills from its edge-ward side with a wavy
+		// leading edge. The settled tilemap paint is deferred by MatchClient for the same
+		// duration, so this animated fill is the only water shown until it hands off.
+		_animatingTiles.Clear();
+		for (int fi = 0; fi < _floodAdvances.Count; fi++)
+		{
+			var fa = _floodAdvances[fi];
+			_animatingTiles.Add(fa.pos);
+			if (fa.pos.X < vx0 || fa.pos.X > vx1 || fa.pos.Y < vy0 || fa.pos.Y > vy1) continue;
+			DrawFloodAdvance(fa.pos, fa.type, fa.fromDir, fa.life, ts, wTime);
+		}
+
+		// Settled flood water: not in the static polygon cache, so only the base tilemap draws
+		// it — and that layer can be depth-tinted, showing purple. Paint a deep-blue fill on top
+		// to match the pools. Tiles still creeping in are drawn by the pass above, so skip them.
+		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
+		{
+			var tt = grid.Get(p);
+			if (!tt.IsWater() || _staticWaterSet!.Contains(p) || _animatingTiles.Contains(p)) continue;
+			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts),
+				tt == TileType.DeepWater ? _deepWaterCol[0] : _shallowWaterCol[0]);
 		}
 
 		// Procedural rough-stone floor Ã¢â‚¬â€ covers the PixelLab floor texture with per-tile brightness
@@ -1539,6 +1593,7 @@ public partial class WorldRenderer : Node2D
 		int ts = MatchClient.TileSize;
 		var tiles = new List<GridPos>();
 		var polys = new List<Vector2[]>();
+		var edges = new List<byte>();
 		foreach (var p in grid.Positions())
 		{
 			var wt = grid.Get(p);
@@ -1550,9 +1605,101 @@ public partial class WorldRenderer : Node2D
 			bool eAdj = deep ? IsDeepWater(grid, p.X + 1, p.Y) : IsWater(grid, p.X + 1, p.Y);
 			tiles.Add(p);
 			polys.Add(WaterTilePoly(p.X * ts, p.Y * ts, ts, nAdj, sAdj, wAdj, eAdj));
+			// Shoreline = sides facing any non-water tile (dry land), for the ripple pass.
+			byte e = 0;
+			if (!IsWater(grid, p.X, p.Y - 1)) e |= 1; // N
+			if (!IsWater(grid, p.X + 1, p.Y)) e |= 2; // E
+			if (!IsWater(grid, p.X, p.Y + 1)) e |= 4; // S
+			if (!IsWater(grid, p.X - 1, p.Y)) e |= 8; // W
+			edges.Add(e);
 		}
 		_waterTiles = tiles.ToArray();
 		_waterPolys = polys.ToArray();
+		_waterEdges = edges.ToArray();
+		_staticWaterSet = new HashSet<GridPos>(tiles);
+	}
+
+	// Queues an animated flood fill for a tile the rising water just reached. The fill sweeps
+	// in from whichever map border is nearest (the flood radiates inward from the edges).
+	public void AddFloodAdvance(GridPos pos, TileType type)
+	{
+		for (int i = _floodAdvances.Count - 1; i >= 0; i--)
+			if (_floodAdvances[i].pos.Equals(pos)) _floodAdvances.RemoveAt(i); // a re-flood supersedes
+		_floodAdvances.Add((pos, type, SourceDir(pos), 0f));
+	}
+
+	// Direction (0=N,1=E,2=S,3=W) of the nearest map border — the side the flood advances from.
+	private int SourceDir(GridPos p)
+	{
+		var g = _client.Grid;
+		int top = p.Y, bottom = g.Height - 1 - p.Y, left = p.X, right = g.Width - 1 - p.X;
+		int m = Mathf.Min(Mathf.Min(top, bottom), Mathf.Min(left, right));
+		if (m == top) return 0;
+		if (m == right) return 1;
+		if (m == bottom) return 2;
+		return 3;
+	}
+
+	// Draws one flood tile mid-fill: a water polygon growing from its source edge with a
+	// sinusoidal leading edge, plus a foam crest line on the front.
+	private void DrawFloodAdvance(GridPos pos, TileType type, int fromDir, float life, int ts, float wTime)
+	{
+		float c = Mathf.Clamp(life / FloodAnimSeconds, 0f, 1f);
+		float depth = (1f - (1f - c) * (1f - c)) * ts; // ease-out: front decelerates as it fills
+		float wx0 = pos.X * ts, wy0 = pos.Y * ts;
+		Color col = type == TileType.DeepWater ? _deepWaterCol[0] : _shallowWaterCol[0];
+
+		const int N = 8;
+		var crest = new Vector2[N + 1];
+		for (int k = 0; k <= N; k++)
+		{
+			float u = (float)k / N;
+			float wave = Mathf.Sin(u * ts / FloodWaveLen * Mathf.Tau + wTime * FloodWaveSpeed) * FloodWaveAmp * c;
+			float d = Mathf.Clamp(depth + wave, 0f, ts);
+			crest[k] = fromDir switch
+			{
+				0 => new Vector2(wx0 + u * ts, wy0 + d),      // from N: front sweeps down
+				1 => new Vector2(wx0 + ts - d, wy0 + u * ts), // from E: sweeps left
+				2 => new Vector2(wx0 + u * ts, wy0 + ts - d), // from S: sweeps up
+				_ => new Vector2(wx0 + d, wy0 + u * ts),      // from W: sweeps right
+			};
+		}
+		// Close the polygon back along the source edge (two corners adjacent to the u=1 then u=0 ends).
+		(Vector2 a, Vector2 b) = fromDir switch
+		{
+			0 => (new Vector2(wx0 + ts, wy0),      new Vector2(wx0, wy0)),
+			1 => (new Vector2(wx0 + ts, wy0 + ts), new Vector2(wx0 + ts, wy0)),
+			2 => (new Vector2(wx0 + ts, wy0 + ts), new Vector2(wx0, wy0 + ts)),
+			_ => (new Vector2(wx0, wy0 + ts),      new Vector2(wx0, wy0)),
+		};
+		var poly = new Vector2[N + 3];
+		System.Array.Copy(crest, poly, N + 1);
+		poly[N + 1] = a;
+		poly[N + 2] = b;
+		DrawColoredPolygon(poly, col);
+		DrawPolyline(crest, ShoreFoamCol, 1.5f);
+	}
+
+	// Draws a wavy foam line just inside a static water tile's dry-facing edge (side 0=N,1=E,2=S,3=W).
+	private void DrawShoreEdge(float wx0, float wy0, int ts, int side, float wTime)
+	{
+		const int N = 6;
+		bool horiz = side == 0 || side == 2; // top/bottom edges run along X
+		var pts = new Vector2[N + 1];
+		for (int k = 0; k <= N; k++)
+		{
+			float along = (float)k / N * ts;
+			float coord = horiz ? wx0 + along : wy0 + along;
+			float inset = 2.0f + Mathf.Sin(coord / ShoreWaveLen * Mathf.Tau + wTime * ShoreWaveSpeed) * ShoreWaveAmp;
+			pts[k] = side switch
+			{
+				0 => new Vector2(wx0 + along, wy0 + inset),
+				1 => new Vector2(wx0 + ts - inset, wy0 + along),
+				2 => new Vector2(wx0 + along, wy0 + ts - inset),
+				_ => new Vector2(wx0 + inset, wy0 + along),
+			};
+		}
+		DrawPolyline(pts, ShoreFoamCol, 1.2f);
 	}
 
 	private bool TryLocalTile(out GridPos tile)
