@@ -83,6 +83,7 @@ public partial class MatchClient : Node2D
 	private TerrainMap _terrainMap = null!;
 	private WorldRenderer _world = null!;
 	private FogRenderer _fogRenderer = null!;
+	private LightRenderer _lightRenderer = null!;
 	// Flood tiles whose settled tilemap paint is held back while WorldRenderer animates the
 	// water creeping in; flushed to the tilemap once the animation's duration has elapsed.
 	private readonly List<(GridPos pos, TileChange change, float remaining)> _pendingFloodPaints = new();
@@ -140,6 +141,10 @@ public partial class MatchClient : Node2D
 		sceneRoot.AddChild(_fogRenderer);
 		_fogRenderer.Init(this);
 		FogRenderer = _fogRenderer;
+
+		_lightRenderer = new LightRenderer { Name = "LightRenderer", ZIndex = -8 };
+		sceneRoot.AddChild(_lightRenderer);
+		_lightRenderer.Init(this);
 
 		// Warm the tint cache for every (variant, colour) pair present at match start.
 		// Any pair not covered here (edge cases) is built lazily on first draw.
@@ -351,6 +356,7 @@ public partial class MatchClient : Node2D
 		_terrainMap?.QueueFree(); _terrainMap = null!;
 		_world?.QueueFree();      _world = null!;
 		_fogRenderer?.QueueFree(); _fogRenderer = null!;
+		_lightRenderer?.QueueFree(); _lightRenderer = null!;
 
 		var nm = NetworkManager.Instance;
 		int floorSeed = nm.MatchSeed + floor * 1000;
@@ -405,6 +411,10 @@ public partial class MatchClient : Node2D
 		_sceneRoot.AddChild(_fogRenderer);
 		_fogRenderer.Init(this);
 		FogRenderer = _fogRenderer;
+
+		_lightRenderer = new LightRenderer { Name = "LightRenderer", ZIndex = -8 };
+		_sceneRoot.AddChild(_lightRenderer);
+		_lightRenderer.Init(this);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -515,6 +525,7 @@ public partial class MatchClient : Node2D
 			_camera.Position = localVisualPos;
 			_cam.Zoom = _cam.Zoom.Lerp(new Vector2(2.5f, 2.5f), Mathf.Min(1f, (float)delta * 4f));
 			if (_fogRenderer != null) _fogRenderer.SpectatorMode = false;
+			if (_lightRenderer != null) _lightRenderer.SpectatorMode = false;
 		}
 		else if (_cam != null && NetworkManager.Instance.MatchMode != GameMode.Expedition)
 		{
@@ -522,6 +533,7 @@ public partial class MatchClient : Node2D
 			// Expedition uses its own black-fade overlay and respawns the miner, so we leave it alone.
 			_cam.Zoom = _cam.Zoom.Lerp(new Vector2(2.0f, 2.0f), Mathf.Min(1f, (float)delta * 2.5f));
 			if (_fogRenderer != null) _fogRenderer.SpectatorMode = true;
+			if (_lightRenderer != null) _lightRenderer.SpectatorMode = true;
 
 			// WASD/arrow keys scroll the camera; clamp to map bounds.
 			float scrollSpeed = TileSize * 10f;
