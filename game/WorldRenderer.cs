@@ -59,7 +59,7 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.30f);
 	// HDR tints (>1.0) so these emissive draws bloom through the glow environment. Their own
 	// alpha/falloff is preserved; only the bright core pushes past the 1.0 glow threshold.
-	private static readonly Color LanternGlowBoost = new(1.15f, 0.98f, 0.60f);
+	private static readonly Color LanternGlowBoost = new(1.05f, 0.88f, 0.54f);
 	private static readonly Color CrystalGlowCore  = new(1.60f, 1.40f, 2.30f);
 	private static readonly Color LavaGlowBoost    = new(1.55f, 1.10f, 0.65f);
 
