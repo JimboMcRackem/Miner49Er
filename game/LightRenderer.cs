@@ -20,6 +20,9 @@ public partial class LightRenderer : Node2D
     // Alpha of full darkness on a visible-but-unlit tile. Lit tiles thin toward 0.
     private const float AmbientDarkAlpha = 0.55f;
     private const int   PlayerTorchRadius = 4;
+    private const int LanternRadius = 6;
+    private const int CrystalRadius = 4;
+    private const int LavaRadius    = 3;
 
     public void Init(MatchClient client) => _client = client;
 
@@ -69,6 +72,45 @@ public partial class LightRenderer : Node2D
         }
     }
 
-    // Lantern / crystal / lava light sources — filled in Task 4.
-    private void AddSourceLights(TileGrid grid) { }
+    private void AddSourceLights(TileGrid grid)
+    {
+        // Held lanterns / crystal shards.
+        foreach (var m in _client.Miners)
+        {
+            if (!m.Alive) continue;
+            if (m.Held == (int)ItemKind.Lantern)
+                _lights.AddLight(grid, new GridPos(m.X, m.Y), LanternRadius);
+            else if (m.Held == (int)ItemKind.CrystalShard)
+                _lights.AddLight(grid, new GridPos(m.X, m.Y), CrystalRadius);
+        }
+
+        // Dropped lanterns / shards on the ground.
+        foreach (var it in _client.Items)
+        {
+            if (it.Placement != ItemPlacement.Loose) continue;
+            if (it.Kind == ItemKind.Lantern)
+                _lights.AddLight(grid, new GridPos(it.X, it.Y), LanternRadius);
+            else if (it.Kind == ItemKind.CrystalShard)
+                _lights.AddLight(grid, new GridPos(it.X, it.Y), CrystalRadius);
+        }
+
+        // Lava, vents, and crystal-rock walls glow. Scan only the on-screen window so this
+        // stays bounded to viewport size (same order as the darkness draw).
+        int ts = MatchClient.TileSize;
+        Rect2 vw = GetViewport().CanvasTransform.AffineInverse() * GetViewportRect();
+        int vx0 = Mathf.Max(0, (int)Mathf.Floor(vw.Position.X / ts) - 1);
+        int vy0 = Mathf.Max(0, (int)Mathf.Floor(vw.Position.Y / ts) - 1);
+        int vx1 = Mathf.Min(grid.Width  - 1, (int)Mathf.Floor((vw.Position.X + vw.Size.X) / ts) + 1);
+        int vy1 = Mathf.Min(grid.Height - 1, (int)Mathf.Floor((vw.Position.Y + vw.Size.Y) / ts) + 1);
+        for (int y = vy0; y <= vy1; y++)
+            for (int x = vx0; x <= vx1; x++)
+            {
+                var p = new GridPos(x, y);
+                var t = grid.Get(p);
+                if (t == TileType.Lava || t == TileType.LavaVent)
+                    _lights.AddLight(grid, p, LavaRadius);
+                else if (t == TileType.CrystalRock)
+                    _lights.AddLight(grid, p, CrystalRadius);
+            }
+    }
 }
