@@ -1250,6 +1250,7 @@ public partial class WorldRenderer : Node2D
 			if (!mo.Alive) continue;
 			var mp = new GridPos(mo.X, mo.Y);
 			if (!_client.Fog.IsVisible(mp)) continue;
+			if (mo.Kind == MonsterKind.Ghost) continue;   // ghosts drawn by GhostOverlay, above the darkness
 			var c = _client.MonsterVisualPos(mo.Id, mo.X, mo.Y);
 			var fwd  = FacingOffset(mo.Facing, ts * 0.12f);
 			var side = PerpendicularOffset(mo.Facing, ts * 0.10f);
@@ -1270,24 +1271,6 @@ public partial class WorldRenderer : Node2D
 					{
 						DrawCircle(c, ts * 0.34f, SlimeColor);
 						DrawCircle(c, ts * 0.34f, SlimeOutlineColor, false, 1.5f);
-					}
-					break;
-				}
-				case MonsterKind.Ghost:
-				{
-					int ghostFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
-					var tex = _ghostWalkTex[mo.Facing, ghostFrame] ?? _ghostTex[mo.Facing];
-					if (tex != null)
-					{
-						float gs = ts * 1.3f;
-						DrawTextureRect(tex, new Rect2(c.X - gs / 2f, c.Y - gs / 2f, gs, gs), false);
-					}
-					else
-					{
-						var ghostCol = GhostColor with { A = 0.6f };
-						var headOff  = new Vector2(0, -ts * 0.10f);
-						DrawCircle(c + headOff, ts * 0.28f, ghostCol);
-						DrawRect(new Rect2(c.X - ts * 0.28f, c.Y - ts * 0.10f, ts * 0.56f, ts * 0.28f), ghostCol);
 					}
 					break;
 				}
@@ -1564,6 +1547,36 @@ public partial class WorldRenderer : Node2D
 			var mp = new GridPos(mo.X, mo.Y);
 			if (!_client.Fog.IsVisible(mp) && _client.FogRenderer?.SpectatorMode != true) continue;
 			DrawStunStars(_client.MonsterVisualPos(mo.Id, mo.X, mo.Y), stunNow, ts);
+		}
+	}
+
+	/// <summary>Draws every visible ghost onto <paramref name="target"/>. Called by GhostOverlay,
+	/// which sits above the darkness overlay so ghosts stay full-bright (they emit no light and
+	/// cast no shadow). Ghosts are skipped by the in-world monster pass in <see cref="_Draw"/>.</summary>
+	public void DrawGhosts(CanvasItem target)
+	{
+		if (_client == null) return;
+		int ts = MatchClient.TileSize;
+		foreach (var mo in _client.Monsters)
+		{
+			if (!mo.Alive || mo.Kind != MonsterKind.Ghost) continue;
+			var mp = new GridPos(mo.X, mo.Y);
+			if (!_client.Fog.IsVisible(mp)) continue;
+			var c = _client.MonsterVisualPos(mo.Id, mo.X, mo.Y);
+			int ghostFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
+			var tex = _ghostWalkTex[mo.Facing, ghostFrame] ?? _ghostTex[mo.Facing];
+			if (tex != null)
+			{
+				float gs = ts * 1.3f;
+				target.DrawTextureRect(tex, new Rect2(c.X - gs / 2f, c.Y - gs / 2f, gs, gs), false);
+			}
+			else
+			{
+				var ghostCol = GhostColor with { A = 0.6f };
+				var headOff  = new Vector2(0, -ts * 0.10f);
+				target.DrawCircle(c + headOff, ts * 0.28f, ghostCol);
+				target.DrawRect(new Rect2(c.X - ts * 0.28f, c.Y - ts * 0.10f, ts * 0.56f, ts * 0.28f), ghostCol);
+			}
 		}
 	}
 

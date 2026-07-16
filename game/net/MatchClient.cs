@@ -84,6 +84,7 @@ public partial class MatchClient : Node2D
 	private WorldRenderer _world = null!;
 	private FogRenderer _fogRenderer = null!;
 	private LightRenderer _lightRenderer = null!;
+	private GhostOverlay _ghostOverlay = null!;
 	// Flood tiles whose settled tilemap paint is held back while WorldRenderer animates the
 	// water creeping in; flushed to the tilemap once the animation's duration has elapsed.
 	private readonly List<(GridPos pos, TileChange change, float remaining)> _pendingFloodPaints = new();
@@ -145,6 +146,10 @@ public partial class MatchClient : Node2D
 		_lightRenderer = new LightRenderer { Name = "LightRenderer", ZIndex = -8 };
 		sceneRoot.AddChild(_lightRenderer);
 		_lightRenderer.Init(this);
+
+		_ghostOverlay = new GhostOverlay { Name = "GhostOverlay", ZIndex = -7 };
+		sceneRoot.AddChild(_ghostOverlay);
+		_ghostOverlay.Init(_world);
 
 		// Warm the tint cache for every (variant, colour) pair present at match start.
 		// Any pair not covered here (edge cases) is built lazily on first draw.
@@ -357,6 +362,7 @@ public partial class MatchClient : Node2D
 		_world?.QueueFree();      _world = null!;
 		_fogRenderer?.QueueFree(); _fogRenderer = null!;
 		_lightRenderer?.QueueFree(); _lightRenderer = null!;
+		_ghostOverlay?.QueueFree(); _ghostOverlay = null!;
 
 		var nm = NetworkManager.Instance;
 		int floorSeed = nm.MatchSeed + floor * 1000;
@@ -415,6 +421,10 @@ public partial class MatchClient : Node2D
 		_lightRenderer = new LightRenderer { Name = "LightRenderer", ZIndex = -8 };
 		_sceneRoot.AddChild(_lightRenderer);
 		_lightRenderer.Init(this);
+
+		_ghostOverlay = new GhostOverlay { Name = "GhostOverlay", ZIndex = -7 };
+		_sceneRoot.AddChild(_ghostOverlay);
+		_ghostOverlay.Init(_world);
 	}
 
 	public override void _PhysicsProcess(double delta)
