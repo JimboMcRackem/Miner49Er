@@ -19,7 +19,9 @@ public partial class LightRenderer : Node2D
 
     // Alpha of full darkness on a visible-but-unlit tile. Lit tiles thin toward 0.
     private const float AmbientDarkAlpha = 0.55f;
-    private const int   PlayerTorchRadius = 4;
+    // +1 over the 4-tile blue torch halo (like the lantern's margin) so the interpolated
+    // halo edge never slides onto a still-dark tile while the miner is moving.
+    private const int   PlayerTorchRadius = 5;
     private const int LanternRadius = 6;
     private const int CrystalRadius = 4;
     private const int LavaRadius    = 3;
