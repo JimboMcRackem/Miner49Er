@@ -240,8 +240,12 @@ public partial class Main : Node2D
 		_audioPanel = new SettingsPanel { Name = "SettingsPanel" };
 		AddChild(_audioPanel);
 
+		// Host the shop on a CanvasLayer so it is pinned to the view window. As a plain Control
+		// child of this Node2D it would inherit the Camera2D transform and drift with the world.
+		var shopLayer = new CanvasLayer { Layer = 15, Name = "ShopLayer" };
+		AddChild(shopLayer);
 		_shopPanel = new ShopPanel { Name = "ShopPanel" };
-		AddChild(_shopPanel);
+		shopLayer.AddChild(_shopPanel);
 
 		// Tab scoreboard
 		_scoreboard = new ScoreboardOverlay { Name = "ScoreboardOverlay" };
