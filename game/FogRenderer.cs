@@ -19,6 +19,9 @@ public partial class FogRenderer : Node2D
 
 	private static readonly Color Unexplored = new(0, 0, 0, 1f);
 	private const float DimAlpha = 0.78f;
+	// The visible disc is now lit by the light-map, so fog only lightly vignettes it —
+	// far below the flat DimAlpha used for explored-but-not-visible tiles.
+	private const float InViewDimAlpha = 0.32f;
 	private static readonly Color Dim = new(0, 0, 0, DimAlpha);
 
 	public void Init(MatchClient client) => _client = client;
@@ -36,8 +39,8 @@ public partial class FogRenderer : Node2D
 		for (int x = 0; x < size; x++)
 		{
 			float t = new Vector2(x - half, y - half).Length() / half;
-			float alpha = t < edgeFraction ? DimAlpha * Mathf.Pow(t / edgeFraction, 3.0f)
-			            : t < 1f           ? DimAlpha
+			float alpha = t < edgeFraction ? InViewDimAlpha * Mathf.Pow(t / edgeFraction, 3.0f)
+			            : t < 1f           ? InViewDimAlpha
 			            :                    0f;
 			img.SetPixel(x, y, new Color(0f, 0f, 0f, alpha));
 		}
