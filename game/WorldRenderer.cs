@@ -62,6 +62,9 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color LanternGlowBoost = new(1.05f, 0.88f, 0.54f);
 	private static readonly Color CrystalGlowCore  = new(1.60f, 1.40f, 2.30f);
 	private static readonly Color LavaGlowBoost    = new(1.55f, 1.10f, 0.65f);
+	// Cool blue-white — only the bright core blooms; dimmer/cooler than the lantern.
+	private static readonly Color TorchGlowBoost = new(0.70f, 0.85f, 1.15f);
+	private const int TorchGlowTiles = 4;
 
 	// A soft flattened ellipse under an actor's feet — grounds sprites and adds depth. Static so
 	// both the monster pass here and the miner pass in MatchClient share one definition.
@@ -114,6 +117,7 @@ public partial class WorldRenderer : Node2D
 	private readonly Texture2D?[] _prizeTex = new Texture2D?[4]; // indexed by PrizeType
 	private readonly Dictionary<ItemKind, Texture2D> _itemTex = new();
 	private ImageTexture _lanternGlowTex  = null!;
+	private ImageTexture _torchGlowTex    = null!;
 	private ImageTexture _crystalGlowTex  = null!;
 	private Texture2D?   _crystalRockTex;
 	private Texture2D?   _crystalShardTex;
@@ -211,6 +215,7 @@ public partial class WorldRenderer : Node2D
 			if (ResourceLoader.Exists(p)) _octopusIdleTex[f] = GD.Load<Texture2D>(p);
 		}
 		_lanternGlowTex  = BuildRadialGlowTex();
+		_torchGlowTex    = BuildRadialGlowTex(new Color(0.45f, 0.62f, 1.0f, 1f), new Color(0.28f, 0.42f, 0.90f, 1f));
 		_crystalGlowTex  = BuildRadialGlowTex(new Color(0.65f, 0.35f, 1.0f, 1f), new Color(0.30f, 0.55f, 1.0f, 1f));
 		_crystalRockTex  = ResourceLoader.Exists("res://assets/tiles/singletiles/crystal_rock.png")
 		                   ? GD.Load<Texture2D>("res://assets/tiles/singletiles/crystal_rock.png") : null;
@@ -1197,6 +1202,19 @@ public partial class WorldRenderer : Node2D
 
 		// (Dizzy stars over stunned miners are drawn by the shared DrawStunStars pass below,
 		// which already covers all stunned miners — including those stunned in Treasure Heist.)
+
+		// Player torch: a soft cool-blue pool under every living miner. Its own light-map
+		// entry (LightRenderer) thins the darkness here so this glow reads through.
+		int torchPx = TorchGlowTiles * ts * 2;
+		foreach (var m in _client.Miners)
+		{
+			if (!m.Alive) continue;
+			if (!_client.Fog.IsVisible(new GridPos(m.X, m.Y)) && !spectating) continue;
+			var tc = _client.MinerVisualPos(m.Id, m.X, m.Y);
+			DrawTextureRect(_torchGlowTex,
+				new Rect2(tc.X - torchPx / 2f, tc.Y - torchPx / 2f, torchPx, torchPx),
+				false, TorchGlowBoost);
+		}
 
 		// Lantern light: radial amber glow centered on each active lantern source
 		int glowPx = 5 * ts * 2;
