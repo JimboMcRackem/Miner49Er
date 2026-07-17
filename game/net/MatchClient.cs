@@ -97,6 +97,8 @@ public partial class MatchClient : Node2D
 	private readonly Dictionary<int, (int X, int Y)> _lastMinerPos = new();
 	private readonly Dictionary<int, double> _walkUntil = new();
 	private readonly Dictionary<int, double> _throwUntil = new();
+	private int _lastLocalGold  = -1;
+	private int _lastLocalIdols = -1;
 
 	private HashSet<GridPos>? _crystalPositions;
 	private Dictionary<GridPos, HashSet<GridPos>>? _crystalLitByPos;  // per-crystal precomputed lit set
@@ -322,7 +324,39 @@ public partial class MatchClient : Node2D
 		Octopus          = update.Snapshot.Octopus;
 		Lives            = update.Snapshot.Lives;
 		TreasureProgress = update.Snapshot.TreasureProgress;
-		PlacedChests     = update.Snapshot.PlacedChests;
+
+		// Floating pickup numbers over the LOCAL miner only (client-side cosmetic).
+		foreach (var lm in _miners)
+		{
+			if (lm.Id != LocalMinerId) continue;
+			var basePos = MinerVisualPos(lm.Id, lm.X, lm.Y);
+
+			if (_lastLocalGold >= 0 && lm.Gold > _lastLocalGold)
+				_world?.AddFloatingText(basePos + new Vector2(0f, -20f),
+					$"+{lm.Gold - _lastLocalGold}g", new Color(1f, 0.85f, 0.3f));
+			_lastLocalGold = lm.Gold;
+
+			int idols = 0;
+			if (TreasureProgress is { } tp)
+				foreach (var e in tp) if (e.MinerId == LocalMinerId) { idols = e.Found; break; }
+			if (_lastLocalIdols >= 0 && idols > _lastLocalIdols)
+				_world?.AddFloatingText(basePos + new Vector2(0f, -28f),
+					$"+{idols - _lastLocalIdols} idol", new Color(1f, 0.8f, 0.2f));
+			_lastLocalIdols = idols;
+
+			if (update.Snapshot.PrizeClaim is { } pc && pc.MinerId == LocalMinerId)
+			{
+				Color pcol = (PrizeType)pc.Type switch
+				{
+					PrizeType.MineOut    => new Color(0.35f, 0.85f, 1f),
+					PrizeType.HoldPoint  => new Color(1f, 0.55f, 0.15f),
+					PrizeType.CarryRelic => new Color(0.85f, 0.4f, 1f),
+					_                    => new Color(1f, 0.85f, 0.3f),
+				};
+				_world?.AddFloatingText(basePos + new Vector2(0f, -36f), "PRIZE!", pcol);
+			}
+			break;
+		}
 		TripCharges      = update.Snapshot.TripCharges;
 		PendingFalls     = update.Snapshot.PendingFalls;
 		_reelChargeSnaps = new List<ReelChargeSnapshot>(update.Snapshot.ReelCharges ?? System.Array.Empty<ReelChargeSnapshot>());
@@ -398,6 +432,8 @@ public partial class MatchClient : Node2D
 		FogDirty = false;
 		_visualPos.Clear();
 		_lastMinerPos.Clear();
+		_lastLocalGold  = -1;
+		_lastLocalIdols = -1;
 		_walkUntil.Clear();
 		_throwUntil.Clear();
 		_pendingFloodPaints.Clear(); // stale flood animations don't carry to the new floor

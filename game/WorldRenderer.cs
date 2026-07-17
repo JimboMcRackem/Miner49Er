@@ -109,6 +109,14 @@ public partial class WorldRenderer : Node2D
 	private readonly Dictionary<int, GridPos> _lastFootTile = new();
 	private float _miningDustTimer;
 	private float _moteTimer;
+
+	// Floating pickup numbers (local player only; fed by MatchClient).
+	private readonly List<(string text, Vector2 pos, Color color, float life, float maxLife)> _floatTexts = new();
+	private const float FloatRiseSpeed = 26f; // px/sec upward
+	private const float FloatLife      = 1.1f;
+
+	public void AddFloatingText(Vector2 worldPos, string text, Color color)
+		=> _floatTexts.Add((text, worldPos, color, FloatLife, FloatLife));
 	private const float FloodWaveAmp   = 2.4f; // px, leading-edge ripple amplitude
 	private const float FloodWaveLen   = 9f;   // px per wave along the front
 	private const float FloodWaveSpeed = 6f;   // rad/sec front scroll
@@ -489,6 +497,31 @@ public partial class WorldRenderer : Node2D
 		}
 	}
 
+	private void UpdateFloatingTexts(float dt)
+	{
+		for (int i = _floatTexts.Count - 1; i >= 0; i--)
+		{
+			var f = _floatTexts[i];
+			f.life -= dt;
+			f.pos.Y -= FloatRiseSpeed * dt;
+			if (f.life <= 0f) _floatTexts.RemoveAt(i);
+			else _floatTexts[i] = f;
+		}
+	}
+
+	private void DrawFloatingTexts()
+	{
+		var font = ThemeDB.FallbackFont;
+		const float w = 48f;
+		foreach (var f in _floatTexts)
+		{
+			var col = f.color;
+			col.A = f.maxLife > 0f ? f.life / f.maxLife : 0f;
+			DrawString(font, new Vector2(f.pos.X - w / 2f, f.pos.Y), f.text,
+				HorizontalAlignment.Center, w, 14, col);
+		}
+	}
+
 	public override void _Process(double delta)
 	{
 		for (int i = _flashes.Count - 1; i >= 0; i--)
@@ -547,6 +580,7 @@ public partial class WorldRenderer : Node2D
 		float dt = (float)delta;
 		_particles.Update(dt);
 		EmitParticleEffects(dt);
+		UpdateFloatingTexts(dt);
 		QueueRedraw();
 	}
 
@@ -1671,6 +1705,7 @@ public partial class WorldRenderer : Node2D
 		}
 
 		DrawParticles();
+		DrawFloatingTexts();
 	}
 
 	/// <summary>Draws every visible ghost onto <paramref name="target"/>. Called by GhostOverlay,
