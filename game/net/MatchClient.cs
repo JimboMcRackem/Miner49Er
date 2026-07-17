@@ -99,6 +99,7 @@ public partial class MatchClient : Node2D
 	private readonly Dictionary<int, double> _throwUntil = new();
 	private int _lastLocalGold  = -1;
 	private int _lastLocalIdols = -1;
+	private readonly Dictionary<int, bool> _prevMinerAlive = new();
 
 	private HashSet<GridPos>? _crystalPositions;
 	private Dictionary<GridPos, HashSet<GridPos>>? _crystalLitByPos;  // per-crystal precomputed lit set
@@ -311,10 +312,36 @@ public partial class MatchClient : Node2D
 		bool localAliveNow = false;
 		foreach (var mm in _miners) if (mm.Id == LocalMinerId && mm.Alive) { localAliveNow = true; break; }
 		if (_localWasAlive && !localAliveNow) AddShake(0.6f);
+		foreach (var mm2 in _miners)
+		{
+			bool wasAlive = _prevMinerAlive.TryGetValue(mm2.Id, out var pa) && pa;
+			if (wasAlive && !mm2.Alive)
+			{
+				var dp = new GridPos(mm2.X, mm2.Y);
+				if (FogRenderer?.SpectatorMode == true || Fog.IsVisible(dp))
+					_world?.EmitMinerDeath(
+						new Vector2(mm2.X * TileSize + TileSize / 2f, mm2.Y * TileSize + TileSize / 2f));
+			}
+			_prevMinerAlive[mm2.Id] = mm2.Alive;
+		}
 		_localWasAlive = localAliveNow;
 		_charges = new List<ChargeSnapshot>(update.Snapshot.Charges);
 		_items = new List<ItemSnapshot>(update.Snapshot.Items);
 		_molds = new List<MoldSnapshot>(update.Snapshot.Molds);
+		// Monster death spark: any currently-alive monster the new snapshot no longer has alive.
+		foreach (var oldMo in _monsters)
+		{
+			if (!oldMo.Alive) continue;
+			bool stillAlive = false;
+			foreach (var nmo in update.Snapshot.Monsters)
+				if (nmo.Id == oldMo.Id && nmo.Alive) { stillAlive = true; break; }
+			if (stillAlive) continue;
+			var dp = new GridPos(oldMo.X, oldMo.Y);
+			if (FogRenderer?.SpectatorMode == true || Fog.IsVisible(dp))
+				_world?.EmitMonsterDeath(
+					new Vector2(oldMo.X * TileSize + TileSize / 2f, oldMo.Y * TileSize + TileSize / 2f),
+					oldMo.Kind);
+		}
 		_monsters = new List<MonsterSnapshot>(update.Snapshot.Monsters);
 		bool wasOpen = EscapeOpen;
 		EscapeOpen = update.Snapshot.EscapeOpen;
@@ -332,16 +359,22 @@ public partial class MatchClient : Node2D
 			var basePos = MinerVisualPos(lm.Id, lm.X, lm.Y);
 
 			if (_lastLocalGold >= 0 && lm.Gold > _lastLocalGold)
+			{
 				_world?.AddFloatingText(basePos + new Vector2(0f, -20f),
 					$"+{lm.Gold - _lastLocalGold}g", new Color(1f, 0.85f, 0.3f));
+				_world?.EmitPickupBurst(basePos, new Color(1f, 0.85f, 0.3f));
+			}
 			_lastLocalGold = lm.Gold;
 
 			int idols = 0;
 			if (TreasureProgress is { } tp)
 				foreach (var e in tp) if (e.MinerId == LocalMinerId) { idols = e.Found; break; }
 			if (_lastLocalIdols >= 0 && idols > _lastLocalIdols)
+			{
 				_world?.AddFloatingText(basePos + new Vector2(0f, -28f),
 					$"+{idols - _lastLocalIdols} idol", new Color(1f, 0.8f, 0.2f));
+				_world?.EmitPickupBurst(basePos, new Color(1f, 0.8f, 0.2f));
+			}
 			_lastLocalIdols = idols;
 
 			if (update.Snapshot.PrizeClaim is { } pc && pc.MinerId == LocalMinerId)
@@ -434,6 +467,7 @@ public partial class MatchClient : Node2D
 		_lastMinerPos.Clear();
 		_lastLocalGold  = -1;
 		_lastLocalIdols = -1;
+		_prevMinerAlive.Clear();
 		_walkUntil.Clear();
 		_throwUntil.Clear();
 		_pendingFloodPaints.Clear(); // stale flood animations don't carry to the new floor
