@@ -61,8 +61,9 @@ public partial class LightRenderer : Node2D
     private void BuildLights(TileGrid grid)
     {
         _lights.Clear();
-        AddPlayerTorches(grid);
-        AddSourceLights(grid);      // extended in Task 4
+        double now = Time.GetTicksMsec() / 1000.0;
+        AddPlayerTorches(grid);        // steady — no flicker scale
+        AddSourceLights(grid, now);
     }
 
     private void AddPlayerTorches(TileGrid grid)
@@ -74,26 +75,31 @@ public partial class LightRenderer : Node2D
         }
     }
 
-    private void AddSourceLights(TileGrid grid)
+    private void AddSourceLights(TileGrid grid, double now)
     {
-        // Held lanterns / crystal shards.
+        // Held lanterns / crystal shards — keyed by miner id so the flicker phase
+        // doesn't jump as the miner walks tile to tile.
         foreach (var m in _client.Miners)
         {
             if (!m.Alive) continue;
             if (m.Held == (int)ItemKind.Lantern)
-                _lights.AddLight(grid, new GridPos(m.X, m.Y), LanternRadius);
+                _lights.AddLight(grid, new GridPos(m.X, m.Y), LanternRadius,
+                    Flicker.Multiplier(HeldSeed(m.Id), now, Flicker.Fire));
             else if (m.Held == (int)ItemKind.CrystalShard)
-                _lights.AddLight(grid, new GridPos(m.X, m.Y), CrystalRadius);
+                _lights.AddLight(grid, new GridPos(m.X, m.Y), CrystalRadius,
+                    Flicker.Multiplier(HeldSeed(m.Id), now, Flicker.Crystal));
         }
 
-        // Dropped lanterns / shards on the ground.
+        // Dropped lanterns / shards on the ground — stationary, keyed by tile.
         foreach (var it in _client.Items)
         {
             if (it.Placement != ItemPlacement.Loose) continue;
             if (it.Kind == ItemKind.Lantern)
-                _lights.AddLight(grid, new GridPos(it.X, it.Y), LanternRadius);
+                _lights.AddLight(grid, new GridPos(it.X, it.Y), LanternRadius,
+                    Flicker.Multiplier(TileSeed(it.X, it.Y), now, Flicker.Fire));
             else if (it.Kind == ItemKind.CrystalShard)
-                _lights.AddLight(grid, new GridPos(it.X, it.Y), CrystalRadius);
+                _lights.AddLight(grid, new GridPos(it.X, it.Y), CrystalRadius,
+                    Flicker.Multiplier(TileSeed(it.X, it.Y), now, Flicker.Crystal));
         }
 
         // Lava, vents, and crystal-rock walls glow. Scan only the on-screen window so this
@@ -110,9 +116,16 @@ public partial class LightRenderer : Node2D
                 var p = new GridPos(x, y);
                 var t = grid.Get(p);
                 if (t == TileType.Lava || t == TileType.LavaVent)
-                    _lights.AddLight(grid, p, LavaRadius);
+                    _lights.AddLight(grid, p, LavaRadius,
+                        Flicker.Multiplier(TileSeed(x, y), now, Flicker.Fire));
                 else if (t == TileType.CrystalRock)
-                    _lights.AddLight(grid, p, CrystalRadius);
+                    _lights.AddLight(grid, p, CrystalRadius,
+                        Flicker.Multiplier(TileSeed(x, y), now, Flicker.Crystal));
             }
     }
+
+    // Stable per-source flicker seeds. Tile-based for stationary sources; miner-based
+    // for held sources so their phase stays continuous while walking.
+    private static int TileSeed(int x, int y) => (x * 73856093) ^ (y * 19349663);
+    private static int HeldSeed(int minerId) => (minerId * 83492791) ^ unchecked((int)0x9E3779B1);
 }
