@@ -91,6 +91,12 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color[] _shallowWaterCol = { new Color(0.06f, 0.17f, 0.46f) };
 	private static readonly Color[] _deepWaterCol    = { new Color(0.02f, 0.07f, 0.24f) };
 
+	private const float GlintDriftSpeed = 0.8f;  // rad/sec centre drift
+	private const float GlintDriftAmp   = 3.0f;  // px drift radius
+	private const float GlintPulseSpeed = 1.4f;  // rad/sec brightness pulse
+	private const float GlintAlpha      = 0.35f; // peak shallow-water glint alpha
+	private const float GlintRadius     = 3.2f;  // px, soft blob radius
+
 	// Rising-flood animation: tiles the flood just conquered creep in with a wavy leading
 	// edge over FloodAnimSeconds instead of popping a full square. MatchClient defers the
 	// settled tilemap paint by the same duration so the fill hands off seamlessly.
@@ -587,19 +593,19 @@ public partial class WorldRenderer : Node2D
 
 			float wx0 = p.X * ts, wy0 = p.Y * ts;
 			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
-			int sparkCount = 4 + (int)(wh & 1u);
-			for (int wv = 0; wv < sparkCount; wv++)
+			for (int g = 0; g < 2; g++)
 			{
-				uint wh2 = wh ^ (uint)(wv * 1013904223u);
-				float px = wx0 + 2f + (wh2 & 0x1Fu) * (ts - 4) / 31f;
-				float py = wy0 + 2f + ((wh2 >> 8) & 0x1Fu) * (ts - 4) / 31f;
-				float phase = ((wh2 >> 16) & 0xFFu) * (Mathf.Tau / 255f);
-				float t = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(wTime * 2.5f + phase)), 3f);
-				if (t < 0.02f) continue;
-				float alpha = t * 0.90f;
-				DrawCircle(new Vector2(px, py), 1.2f,
-					deep ? new Color(0.55f, 0.75f, 1f, alpha)
-					     : new Color(0.70f, 0.88f, 1f, alpha));
+				uint gh = wh ^ (uint)(g * 2654435761u);
+				float bx = wx0 + 4f + (gh & 0xFu) * (ts - 8) / 15f;
+				float by = wy0 + 4f + ((gh >> 8) & 0xFu) * (ts - 8) / 15f;
+				float ph = ((gh >> 16) & 0xFFu) * (Mathf.Tau / 255f);
+				float gx = bx + Mathf.Sin(wTime * GlintDriftSpeed + ph) * GlintDriftAmp;
+				float gy = by + Mathf.Cos(wTime * GlintDriftSpeed * 0.8f + ph) * GlintDriftAmp;
+				float pulse = 0.4f + 0.6f * (0.5f + 0.5f * Mathf.Sin(wTime * GlintPulseSpeed + ph));
+				float alpha = GlintAlpha * pulse;
+				DrawCircle(new Vector2(gx, gy), GlintRadius,
+					deep ? new Color(0.5f, 0.72f, 1f, alpha * 0.7f)
+					     : new Color(0.68f, 0.86f, 1f, alpha));
 			}
 
 			// Living shoreline: a wavy foam line just inside each dry-facing edge.
