@@ -59,11 +59,11 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.30f);
 	// HDR tints (>1.0) so these emissive draws bloom through the glow environment. Their own
 	// alpha/falloff is preserved; only the bright core pushes past the 1.0 glow threshold.
-	private static readonly Color LanternGlowBoost = new(1.05f, 0.88f, 0.54f);
+	private static readonly Color LanternGlowBoost = new(0.86f, 0.72f, 0.44f);
 	private static readonly Color CrystalGlowCore  = new(1.60f, 1.40f, 2.30f);
 	private static readonly Color LavaGlowBoost    = new(1.55f, 1.10f, 0.65f);
 	// Cool blue-white — only the bright core blooms; dimmer/cooler than the lantern.
-	private static readonly Color TorchGlowBoost = new(0.70f, 0.85f, 1.15f);
+	private static readonly Color TorchGlowBoost = new(0.88f, 0.94f, 1.10f);
 	private const int TorchGlowTiles = 4;
 
 	// A soft flattened ellipse under an actor's feet — grounds sprites and adds depth. Static so
@@ -215,7 +215,7 @@ public partial class WorldRenderer : Node2D
 			if (ResourceLoader.Exists(p)) _octopusIdleTex[f] = GD.Load<Texture2D>(p);
 		}
 		_lanternGlowTex  = BuildRadialGlowTex();
-		_torchGlowTex    = BuildRadialGlowTex(new Color(0.45f, 0.62f, 1.0f, 1f), new Color(0.28f, 0.42f, 0.90f, 1f));
+		_torchGlowTex    = BuildRadialGlowTex(new Color(0.66f, 0.77f, 1.0f, 1f), new Color(0.48f, 0.60f, 0.92f, 1f));
 		_crystalGlowTex  = BuildRadialGlowTex(new Color(0.65f, 0.35f, 1.0f, 1f), new Color(0.30f, 0.55f, 1.0f, 1f));
 		_crystalRockTex  = ResourceLoader.Exists("res://assets/tiles/singletiles/crystal_rock.png")
 		                   ? GD.Load<Texture2D>("res://assets/tiles/singletiles/crystal_rock.png") : null;

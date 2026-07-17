@@ -645,7 +645,12 @@ public partial class MatchClient : Node2D
 				if (walking)
 				{
 					double elapsed = m.MoveSeconds - (until - drawNow);
-					int frame = (int)(elapsed / m.MoveSeconds * 4) % 4;
+					// Clamp (don't %) the frame: MoveSeconds can shrink between the update that set
+					// _walkUntil and this draw (speed buff / upgrade), making `elapsed` negative — and
+					// C# `%` keeps the sign, so `-1 % 4 == -1` would index Walk[facing, -1] and throw.
+					int frame = m.MoveSeconds > 0.0
+						? Mathf.Clamp((int)(elapsed / m.MoveSeconds * 4), 0, 3)
+						: 0;
 					tex = set.Walk[facing, frame];
 				}
 				else if ((m.Id == LocalMinerId && Listening) || (m.Id != LocalMinerId && m.Listening))
