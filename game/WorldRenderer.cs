@@ -94,8 +94,8 @@ public partial class WorldRenderer : Node2D
 	private const float GlintDriftSpeed = 0.8f;  // rad/sec centre drift
 	private const float GlintDriftAmp   = 3.0f;  // px drift radius
 	private const float GlintPulseSpeed = 1.4f;  // rad/sec brightness pulse
-	private const float GlintAlpha      = 0.35f; // peak shallow-water glint alpha
-	private const float GlintRadius     = 3.2f;  // px, soft blob radius
+	private const float GlintAlpha      = 0.32f; // peak shallow-water glint alpha
+	private const float GlintSize       = 13f;   // px, soft radial highlight diameter
 
 	// Rising-flood animation: tiles the flood just conquered creep in with a wavy leading
 	// edge over FloodAnimSeconds instead of popping a full square. MatchClient defers the
@@ -141,6 +141,7 @@ public partial class WorldRenderer : Node2D
 	private ImageTexture _lanternGlowTex  = null!;
 	private ImageTexture _torchGlowTex    = null!;
 	private ImageTexture _crystalGlowTex  = null!;
+	private ImageTexture _waterGlintTex   = null!;
 	private Texture2D?   _crystalRockTex;
 	private Texture2D?   _crystalShardTex;
 	private Texture2D?   _portalTex; // colour-coded teleport gate archway (tinted per state)
@@ -239,6 +240,7 @@ public partial class WorldRenderer : Node2D
 		_lanternGlowTex  = BuildRadialGlowTex();
 		_torchGlowTex    = BuildRadialGlowTex(new Color(0.66f, 0.77f, 1.0f, 1f), new Color(0.48f, 0.60f, 0.92f, 1f));
 		_crystalGlowTex  = BuildRadialGlowTex(new Color(0.65f, 0.35f, 1.0f, 1f), new Color(0.30f, 0.55f, 1.0f, 1f));
+		_waterGlintTex   = BuildRadialGlowTex(new Color(0.78f, 0.90f, 1.0f, 1f), new Color(0.78f, 0.90f, 1.0f, 0f));
 		_crystalRockTex  = ResourceLoader.Exists("res://assets/tiles/singletiles/crystal_rock.png")
 		                   ? GD.Load<Texture2D>("res://assets/tiles/singletiles/crystal_rock.png") : null;
 		_crystalShardTex = ResourceLoader.Exists("res://assets/objects/item_crystal_shard.png")
@@ -637,7 +639,8 @@ public partial class WorldRenderer : Node2D
 				float gy = by + Mathf.Cos(wTime * GlintDriftSpeed * 0.8f + ph) * GlintDriftAmp;
 				float pulse = 0.4f + 0.6f * (0.5f + 0.5f * Mathf.Sin(wTime * GlintPulseSpeed + ph));
 				float alpha = GlintAlpha * pulse;
-				DrawCircle(new Vector2(gx, gy), GlintRadius,
+				DrawTextureRect(_waterGlintTex,
+					new Rect2(gx - GlintSize / 2f, gy - GlintSize / 2f, GlintSize, GlintSize), false,
 					deep ? new Color(0.5f, 0.72f, 1f, alpha * 0.7f)
 					     : new Color(0.68f, 0.86f, 1f, alpha));
 			}
