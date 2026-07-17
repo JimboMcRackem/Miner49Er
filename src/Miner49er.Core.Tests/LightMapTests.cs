@@ -47,4 +47,29 @@ public class LightMapTests
         map.Clear();
         Assert.Equal(0f, map.SampleClamped(tile));
     }
+
+    [Fact]
+    public void Default_scale_matches_unscaled_call()
+    {
+        var grid = new TileGrid(11, 11, TileType.Floor);
+        var tile = new GridPos(5, 5);
+        var a = new LightMap(); a.AddLight(grid, tile, radius: 3);
+        var b = new LightMap(); b.AddLight(grid, tile, radius: 3, scale: 1f);
+        Assert.Equal(a.SampleClamped(tile), b.SampleClamped(tile));
+    }
+
+    [Fact]
+    public void Scale_multiplies_added_intensity()
+    {
+        var grid = new TileGrid(11, 11, TileType.Floor);
+        var tile = new GridPos(5, 5);
+
+        var full = new LightMap(); full.AddLight(grid, tile, radius: 4);
+        var half = new LightMap(); half.AddLight(grid, tile, radius: 4, scale: 0.5f);
+
+        // A tile partway out is lit below 1.0, so halving is visible before the clamp.
+        var probe = new GridPos(5, 7);
+        Assert.True(full.SampleClamped(probe) > 0f, "probe should be lit");
+        Assert.True(System.Math.Abs(full.SampleClamped(probe) * 0.5f - half.SampleClamped(probe)) < 1e-4f);
+    }
 }

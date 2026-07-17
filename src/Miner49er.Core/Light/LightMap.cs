@@ -12,10 +12,10 @@ public sealed class LightMap
 
     public void Clear() => _acc.Clear();
 
-    public void AddLight(TileGrid grid, GridPos origin, int radius)
+    public void AddLight(TileGrid grid, GridPos origin, int radius, float scale = 1f)
     {
         foreach (var (p, intensity) in LightField.Compute(grid, origin, radius))
-            _acc[p] = (_acc.TryGetValue(p, out var cur) ? cur : 0f) + intensity;
+            _acc[p] = (_acc.TryGetValue(p, out var cur) ? cur : 0f) + intensity * scale;
     }
 
     /// <summary>Total light at a tile, clamped to [0,1]. Unlit tiles return 0.</summary>
