@@ -232,6 +232,7 @@ public partial class MatchClient : Node2D
 			_world?.AddExplosionRing(c, maxR + TileSize * 0.7f);
 			Exploded?.Invoke(c);
 			ShakeFromWorld(c, 0.7f);
+			_world?.EmitExplosionDebris(c);
 		}
 
 		if (update.Snapshot.ScreeCollapses is { } screeCollapses)

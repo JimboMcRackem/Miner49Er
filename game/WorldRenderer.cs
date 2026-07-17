@@ -2,6 +2,7 @@ using Godot;
 using System.Collections.Generic;
 using System.Linq;
 using Miner49er.Core;
+using Miner49er.Core.Fx;
 using Miner49er.Core.Net;
 
 namespace Miner49er;
@@ -95,6 +96,13 @@ public partial class WorldRenderer : Node2D
 	// settled tilemap paint by the same duration so the fill hands off seamlessly.
 	public const float FloodAnimSeconds = 0.6f;
 	private readonly List<(GridPos pos, TileType type, int fromDir, float life)> _floodAdvances = new();
+
+	// Particle pool + emitters (client-side cosmetic).
+	private readonly ParticleSystem _particles = new(400);
+	private readonly System.Random _fxRng = new();
+	private readonly Dictionary<int, GridPos> _lastFootTile = new();
+	private float _miningDustTimer;
+	private float _moteTimer;
 	private const float FloodWaveAmp   = 2.4f; // px, leading-edge ripple amplitude
 	private const float FloodWaveLen   = 9f;   // px per wave along the front
 	private const float FloodWaveSpeed = 6f;   // rad/sec front scroll
@@ -371,6 +379,110 @@ public partial class WorldRenderer : Node2D
 	public void AddThrownStone(Vector2 from, Vector2 to) => _throws.Add((from, to, 0f));
 	public void AddThrownDynamite(Vector2 from, Vector2 to) => _dynamiteThrows.Add((from, to, 0f));
 
+	// ── Particles ─────────────────────────────────────────────────────────────
+	public void EmitExplosionDebris(Vector2 center)
+	{
+		for (int i = 0; i < 14; i++)
+		{
+			float ang = _fxRng.NextSingle() * Mathf.Tau;
+			float spd = 40f + _fxRng.NextSingle() * 90f;
+			Spawn(center.X, center.Y,
+				  Mathf.Cos(ang) * spd, Mathf.Sin(ang) * spd - 30f,
+				  160f, 0.5f + _fxRng.NextSingle() * 0.4f, 1.6f,
+				  new Color(0.92f, 0.6f, 0.3f, 1f));
+		}
+	}
+
+	private void Spawn(float x, float y, float vx, float vy, float gravity, float life, float size, Color c)
+		=> _particles.Emit(new Particle
+		{
+			X = x, Y = y, Vx = vx, Vy = vy, Gravity = gravity,
+			Life = life, MaxLife = life, Size = size,
+			R = c.R, G = c.G, B = c.B, A = c.A,
+		});
+
+	private void EmitParticleEffects(float dt)
+	{
+		var grid = _client.Grid;
+		int ts = MatchClient.TileSize;
+		bool spectating = _client.FogRenderer?.SpectatorMode == true;
+
+		_miningDustTimer += dt;
+		bool emitDust = _miningDustTimer >= 0.06f;
+		if (emitDust) _miningDustTimer = 0f;
+
+		foreach (var m in _client.Miners)
+		{
+			if (!m.Alive) continue;
+			var mp = new GridPos(m.X, m.Y);
+			if (!spectating && !_client.Fog.IsVisible(mp)) continue;
+
+			// Footstep puff on tile change.
+			if (_lastFootTile.TryGetValue(m.Id, out var last) && (last.X != m.X || last.Y != m.Y))
+			{
+				float fx = m.X * ts + ts / 2f, fy = m.Y * ts + ts * 0.8f;
+				for (int i = 0; i < 3; i++)
+					Spawn(fx + (_fxRng.NextSingle() - 0.5f) * 8f, fy,
+						  (_fxRng.NextSingle() - 0.5f) * 14f, -6f - _fxRng.NextSingle() * 8f,
+						  40f, 0.35f + _fxRng.NextSingle() * 0.2f, 1.3f,
+						  new Color(0.62f, 0.58f, 0.5f, 0.7f));
+			}
+			_lastFootTile[m.Id] = mp;
+
+			// Mining dust while actively mining (facing the wall being dug).
+			if (emitDust && m.Activity == 1 && m.ActivityRemaining > 0)
+			{
+				int fdx = m.Facing == 1 ? 1 : m.Facing == 3 ? -1 : 0;
+				int fdy = m.Facing == 0 ? -1 : m.Facing == 2 ? 1 : 0;
+				float cx = (m.X + fdx) * ts + ts / 2f, cy = (m.Y + fdy) * ts + ts / 2f;
+				for (int i = 0; i < 2; i++)
+					Spawn(cx + (_fxRng.NextSingle() - 0.5f) * 10f, cy + (_fxRng.NextSingle() - 0.5f) * 10f,
+						  (_fxRng.NextSingle() - 0.5f) * 24f, -20f - _fxRng.NextSingle() * 20f,
+						  90f, 0.4f + _fxRng.NextSingle() * 0.3f, 1.5f,
+						  new Color(0.55f, 0.45f, 0.34f, 0.9f));
+			}
+		}
+
+		// Lava embers on visible lava/vent tiles.
+		var (vx0, vx1, vy0, vy1) = VisibleTileRange(grid, ts);
+		for (int y = vy0; y <= vy1; y++)
+			for (int x = vx0; x <= vx1; x++)
+			{
+				var tt = grid.Get(new GridPos(x, y));
+				if (tt != TileType.Lava && tt != TileType.LavaVent) continue;
+				if (_fxRng.NextSingle() >= dt * 1.6f) continue;   // ~1.6 embers/sec/tile
+				float ex = x * ts + ts * 0.2f + _fxRng.NextSingle() * ts * 0.6f;
+				float ey = y * ts + ts * 0.6f;
+				Spawn(ex, ey, (_fxRng.NextSingle() - 0.5f) * 10f, -18f - _fxRng.NextSingle() * 22f,
+					  -8f, 0.6f + _fxRng.NextSingle() * 0.5f, 1.2f,
+					  new Color(1f, 0.55f, 0.16f, 1f));
+			}
+
+		// Ambient dust motes: keep a faint drifting population inside the viewport.
+		_moteTimer += dt;
+		if (_moteTimer >= 0.15f && _particles.Count < 140)
+		{
+			_moteTimer = 0f;
+			float wx0 = vx0 * ts, wy0 = vy0 * ts;
+			float ww = (vx1 - vx0 + 1) * ts, wh = (vy1 - vy0 + 1) * ts;
+			Spawn(wx0 + _fxRng.NextSingle() * ww, wy0 + _fxRng.NextSingle() * wh,
+				  (_fxRng.NextSingle() - 0.5f) * 6f, -3f - _fxRng.NextSingle() * 4f,
+				  0f, 3.5f + _fxRng.NextSingle() * 2.5f, 1.0f,
+				  new Color(0.82f, 0.85f, 0.9f, 0.35f));
+		}
+	}
+
+	private void DrawParticles()
+	{
+		foreach (var p in _particles.Live)
+		{
+			float fade = p.MaxLife > 0f ? p.Life / p.MaxLife : 0f;
+			if (fade <= 0f) continue;
+			DrawRect(new Rect2(p.X - p.Size, p.Y - p.Size, p.Size * 2f, p.Size * 2f),
+				new Color(p.R, p.G, p.B, p.A * fade));
+		}
+	}
+
 	public override void _Process(double delta)
 	{
 		for (int i = _flashes.Count - 1; i >= 0; i--)
@@ -426,6 +538,9 @@ public partial class WorldRenderer : Node2D
 			if (fa.life >= FloodAnimSeconds) _floodAdvances.RemoveAt(i);
 			else _floodAdvances[i] = fa;
 		}
+		float dt = (float)delta;
+		_particles.Update(dt);
+		EmitParticleEffects(dt);
 		QueueRedraw();
 	}
 
@@ -1548,6 +1663,8 @@ public partial class WorldRenderer : Node2D
 			if (!_client.Fog.IsVisible(mp) && _client.FogRenderer?.SpectatorMode != true) continue;
 			DrawStunStars(_client.MonsterVisualPos(mo.Id, mo.X, mo.Y), stunNow, ts);
 		}
+
+		DrawParticles();
 	}
 
 	/// <summary>Draws every visible ghost onto <paramref name="target"/>. Called by GhostOverlay,
