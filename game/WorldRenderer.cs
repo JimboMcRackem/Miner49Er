@@ -109,6 +109,7 @@ public partial class WorldRenderer : Node2D
 	private readonly Dictionary<int, GridPos> _lastFootTile = new();
 	private float _miningDustTimer;
 	private float _moteTimer;
+	private const float FuseSparkRate = 10f; // avg sparks/sec per lit fuse
 
 	// Floating pickup numbers (local player only; fed by MatchClient).
 	private readonly List<(string text, Vector2 pos, Color color, float life, float maxLife)> _floatTexts = new();
@@ -409,6 +410,47 @@ public partial class WorldRenderer : Node2D
 		}
 	}
 
+	public void EmitPickupBurst(Vector2 pos, Color color)
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			float ang = -Mathf.Pi / 2f + (_fxRng.NextSingle() - 0.5f) * Mathf.Pi; // upward fan
+			float spd = 30f + _fxRng.NextSingle() * 50f;
+			Spawn(pos.X, pos.Y, Mathf.Cos(ang) * spd, Mathf.Sin(ang) * spd,
+				  120f, 0.4f + _fxRng.NextSingle() * 0.3f, 1.3f,
+				  new Color(color.R, color.G, color.B, 1f));
+		}
+	}
+
+	public void EmitMonsterDeath(Vector2 pos, MonsterKind kind)
+	{
+		Color c = kind switch
+		{
+			MonsterKind.Slime      => new Color(0.5f, 0.9f, 0.5f, 1f),
+			MonsterKind.WaterSnake => new Color(0.4f, 0.85f, 0.8f, 1f),
+			_                      => new Color(0.95f, 0.95f, 1f, 1f),
+		};
+		for (int i = 0; i < 12; i++)
+		{
+			float ang = _fxRng.NextSingle() * Mathf.Tau;
+			float spd = 30f + _fxRng.NextSingle() * 70f;
+			Spawn(pos.X, pos.Y, Mathf.Cos(ang) * spd, Mathf.Sin(ang) * spd,
+				  60f, 0.35f + _fxRng.NextSingle() * 0.3f, 1.5f, c);
+		}
+	}
+
+	public void EmitMinerDeath(Vector2 pos)
+	{
+		for (int i = 0; i < 12; i++)
+		{
+			float ang = _fxRng.NextSingle() * Mathf.Tau;
+			float spd = 12f + _fxRng.NextSingle() * 38f;
+			Spawn(pos.X, pos.Y - 4f, Mathf.Cos(ang) * spd, Mathf.Sin(ang) * spd - 20f,
+				  -6f, 0.6f + _fxRng.NextSingle() * 0.5f, 2.0f,
+				  new Color(0.55f, 0.55f, 0.58f, 0.85f));
+		}
+	}
+
 	private void Spawn(float x, float y, float vx, float vy, float gravity, float life, float size, Color c)
 		=> _particles.Emit(new Particle
 		{
@@ -433,15 +475,22 @@ public partial class WorldRenderer : Node2D
 			var mp = new GridPos(m.X, m.Y);
 			if (!spectating && !_client.Fog.IsVisible(mp)) continue;
 
-			// Footstep puff on tile change.
+			// Footstep: splash on water, dust puff on dry ground.
 			if (_lastFootTile.TryGetValue(m.Id, out var last) && (last.X != m.X || last.Y != m.Y))
 			{
 				float fx = m.X * ts + ts / 2f, fy = m.Y * ts + ts * 0.8f;
-				for (int i = 0; i < 3; i++)
-					Spawn(fx + (_fxRng.NextSingle() - 0.5f) * 8f, fy,
-						  (_fxRng.NextSingle() - 0.5f) * 14f, -6f - _fxRng.NextSingle() * 8f,
-						  40f, 0.35f + _fxRng.NextSingle() * 0.2f, 1.3f,
-						  new Color(0.62f, 0.58f, 0.5f, 0.7f));
+				if (grid.Get(mp).IsWater())
+					for (int i = 0; i < 5; i++)
+						Spawn(fx + (_fxRng.NextSingle() - 0.5f) * 10f, fy - 4f,
+							  (_fxRng.NextSingle() - 0.5f) * 22f, -22f - _fxRng.NextSingle() * 18f,
+							  70f, 0.3f + _fxRng.NextSingle() * 0.2f, 1.3f,
+							  new Color(0.6f, 0.82f, 1f, 0.9f));
+				else
+					for (int i = 0; i < 3; i++)
+						Spawn(fx + (_fxRng.NextSingle() - 0.5f) * 8f, fy,
+							  (_fxRng.NextSingle() - 0.5f) * 14f, -6f - _fxRng.NextSingle() * 8f,
+							  40f, 0.35f + _fxRng.NextSingle() * 0.2f, 1.3f,
+							  new Color(0.62f, 0.58f, 0.5f, 0.7f));
 			}
 			_lastFootTile[m.Id] = mp;
 
@@ -485,6 +534,19 @@ public partial class WorldRenderer : Node2D
 				  (_fxRng.NextSingle() - 0.5f) * 6f, -3f - _fxRng.NextSingle() * 4f,
 				  0f, 3.5f + _fxRng.NextSingle() * 2.5f, 1.0f,
 				  new Color(0.82f, 0.85f, 0.9f, 0.35f));
+		}
+
+		// Dynamite fuse crackle: a small spark off each lit, visible charge.
+		foreach (var ch in _client.Charges)
+		{
+			if (ch.FuseRemaining <= 0) continue;
+			var cp = new GridPos(ch.X, ch.Y);
+			if (!spectating && !_client.Fog.IsVisible(cp)) continue;
+			if (_fxRng.NextSingle() >= dt * FuseSparkRate) continue;
+			float sx = ch.X * ts + ts / 2f + (_fxRng.NextSingle() - 0.5f) * 4f;
+			float sy = ch.Y * ts + ts * 0.3f;
+			Spawn(sx, sy, (_fxRng.NextSingle() - 0.5f) * 20f, -25f - _fxRng.NextSingle() * 20f,
+				  40f, 0.2f + _fxRng.NextSingle() * 0.15f, 1.0f, new Color(1f, 0.8f, 0.25f, 1f));
 		}
 	}
 
