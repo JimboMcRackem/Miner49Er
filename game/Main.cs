@@ -117,7 +117,7 @@ public partial class Main : Node2D
 			_deathFeed?.PushMessage(msg);
 		};
 		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos, clientCenter,
-			expeditionTreasurePos: map.ExpeditionTreasurePos);
+			expeditionTreasurePos: map.ExpeditionTreasurePos, trackTiles: map.TrackTiles);
 
 		_audio = new MatchAudio { Name = "MatchAudio" };
 		AddChild(_audio);

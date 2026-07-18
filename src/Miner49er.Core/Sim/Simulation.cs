@@ -215,11 +215,21 @@ public sealed class Simulation
 
     public IReadOnlyList<CartReadModel> Carts =>
         _carts.Where(c => !c.Destroyed)
-              .Select(c => new CartReadModel(c.Id, c.Pos, c.Dir, c.Cargo, c.Destroyed)).ToList();
+              .Select(c => new CartReadModel(c.Id, c.Pos, c.Dir, c.Cargo, c.FuseRemaining, c.Destroyed)).ToList();
 
     private Cart? CartAt(GridPos p)
     {
         foreach (var c in _carts) if (!c.Destroyed && c.Pos == p) return c;
+        return null;
+    }
+
+    private Cart? AdjacentCart(GridPos p)
+    {
+        foreach (var d in Card)
+        {
+            var c = CartAt(p + d.ToOffset());
+            if (c != null) return c;
+        }
         return null;
     }
 
@@ -234,6 +244,9 @@ public sealed class Simulation
     private void RollCart(Cart cart, Direction dir)
     {
         cart.Dir = dir;
+        // Launching a charge cart lights its fuse (it detonates when the fuse runs out or it derails).
+        if (cart.Cargo == CartCargo.Charge && cart.FuseRemaining <= 0)
+            cart.FuseRemaining = Config.ThrownDynamiteFuseSeconds;
         var off = dir.ToOffset();
         int guard = 0;
         while (guard++ < 10000)
@@ -284,6 +297,24 @@ public sealed class Simulation
     {
         cart.Destroyed = true;
         _events.Add(new CartDerailed(cart.Id, cart.Pos));
+        if (cart.Cargo == CartCargo.Charge)
+            DetonateAt(cart.Pos, 0, -1);   // a charge cart that derails goes off
+    }
+
+    // Launched charge carts count down and detonate where they came to rest.
+    private void AdvanceCartFuses(double dt)
+    {
+        foreach (var cart in _carts.ToList())
+        {
+            if (cart.Destroyed || cart.Cargo != CartCargo.Charge || cart.FuseRemaining <= 0) continue;
+            cart.FuseRemaining -= dt;
+            if (cart.FuseRemaining <= 0)
+            {
+                cart.Destroyed = true;
+                _events.Add(new CartDerailed(cart.Id, cart.Pos));
+                DetonateAt(cart.Pos, 0, -1);
+            }
+        }
     }
 
     // Pushes a miner one tile in dir. Returns true if displaced (possibly dying to a hazard
@@ -945,6 +976,9 @@ public sealed class Simulation
         foreach (var it in _items)
             if (it.Kind == ItemKind.Lantern && it.Placement == ItemPlacement.Loose)
                 if (pos.ChebyshevTo(it.Pos) <= Config.LanternRadius) return true;
+        foreach (var c in _carts)
+            if (!c.Destroyed && c.Cargo == CartCargo.Lantern)
+                if (pos.ChebyshevTo(c.Pos) <= Config.LanternRadius) return true;
         return false;
     }
 
@@ -1177,6 +1211,15 @@ public sealed class Simulation
 
         var target = m.Pos + m.Facing.ToOffset();
         if (!Grid.InBounds(target)) return false;
+
+        // Facing an empty cart → arm it with a charge (a rolling bomb). Reuses the plant
+        // action so it works in normal Dynamite mode without needing a held item.
+        if (CartAt(target) is { Cargo: CartCargo.None } armCart)
+        {
+            armCart.Cargo = CartCargo.Charge;
+            _events.Add(new ChargePlanted(id, target));
+            return true;
+        }
 
         var tile = Grid.Get(target);
         bool isWallPlant = tile.IsBlastable()
@@ -1569,6 +1612,7 @@ public sealed class Simulation
         AdvanceActivities(dt);
         PickUpItems();
         AdvanceCharges(chargesThisTick, dt);
+        AdvanceCartFuses(dt);
         AdvanceFlood();
         AdvanceDormantMonsters(); // explosion noise (from AdvanceCharges) wakes skeletons same tick
     }
@@ -1645,8 +1689,28 @@ public sealed class Simulation
             return true;
         }
 
+        // 1b. empty-handed beside a laden cart → detach its cargo into hand (not a lit charge).
+        if (m.Held is null && AdjacentCart(m.Pos) is { } dcart && dcart.Cargo != CartCargo.None
+            && !(dcart.Cargo == CartCargo.Charge && dcart.FuseRemaining > 0))
+        {
+            m.Held = dcart.Cargo == CartCargo.Lantern ? ItemKind.Lantern : ItemKind.Detonator;
+            dcart.Cargo = CartCargo.None;
+            dcart.FuseRemaining = 0;
+            return true;
+        }
+
         // 2. use what is held
         if (m.Held is not { } held) return false;
+
+        // 2a. holding a lantern/charge beside an empty cart → attach it as cargo.
+        if ((held == ItemKind.Lantern || held == ItemKind.Detonator)
+            && AdjacentCart(m.Pos) is { } acart && acart.Cargo == CartCargo.None)
+        {
+            acart.Cargo = held == ItemKind.Lantern ? CartCargo.Lantern : CartCargo.Charge;
+            m.Held = null;
+            return true;
+        }
+
         return held switch
         {
             ItemKind.WaterPlank    => TryPlacePlank(m),

@@ -22,4 +22,4 @@ internal sealed class Cart
 }
 
 /// <summary>Read-only projection for tests and host-side inspection.</summary>
-public readonly record struct CartReadModel(int Id, GridPos Pos, Direction Dir, CartCargo Cargo, bool Destroyed);
+public readonly record struct CartReadModel(int Id, GridPos Pos, Direction Dir, CartCargo Cargo, double FuseRemaining, bool Destroyed);

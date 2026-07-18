@@ -102,6 +102,16 @@ public partial class LightRenderer : Node2D
                     Flicker.Multiplier(TileSeed(it.X, it.Y), now, Flicker.Crystal));
         }
 
+        // A cart carrying a lantern is a moving light source — track its VISUAL tile so the
+        // light rolls with the cart during a momentum launch instead of jumping to the far end.
+        foreach (var ct in _client.Carts)
+            if (ct.Cargo == CartCargo.Lantern)
+            {
+                var vp = _client.CartVisualPos(ct.Id, ct.X, ct.Y);
+                var tile = new GridPos((int)(vp.X / MatchClient.TileSize), (int)(vp.Y / MatchClient.TileSize));
+                _lights.AddLight(grid, tile, LanternRadius, Flicker.Multiplier(HeldSeed(ct.Id), now, Flicker.Fire));
+            }
+
         // Lava, vents, and crystal-rock walls glow. Scan only the on-screen window so this
         // stays bounded to viewport size (same order as the darkness draw).
         int ts = MatchClient.TileSize;

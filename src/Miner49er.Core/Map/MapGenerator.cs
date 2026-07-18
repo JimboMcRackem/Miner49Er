@@ -86,7 +86,7 @@ public static class MapGenerator
         };
     }
 
-    private const double CartTrackFloorChance = 0.35;
+    private const double CartTrackFloorChance = 0.6;
     private const int RailLength = 8;
     private const int CartsPerTrackMin = 1;
     private const int CartsPerTrackMax = 2;

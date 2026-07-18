@@ -84,6 +84,7 @@ public sealed class MapConfig
                                 int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite)
     {
         var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount, Pits = pits, CaveIns = caveIns, Lava = lava };
+        cfg.MineCarts = mode == GameMode.Expedition;   // rails on exploration floors (incl. floor 1)
         if (mode == GameMode.ReachCenter)
         {
             cfg.BaseWidth = 64;
@@ -157,7 +158,6 @@ public sealed class MapConfig
         cfg.FloodedCave = floor >= 10 && (uint)FloorHash(seed, floor, 0) % 5 == 0;
         bool portals = floor >= 12 && (uint)FloorHash(seed, floor, 2) % 4 == 0;
         cfg.PortalPairCount = portals ? 1 + (int)((uint)FloorHash(seed, floor, 3) & 1u) : 0;
-        cfg.MineCarts = true;   // ~35% of exploration floors get a rail + carts
 
         if (floor % 4 == 0)
         {

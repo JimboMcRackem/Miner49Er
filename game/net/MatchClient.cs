@@ -126,12 +126,13 @@ public partial class MatchClient : Node2D
 	private int   _currentIdleIdx = -1;
 	private readonly System.Random _idleRng = new();
 
-	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null, GridPos? shopPos = null, GridPos? centerTile = null, GridPos? expeditionTreasurePos = null)
+	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null, GridPos? shopPos = null, GridPos? centerTile = null, GridPos? expeditionTreasurePos = null, IReadOnlyList<GridPos>? trackTiles = null)
 	{
 		_sceneRoot = sceneRoot;
 		Grid = grid;
 		LocalMinerId = localMinerId;
 		Decoys = decoys;
+		TrackTiles = trackTiles ?? System.Array.Empty<GridPos>();
 		EscapeTile = escapeTile;
 		ShopPos = shopPos;
 		CenterTile = centerTile;

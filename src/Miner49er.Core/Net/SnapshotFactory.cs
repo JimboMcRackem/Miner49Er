@@ -78,7 +78,7 @@ public static class SnapshotFactory
         }
 
         var carts = sim.Carts
-            .Select(c => new CartSnapshot(c.Id, c.Pos.X, c.Pos.Y, (int)c.Dir, c.Cargo, 0))
+            .Select(c => new CartSnapshot(c.Id, c.Pos.X, c.Pos.Y, (int)c.Dir, c.Cargo, c.FuseRemaining))
             .ToList();
 
         return new WorldSnapshot(tick, miners, charges, items, molds, monsters,

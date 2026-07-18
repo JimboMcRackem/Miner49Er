@@ -1184,10 +1184,33 @@ public partial class WorldRenderer : Node2D
 			if (!spectating && !_client.Fog.IsVisible(visualTile)) continue;
 			DrawGroundShadow(this, center + new Vector2(0f, ts * 0.22f), ts * 0.34f, ts * 0.16f);
 			if (_cartTex != null)
-				DrawTextureRect(_cartTex, new Rect2(center - new Vector2(ts, ts) / 2f, new Vector2(ts, ts)), false);
+			{
+				// Sprite is drawn vertically (native); rotate 90° for a horizontal (E/W) rail.
+				var d = (Direction)ct.Dir;
+				float rot = (d == Direction.East || d == Direction.West) ? Mathf.Pi / 2f : 0f;
+				float scale = ts / (float)_cartTex.GetWidth();
+				DrawSetTransform(center, rot, new Vector2(scale, scale));
+				DrawTexture(_cartTex, -_cartTex.GetSize() / 2f);
+				DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
+			}
 			else
 				DrawRect(new Rect2(center - new Vector2(ts * 0.35f, ts * 0.30f), new Vector2(ts * 0.70f, ts * 0.60f)),
 				         new Color(0.45f, 0.30f, 0.15f));
+
+			// Cargo markers.
+			if (ct.Cargo == CartCargo.Lantern)
+			{
+				float g = ts * 2.2f;
+				DrawTextureRect(_lanternGlowTex, new Rect2(center - new Vector2(g, g) / 2f, new Vector2(g, g)),
+				                false, LanternGlowBoost with { A = 0.85f });
+			}
+			else if (ct.Cargo == CartCargo.Charge)
+			{
+				DrawCircle(center - new Vector2(0f, ts * 0.28f), ts * 0.11f, new Color(0.15f, 0.12f, 0.10f)); // stick
+				if (ct.FuseRemaining > 0)
+					DrawCircle(center - new Vector2(0f, ts * 0.42f), ts * 0.06f,
+					           new Color(1f, 0.8f, 0.25f)); // lit fuse tip
+			}
 		}
 
 		foreach (var c in _client.Charges)
