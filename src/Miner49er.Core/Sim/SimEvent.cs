@@ -51,3 +51,5 @@ public sealed record TreasureFound(int MinerId) : SimEvent;
 public sealed record TreasureRecovered(int MinerId) : SimEvent;
 public sealed record TreasureSneaking(int MinerId) : SimEvent;
 public sealed record TreasureDropped(int MinerId) : SimEvent;
+public sealed record CartMoved(int CartId, GridPos From, GridPos To) : SimEvent;
+public sealed record CartDerailed(int CartId, GridPos Pos) : SimEvent;

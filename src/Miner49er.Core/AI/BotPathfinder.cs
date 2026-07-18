@@ -12,7 +12,8 @@ public static class BotPathfinder
     /// there or unreachable. passRock=true treats Rock and GoldRock as walkable
     /// (bot plans to mine through them). avoidHazards=true makes scree, crumbling
     /// floors, and rock adjacent to a lava vent impassable so the bot routes around them.</summary>
-    public static int NextDir(TileGrid grid, GridPos from, GridPos to, bool passRock, bool avoidHazards = false)
+    public static int NextDir(TileGrid grid, GridPos from, GridPos to, bool passRock,
+        bool avoidHazards = false, IReadOnlySet<GridPos>? blocked = null)
     {
         if (from == to) return -1;
 
@@ -25,7 +26,7 @@ public static class BotPathfinder
             var nb  = new GridPos(from.X + off.X, from.Y + off.Y);
             if (!grid.InBounds(nb)) continue;
             if (nb == to) return (int)d;                       // adjacent to target
-            if (!Passable(grid, nb, passRock, avoidHazards)) continue;
+            if (!Passable(grid, nb, passRock, avoidHazards, blocked)) continue;
             if (visited.Add(nb)) queue.Enqueue((nb, (int)d));
         }
 
@@ -38,7 +39,7 @@ public static class BotPathfinder
                 var nb  = new GridPos(pos.X + off.X, pos.Y + off.Y);
                 if (!grid.InBounds(nb)) continue;
                 if (nb == to) return firstDir;                 // adjacent to target
-                if (!Passable(grid, nb, passRock, avoidHazards)) continue;
+                if (!Passable(grid, nb, passRock, avoidHazards, blocked)) continue;
                 if (visited.Add(nb)) queue.Enqueue((nb, firstDir));
             }
         }
@@ -49,7 +50,8 @@ public static class BotPathfinder
     /// <summary>Returns the nearest reachable candidate GridPos (adjacent to a walkable
     /// tile), or null if candidates is empty or none are reachable.</summary>
     public static GridPos? Nearest(TileGrid grid, GridPos from,
-        IEnumerable<GridPos> candidates, bool passRock, bool avoidHazards = false)
+        IEnumerable<GridPos> candidates, bool passRock, bool avoidHazards = false,
+        IReadOnlySet<GridPos>? blocked = null)
     {
         var candidateSet = new HashSet<GridPos>(candidates);
         if (candidateSet.Count == 0) return null;
@@ -67,7 +69,7 @@ public static class BotPathfinder
                 var nb  = new GridPos(pos.X + off.X, pos.Y + off.Y);
                 if (!grid.InBounds(nb)) continue;
                 if (candidateSet.Contains(nb)) return nb;
-                if (!Passable(grid, nb, passRock, avoidHazards)) continue;
+                if (!Passable(grid, nb, passRock, avoidHazards, blocked)) continue;
                 if (visited.Add(nb)) queue.Enqueue(nb);
             }
         }
@@ -77,8 +79,10 @@ public static class BotPathfinder
 
     // Bots avoid lethal tiles (DeepWater, Pit, Lava) — use IsWalkable, not IsEnterable.
     // With avoidHazards, also refuse scree, crumbling floors, and rock that borders a vent.
-    private static bool Passable(TileGrid grid, GridPos p, bool passRock, bool avoidHazards)
+    private static bool Passable(TileGrid grid, GridPos p, bool passRock, bool avoidHazards,
+        IReadOnlySet<GridPos>? blocked = null)
     {
+        if (blocked != null && blocked.Contains(p)) return false;   // e.g. a cart occupies the tile
         var t = grid.Get(p);
         bool basePassable = t.IsWalkable() || (passRock && t.IsMinable());
         if (!basePassable) return false;

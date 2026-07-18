@@ -14,6 +14,8 @@ public sealed class Simulation
     private readonly List<Portal> _portals = new();
     private readonly List<SimEvent> _events = new();
     private readonly List<Monster> _monsters = new();
+    private readonly List<Cart> _carts = new();
+    private readonly HashSet<GridPos> _track = new();
     private readonly List<ReelCharge> _reelCharges = new();
     private readonly List<NoiseSource> _noiseSources = new();
     private readonly List<PendingFall> _pendingFalls = new();
@@ -201,6 +203,104 @@ public sealed class Simulation
 
     public IReadOnlyList<PortalReadModel> Portals =>
         _portals.Select(p => new PortalReadModel(p.Id, p.Pos, p.Kind, p.LinkId, p.Collapsed)).ToList();
+
+    /// <summary>Register the floor's rail tiles. Carts may only roll between orthogonally
+    /// adjacent tiles that are both in this set (adjacency IS the graph — no edge list).</summary>
+    public void AddTrack(IEnumerable<GridPos> tiles) { foreach (var t in tiles) _track.Add(t); }
+
+    public bool IsTrack(GridPos p) => _track.Contains(p);
+
+    public void AddCart(CartSpec spec) =>
+        _carts.Add(new Cart { Id = spec.Id, Pos = spec.Pos, Dir = spec.Dir });
+
+    public IReadOnlyList<CartReadModel> Carts =>
+        _carts.Where(c => !c.Destroyed)
+              .Select(c => new CartReadModel(c.Id, c.Pos, c.Dir, c.Cargo, c.Destroyed)).ToList();
+
+    private Cart? CartAt(GridPos p)
+    {
+        foreach (var c in _carts) if (!c.Destroyed && c.Pos == p) return c;
+        return null;
+    }
+
+    private static bool IsSquashable(MonsterKind k) =>
+        k is MonsterKind.Slime or MonsterKind.ZombieMiner
+          or MonsterKind.SkeletonHuman or MonsterKind.SkeletonDino or MonsterKind.Goat;
+
+    // Rolls a cart from its tile in dir, one rail tile at a time, until blocked (momentum
+    // push). Resolves, per tile: track-end/wall → stop; hazard rail → derail & destroy;
+    // cart ahead → chain-push (train); squashable monster → kill & roll through; miner →
+    // shove ahead, crush if pinned.
+    private void RollCart(Cart cart, Direction dir)
+    {
+        cart.Dir = dir;
+        var off = dir.ToOffset();
+        int guard = 0;
+        while (guard++ < 10000)
+        {
+            var next = cart.Pos + off;
+            if (!IsTrack(next)) return;                       // track end / off-rail → stop
+
+            if (Grid.Get(next).IsLethal())                    // hazard on the rail → derail
+            {
+                AdvanceCart(cart, next);
+                DerailCart(cart);
+                return;
+            }
+
+            var other = CartAt(next);                         // cart ahead → chain-push
+            if (other != null)
+            {
+                RollCart(other, dir);
+                if (CartAt(next) != null) return;             // couldn't clear → train stops
+            }
+
+            var mo = _monsters.FirstOrDefault(x => x.Alive && x.Pos == next);
+            if (mo != null && IsSquashable(mo.Kind))          // squashable monster → kill, roll on
+            {
+                mo.Alive = false;
+                _events.Add(new MonsterKilled(mo.Id));
+            }
+
+            var miner = _miners.Values.FirstOrDefault(x => x.Alive && x.Pos == next);
+            if (miner != null && !ShoveMiner(miner, dir))     // miner → shove; crush if pinned
+            {
+                CollapseKill(miner);
+                if (miner.Alive) return;                      // invulnerable miner blocks the cart
+            }
+
+            AdvanceCart(cart, next);
+        }
+    }
+
+    private void AdvanceCart(Cart cart, GridPos to)
+    {
+        var from = cart.Pos;
+        cart.Pos = to;
+        _events.Add(new CartMoved(cart.Id, from, to));
+    }
+
+    private void DerailCart(Cart cart)
+    {
+        cart.Destroyed = true;
+        _events.Add(new CartDerailed(cart.Id, cart.Pos));
+    }
+
+    // Pushes a miner one tile in dir. Returns true if displaced (possibly dying to a hazard
+    // there); false if it cannot move (wall / cart / another miner) and must be crushed.
+    private bool ShoveMiner(Miner m, Direction dir)
+    {
+        var beyond = m.Pos + dir.ToOffset();
+        if (!Grid.InBounds(beyond) || !Grid.Get(beyond).IsEnterable()) return false;
+        if (CartAt(beyond) != null) return false;
+        foreach (var o in _miners.Values)
+            if (o.Alive && o.Id != m.Id && o.Pos == beyond) return false;
+        var from = m.Pos;
+        m.Pos = beyond;
+        _events.Add(new MinerMoved(m.Id, from, beyond));
+        if (Grid.Get(beyond).IsLethal()) KillByTile(m);
+        return true;
+    }
 
     /// <summary>Test-only: force a portal tile to Floor to simulate mining it out.</summary>
     internal void RevealTileForTest(GridPos p) => Grid.Set(p, TileType.Floor);
@@ -825,6 +925,7 @@ public sealed class Simulation
     private bool CanMonsterEnter(Monster mo, GridPos p)
     {
         if (!Grid.InBounds(p)) return false;
+        if (CartAt(p) != null) return false;   // a cart blocks the tile like a wall
         if (mo.Kind == MonsterKind.Ghost) return Grid.Get(p) != TileType.DeepWater;
         return Grid.Get(p).IsEnterable();
     }
@@ -907,6 +1008,16 @@ public sealed class Simulation
 
         var target = m.Pos + dir.ToOffset();
         if (!Grid.InBounds(target) || !Grid.Get(target).IsEnterable()) return false;
+
+        // Walking into a cart shoves it along the rail (momentum). If it can't roll (no
+        // track ahead) or can't clear this tile, the cart blocks the move like a wall.
+        var cartAhead = CartAt(target);
+        if (cartAhead != null)
+        {
+            if (!IsTrack(cartAhead.Pos + dir.ToOffset())) return false;
+            RollCart(cartAhead, dir);
+            if (CartAt(target) != null) return false;
+        }
 
         var from = m.Pos;
         m.Pos = target;

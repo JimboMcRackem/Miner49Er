@@ -254,10 +254,13 @@ public sealed class BotBrain
             || (mode == GameMode.ReachCenter && miner.GoldCollected >= 5)
             || (mode == GameMode.TreasureHeist && sim.TreasureHolderId < 0);
         bool hazardAware = Skill >= BotSkill.Miner;
-        int dir = BotPathfinder.NextDir(sim.Grid, miner.Pos, _goal.Value, passRock, avoidHazards: hazardAware);
+        // Carts block their tile like a wall — route around them.
+        IReadOnlySet<GridPos>? cartTiles = sim.Carts.Count > 0
+            ? sim.Carts.Select(c => c.Pos).ToHashSet() : null;
+        int dir = BotPathfinder.NextDir(sim.Grid, miner.Pos, _goal.Value, passRock, avoidHazards: hazardAware, blocked: cartTiles);
         // Two-pass fallback: if hazards box in the only route, accept the risk rather than freeze.
         if (dir == -1 && hazardAware)
-            dir = BotPathfinder.NextDir(sim.Grid, miner.Pos, _goal.Value, passRock, avoidHazards: false);
+            dir = BotPathfinder.NextDir(sim.Grid, miner.Pos, _goal.Value, passRock, avoidHazards: false, blocked: cartTiles);
 
         if (dir == -1) { _ticksUntilReeval = 0; return BotAction.Idle; }
 
