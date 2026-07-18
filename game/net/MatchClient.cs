@@ -30,6 +30,11 @@ public partial class MatchClient : Node2D
 	public Vector2 MonsterVisualPos(int id, int x, int y) =>
 		_monsterVisualPos.TryGetValue(id, out var v)
 			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f);
+	public IReadOnlyList<CartSnapshot> Carts => _carts;
+	public IReadOnlyList<GridPos> TrackTiles { get; private set; } = System.Array.Empty<GridPos>();
+	public Vector2 CartVisualPos(int id, int x, int y) =>
+		_cartVisualPos.TryGetValue(id, out var v)
+			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f);
 	public Vector2 MinerVisualPos(int id, int x, int y) =>
 		_visualPos.TryGetValue(id, out var v)
 			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f);
@@ -63,6 +68,8 @@ public partial class MatchClient : Node2D
 	private List<MonsterSnapshot> _monsters = new();
 	private List<ReelChargeSnapshot> _reelChargeSnaps = new();
 	private readonly Dictionary<int, Vector2> _monsterVisualPos = new(); // monsterId -> smoothed pixels
+	private List<CartSnapshot> _carts = new();
+	private readonly Dictionary<int, Vector2> _cartVisualPos = new(); // cartId -> smoothed pixels
 	private readonly Dictionary<int, Vector2> _visualPos = new(); // minerId -> smoothed pixels
 	// Camera shake: trauma decays each frame; screen offset scales with trauma squared.
 	private float _shakeTrauma;
@@ -354,6 +361,7 @@ public partial class MatchClient : Node2D
 					oldMo.Kind);
 		}
 		_monsters = new List<MonsterSnapshot>(update.Snapshot.Monsters);
+		_carts = new List<CartSnapshot>(update.Snapshot.Carts ?? System.Array.Empty<CartSnapshot>());
 		bool wasOpen = EscapeOpen;
 		EscapeOpen = update.Snapshot.EscapeOpen;
 		if (!wasOpen && EscapeOpen) ExpeditionTreasurePos = null;
@@ -464,6 +472,7 @@ public partial class MatchClient : Node2D
 		Grid              = newMap.Grid;
 		Decoys            = newMap.Decoys;
 		Portals           = newMap.Portals;
+		TrackTiles        = newMap.TrackTiles;
 		_collapsedPortals.Clear();
 		GoldRemaining     = CountGold(newMap.Grid);
 		StartingGoldCount = GoldRemaining;
@@ -483,6 +492,8 @@ public partial class MatchClient : Node2D
 		_throwUntil.Clear();
 		_pendingFloodPaints.Clear(); // stale flood animations don't carry to the new floor
 		_monsterVisualPos.Clear();
+		_carts.Clear();
+		_cartVisualPos.Clear();
 		_miners.Clear();
 		_monsters.Clear();
 
@@ -605,6 +616,13 @@ public partial class MatchClient : Node2D
 			// Goat cadence is the fastest (~0.15s/tile); match it so no monster visually lags.
 			float pixelsPerSec = TileSize / 0.15f;
 			_monsterVisualPos[mo.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
+		}
+		foreach (var ct in _carts)
+		{
+			var target = new Vector2(ct.X * TileSize + TileSize / 2f, ct.Y * TileSize + TileSize / 2f);
+			var cur = _cartVisualPos.TryGetValue(ct.Id, out var v) ? v : target;
+			float pixelsPerSec = TileSize / 0.10f;   // brisk roll so a momentum launch reads
+			_cartVisualPos[ct.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
 		}
 
 		// Camera and fog: follow local miner when alive; reveal full map when dead.

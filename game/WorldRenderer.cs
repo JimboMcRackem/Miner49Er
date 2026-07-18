@@ -175,6 +175,8 @@ public partial class WorldRenderer : Node2D
 	private Texture2D?   _crystalShardTex;
 	private Texture2D?   _portalTex; // colour-coded teleport gate archway (tinted per state)
 	private Texture2D? _pitPropTex; // mine support timber overlay on rock walls
+	private Texture2D? _railTex;    // straight rail segment (drawn along the track graph)
+	private Texture2D? _cartTex;    // pushable mine cart
 	private Texture2D?[] _octopusIdleTex = new Texture2D?[9]; // idle_0..idle_8
 
 	// PixelLab monster sprites Ã¢â‚¬â€ [dir] order: 0=N 1=E 2=S 3=W
@@ -279,6 +281,10 @@ public partial class WorldRenderer : Node2D
 		                   ? GD.Load<Texture2D>("res://assets/portals/gate.png") : null;
 		_pitPropTex = ResourceLoader.Exists("res://assets/objects/pit_prop.png")
 		              ? GD.Load<Texture2D>("res://assets/objects/pit_prop.png") : null;
+		_railTex = ResourceLoader.Exists("res://assets/tiles/rail.png")
+		           ? GD.Load<Texture2D>("res://assets/tiles/rail.png") : null;
+		_cartTex = ResourceLoader.Exists("res://assets/objects/mine_cart.png")
+		           ? GD.Load<Texture2D>("res://assets/objects/mine_cart.png") : null;
 	}
 
 	private static ImageTexture BuildRadialGlowTex(int size = 128) =>
@@ -1111,6 +1117,79 @@ public partial class WorldRenderer : Node2D
 		}
 
 		bool spectating = _client.FogRenderer?.SpectatorMode == true;
+
+		// Mine-cart rails along the track graph (ground layer, under carts + entities).
+		if (_client.TrackTiles.Count > 0)
+		{
+			var trackSet = new HashSet<GridPos>(_client.TrackTiles);
+			foreach (var tp in _client.TrackTiles)
+			{
+				if (tp.X < vx0 || tp.X > vx1 || tp.Y < vy0 || tp.Y > vy1) continue;   // viewport cull
+				var center = new Vector2(tp.X * ts + ts / 2f, tp.Y * ts + ts / 2f);
+				bool horiz = trackSet.Contains(new GridPos(tp.X + 1, tp.Y)) || trackSet.Contains(new GridPos(tp.X - 1, tp.Y));
+				if (_railTex != null)
+				{
+					float scale = ts / (float)_railTex.GetWidth();
+					DrawSetTransform(center, horiz ? Mathf.Pi / 2f : 0f, new Vector2(scale, scale));
+					DrawTexture(_railTex, -_railTex.GetSize() / 2f);
+				}
+				else
+				{
+					var rail = new Color(0.5f, 0.5f, 0.55f);
+					if (horiz)
+					{ DrawRect(new Rect2(tp.X * ts, tp.Y * ts + ts * 0.28f, ts, ts * 0.08f), rail);
+					  DrawRect(new Rect2(tp.X * ts, tp.Y * ts + ts * 0.64f, ts, ts * 0.08f), rail); }
+					else
+					{ DrawRect(new Rect2(tp.X * ts + ts * 0.28f, tp.Y * ts, ts * 0.08f, ts), rail);
+					  DrawRect(new Rect2(tp.X * ts + ts * 0.64f, tp.Y * ts, ts * 0.08f, ts), rail); }
+				}
+			}
+			if (_railTex != null) DrawSetTransform(Vector2.Zero, 0f, Vector2.One);       // reset transform
+
+			// Buffer stops at each rail endpoint (a track tile with exactly one rail neighbour).
+			// Drawn in a second pass so the rail's texture transform doesn't warp these rects.
+			var nbDirs = new[] { new GridPos(1, 0), new GridPos(-1, 0), new GridPos(0, 1), new GridPos(0, -1) };
+			foreach (var tp in _client.TrackTiles)
+			{
+				if (tp.X < vx0 || tp.X > vx1 || tp.Y < vy0 || tp.Y > vy1) continue;
+				int nb = 0; GridPos inward = default;
+				foreach (var d in nbDirs)
+					if (trackSet.Contains(new GridPos(tp.X + d.X, tp.Y + d.Y))) { nb++; inward = d; }
+				if (nb != 1) continue;                                                   // only the two ends
+
+				var center = new Vector2(tp.X * ts + ts / 2f, tp.Y * ts + ts / 2f);
+				var barC = center + new Vector2(-inward.X, -inward.Y) * (ts * 0.40f);    // outer edge
+				var beam = new Color(0.32f, 0.20f, 0.11f);
+				var cap  = new Color(0.50f, 0.34f, 0.16f);
+				if (inward.X != 0)   // rail runs horizontally → vertical bumper beam
+				{
+					DrawRect(new Rect2(barC.X - ts * 0.055f, barC.Y - ts * 0.32f, ts * 0.11f, ts * 0.64f), beam);
+					DrawRect(new Rect2(barC.X - ts * 0.09f,  barC.Y - ts * 0.10f, ts * 0.18f, ts * 0.20f), cap);
+				}
+				else                 // rail runs vertically → horizontal bumper beam
+				{
+					DrawRect(new Rect2(barC.X - ts * 0.32f, barC.Y - ts * 0.055f, ts * 0.64f, ts * 0.11f), beam);
+					DrawRect(new Rect2(barC.X - ts * 0.10f, barC.Y - ts * 0.09f,  ts * 0.20f, ts * 0.18f), cap);
+				}
+			}
+		}
+
+		// Mine carts, drawn above the rails and fog-gated like other entities. Gate on the
+		// cart's VISUAL tile (not its snapshot tile) so a momentum launch stays visible as it
+		// rolls across seen tiles instead of vanishing to its far destination tile.
+		foreach (var ct in _client.Carts)
+		{
+			var center = _client.CartVisualPos(ct.Id, ct.X, ct.Y);
+			var visualTile = new GridPos((int)(center.X / ts), (int)(center.Y / ts));
+			if (!spectating && !_client.Fog.IsVisible(visualTile)) continue;
+			DrawGroundShadow(this, center + new Vector2(0f, ts * 0.22f), ts * 0.34f, ts * 0.16f);
+			if (_cartTex != null)
+				DrawTextureRect(_cartTex, new Rect2(center - new Vector2(ts, ts) / 2f, new Vector2(ts, ts)), false);
+			else
+				DrawRect(new Rect2(center - new Vector2(ts * 0.35f, ts * 0.30f), new Vector2(ts * 0.70f, ts * 0.60f)),
+				         new Color(0.45f, 0.30f, 0.15f));
+		}
+
 		foreach (var c in _client.Charges)
 		{
 			if (!_client.Fog.IsVisible(new GridPos(c.X, c.Y)) && !spectating) continue;

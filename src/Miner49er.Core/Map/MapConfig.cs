@@ -157,6 +157,8 @@ public sealed class MapConfig
         cfg.FloodedCave = floor >= 10 && (uint)FloorHash(seed, floor, 0) % 5 == 0;
         bool portals = floor >= 12 && (uint)FloorHash(seed, floor, 2) % 4 == 0;
         cfg.PortalPairCount = portals ? 1 + (int)((uint)FloorHash(seed, floor, 3) & 1u) : 0;
+        cfg.MineCarts = true;   // ~35% of exploration floors get a rail + carts
+
         if (floor % 4 == 0)
         {
             var treasureRng = new System.Random(FloorHash(seed, floor, 1));
