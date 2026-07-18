@@ -20,6 +20,30 @@ public class SimulationStoneTests
     }
 
     [Fact]
+    public void StonePile_pickup_skipped_when_full_leaving_pile_on_ground()
+    {
+        var sim = Sim(new TileGrid(5, 3, TileType.Floor));
+        sim.AddMiner(1, new GridPos(2, 1));
+        sim.AddStones(1, 9);                                   // at the cap
+        sim.AddItem(new Item(new GridPos(2, 1), ItemKind.Stone, ItemPlacement.Loose));
+        sim.Tick(0.01);
+        Assert.Equal(9, sim.GetMiner(1).StoneCount);
+        Assert.Contains(sim.Items, it => it.Kind == ItemKind.Stone);   // not wasted
+    }
+
+    [Fact]
+    public void StonePile_pickup_collected_when_not_full()
+    {
+        var sim = Sim(new TileGrid(5, 3, TileType.Floor));
+        sim.AddMiner(1, new GridPos(2, 1));
+        sim.AddStones(1, 2);
+        sim.AddItem(new Item(new GridPos(2, 1), ItemKind.Stone, ItemPlacement.Loose));
+        sim.Tick(0.01);
+        Assert.True(sim.GetMiner(1).StoneCount > 2);                    // gained
+        Assert.DoesNotContain(sim.Items, it => it.Kind == ItemKind.Stone); // consumed
+    }
+
+    [Fact]
     public void TryThrowStone_facing_east_lands_before_wall()
     {
         // 7-wide: miner at col 1, wall at col 5. Stone should land at col 4.

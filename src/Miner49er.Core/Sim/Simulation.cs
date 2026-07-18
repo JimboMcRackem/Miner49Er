@@ -516,10 +516,12 @@ public sealed class Simulation
         m.PermBlastLevel  = Math.Clamp(blast,  0, Config.MaxPermBlastLevel);
     }
 
+    private const int MaxCarriedStones = 9;
+
     public void AddStones(int minerId, int count)
     {
         if (!_miners.TryGetValue(minerId, out var m)) return;
-        m.StoneCount = Math.Min(9, m.StoneCount + count);
+        m.StoneCount = Math.Min(MaxCarriedStones, m.StoneCount + count);
     }
 
     public void DeductGold(int minerId, int amount)
@@ -1211,17 +1213,19 @@ public sealed class Simulation
 
         var target = m.Pos + m.Facing.ToOffset();
         if (!Grid.InBounds(target)) return false;
+        var tile = Grid.Get(target);
 
-        // Facing an empty cart → arm it with a charge (a rolling bomb). Reuses the plant
-        // action so it works in normal Dynamite mode without needing a held item.
-        if (CartAt(target) is { Cargo: CartCargo.None } armCart)
+        // Beside a cart (and not aimed at a plantable wall) → arm it with a charge, a rolling
+        // bomb. Reuses the plant action (works in Dynamite mode, no held item) and is facing-
+        // forgiving: you can't stand facing a cart on the rail without pushing it, so any
+        // adjacent empty cart arms.
+        if (!tile.IsBlastable() && AdjacentCart(m.Pos) is { Cargo: CartCargo.None } armCart)
         {
             armCart.Cargo = CartCargo.Charge;
-            _events.Add(new ChargePlanted(id, target));
+            _events.Add(new ChargePlanted(id, armCart.Pos));
             return true;
         }
 
-        var tile = Grid.Get(target);
         bool isWallPlant = tile.IsBlastable()
                            && !_charges.Any(c => c.WallPos == target)
                            && LiveChargeCount(id) < Config.MaxLiveChargesPerMiner;
@@ -1644,6 +1648,9 @@ public sealed class Simulation
             foreach (var m in _miners.Values)
             {
                 if (!m.Alive || m.Pos != item.Pos) continue;
+                // A stone pile is wasted if picked up while already at the cap — leave it on
+                // the ground so a not-yet-full miner can still grab it.
+                if (item.Kind == ItemKind.Stone && m.StoneCount >= MaxCarriedStones) continue;
                 _items.RemoveAt(i);
                 ApplyBuff(m.Id, item.Kind);
                 _events.Add(new ItemPickedUp(m.Id, item.Pos, item.Kind));
