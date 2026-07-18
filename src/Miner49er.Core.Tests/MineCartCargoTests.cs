@@ -55,14 +55,26 @@ public class MineCartCargoTests
     }
 
     [Fact]
-    public void PlantFacingCart_ArmsItWithCharge()
+    public void PlantBesideCart_ArmsIt_EvenWhenNotFacingIt()
     {
         var sim = RailSim(2, 6, 2, new SimConfig { DynamiteEnabled = true });
         sim.AddCart(new CartSpec(1, new GridPos(3, 2), Direction.East));
-        var m = sim.AddMiner(1, new GridPos(3, 3));
-        m.Facing = Direction.North;                  // facing the cart above
+        var m = sim.AddMiner(1, new GridPos(3, 3));   // below the cart
+        m.Facing = Direction.South;                    // facing AWAY from the cart (open floor)
         Assert.True(sim.TryStartPlanting(1));
         Assert.Equal(CartCargo.Charge, Cart(sim, 1).Cargo);
+    }
+
+    [Fact]
+    public void PlantFacingWall_BesideCart_StillPlantsOnWall_NotCart()
+    {
+        var sim = RailSim(2, 6, 2, new SimConfig { DynamiteEnabled = true, PlantSeconds = 0.5 });
+        sim.Grid.Set(new GridPos(3, 4), TileType.Rock);   // wall below the miner
+        sim.AddCart(new CartSpec(1, new GridPos(3, 2), Direction.East));
+        var m = sim.AddMiner(1, new GridPos(3, 3));
+        m.Facing = Direction.South;                        // facing the rock wall
+        Assert.True(sim.TryStartPlanting(1));
+        Assert.Equal(CartCargo.None, Cart(sim, 1).Cargo);  // cart untouched; wall-plant took priority
     }
 
     [Fact]

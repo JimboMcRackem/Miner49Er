@@ -1206,10 +1206,14 @@ public partial class WorldRenderer : Node2D
 			}
 			else if (ct.Cargo == CartCargo.Charge)
 			{
-				DrawCircle(center - new Vector2(0f, ts * 0.28f), ts * 0.11f, new Color(0.15f, 0.12f, 0.10f)); // stick
+				var stick = center - new Vector2(0f, ts * 0.30f);
+				DrawRect(new Rect2(stick - new Vector2(ts * 0.09f, ts * 0.15f), new Vector2(ts * 0.18f, ts * 0.30f)),
+				         new Color(0.78f, 0.16f, 0.12f)); // red dynamite stick
+				DrawRect(new Rect2(stick - new Vector2(ts * 0.09f, ts * 0.02f), new Vector2(ts * 0.18f, ts * 0.04f)),
+				         new Color(0.95f, 0.85f, 0.55f)); // band
 				if (ct.FuseRemaining > 0)
-					DrawCircle(center - new Vector2(0f, ts * 0.42f), ts * 0.06f,
-					           new Color(1f, 0.8f, 0.25f)); // lit fuse tip
+					DrawCircle(stick - new Vector2(0f, ts * 0.20f), ts * 0.07f,
+					           new Color(1f, 0.85f, 0.3f)); // lit fuse spark
 			}
 		}
 
