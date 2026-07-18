@@ -68,6 +68,23 @@ public partial class WorldRenderer : Node2D
 		uint h = (uint)(x * 2246822519u ^ y * 3266489917u ^ PitPropSalt);
 		return (h & 0xFFu) < PitPropThreshold;
 	}
+
+	// A tile is an "exterior" wall face when any orthogonal neighbour is open (enterable)
+	// space. Pit props — and the wood splinters when one is blasted — only belong on exposed
+	// faces lining a tunnel, never on rock buried inside the mass. Looks only at the four
+	// neighbours, so it works whether the centre tile is still Rock (draw) or already Floor
+	// (post-blast). Shared by the draw pass and MatchClient's blast-splinter check.
+	public static bool PitPropExteriorFace(TileGrid grid, int x, int y)
+	{
+		return Open(grid, x, y - 1) || Open(grid, x, y + 1)
+		    || Open(grid, x + 1, y) || Open(grid, x - 1, y);
+
+		static bool Open(TileGrid g, int nx, int ny)
+		{
+			var q = new GridPos(nx, ny);
+			return g.InBounds(q) && g.Get(q).IsEnterable();
+		}
+	}
 	private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.30f);
 	// HDR tints (>1.0) so these emissive draws bloom through the glow environment. Their own
 	// alpha/falloff is preserved; only the bright core pushes past the 1.0 glow threshold.
@@ -1070,6 +1087,8 @@ public partial class WorldRenderer : Node2D
 		{
 			if (grid.Get(p) != TileType.Rock) continue;
 			if (!HasPitProp(p.X, p.Y)) continue;
+			// Only on exposed wall faces bordering open space, never buried in the rock mass.
+			if (!PitPropExteriorFace(grid, p.X, p.Y)) continue;
 			uint h = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ PitPropSalt);
 			bool flip = ((h >> 8) & 1u) == 1u;
 			var r = new Rect2(p.X * ts, p.Y * ts, ts, ts);
@@ -1080,14 +1099,14 @@ public partial class WorldRenderer : Node2D
 			}
 			else
 			{
-				// Procedural fallback: two vertical timber posts + a horizontal cap beam.
+				// Procedural fallback: a single upright timber support beam.
 				float x0 = p.X * ts, y0 = p.Y * ts;
 				var timber = new Color(0.40f, 0.27f, 0.14f, 0.95f);
-				var cap    = new Color(0.46f, 0.31f, 0.16f, 0.95f);
-				float postW = ts * 0.12f;
-				DrawRect(new Rect2(x0 + ts * 0.14f, y0 + ts * 0.18f, postW, ts * 0.70f), timber); // left post
-				DrawRect(new Rect2(x0 + ts * 0.74f, y0 + ts * 0.18f, postW, ts * 0.70f), timber); // right post
-				DrawRect(new Rect2(x0 + ts * 0.12f, y0 + ts * 0.14f, ts * 0.76f, ts * 0.12f), cap); // cap beam
+				var grain  = new Color(0.46f, 0.31f, 0.16f, 0.95f);
+				float postW = ts * 0.16f;
+				float postX = x0 + ts * (flip ? 0.60f : 0.24f); // seeded left/right placement on the wall
+				DrawRect(new Rect2(postX, y0 + ts * 0.10f, postW, ts * 0.80f), timber);       // upright beam
+				DrawRect(new Rect2(postX + postW * 0.4f, y0 + ts * 0.12f, ts * 0.03f, ts * 0.76f), grain); // grain line
 			}
 		}
 

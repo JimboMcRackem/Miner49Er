@@ -223,8 +223,11 @@ public partial class MatchClient : Node2D
 			{
 				_world?.AddExplosionFlash(p);
 				bx += t.X; by += t.Y; blastCount++;
-				// A blasted wall that was a propped Rock throws wood splinters over the rock debris.
-				if (inBounds && oldType == TileType.Rock && WorldRenderer.HasPitProp(t.X, t.Y))
+				// A blasted wall that was a propped, exposed-face Rock throws wood splinters over
+				// the rock debris (exterior check mirrors the draw pass so splinters only fly where
+				// a prop was actually shown).
+				if (inBounds && oldType == TileType.Rock && WorldRenderer.HasPitProp(t.X, t.Y)
+					&& WorldRenderer.PitPropExteriorFace(Grid, t.X, t.Y))
 					_world?.EmitWoodSplinters(new Vector2(t.X * TileSize + TileSize / 2f,
 														  t.Y * TileSize + TileSize / 2f));
 			}
