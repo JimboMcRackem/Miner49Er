@@ -202,11 +202,15 @@ public partial class MatchClient : Node2D
 		foreach (var t in update.TileChanges)
 		{
 			var p = new GridPos(t.X, t.Y);
-			if (Grid.InBounds(p))
+			bool inBounds = Grid.InBounds(p);
+			// Captured before Grid.Set mutates this tile below, so FromBlast logic can still
+			// see what the tile was before the blast (Grid.Get throws when out of bounds).
+			var oldType = inBounds ? Grid.Get(p) : default;
+			if (inBounds)
 			{
 				// A dry tile turning to water is the flood front conquering it: animate the
 				// creep instead of an instant square (a shallow->deep upgrade is not "new water").
-				if (!Grid.Get(p).IsWater() && t.NewType.IsWater())
+				if (!oldType.IsWater() && t.NewType.IsWater())
 					(floodAdvances ??= new()).Add(p);
 				Grid.Set(p, t.NewType);
 				if (t.NewType == TileType.Floor && _crystalPositions != null)
@@ -219,6 +223,10 @@ public partial class MatchClient : Node2D
 			{
 				_world?.AddExplosionFlash(p);
 				bx += t.X; by += t.Y; blastCount++;
+				// A blasted wall that was a propped Rock throws wood splinters over the rock debris.
+				if (inBounds && oldType == TileType.Rock && WorldRenderer.HasPitProp(t.X, t.Y))
+					_world?.EmitWoodSplinters(new Vector2(t.X * TileSize + TileSize / 2f,
+														  t.Y * TileSize + TileSize / 2f));
 			}
 		}
 		if (blastCount > 0)
