@@ -27,6 +27,11 @@ public partial class Main : Node2D
 	private bool _wasAtShop = true; // suppresses auto-open on frame 1; prevents spawn-on-shop lock
 	private ColorRect _fadeOverlay = null!;
 	private float _fadeAlpha;
+
+	private CanvasLayer _wipeLayer = null!;
+	private ColorRect   _wipeRect  = null!;
+	private float _wipeTimer;
+	private const float WipeDuration = 0.45f; // seconds, black recedes left→right
 	private const float FadeOutSpeed = 3f;  // 0→1 in ~0.33s
 	private const float FadeInSpeed  = 1.5f; // 1→0 in ~0.67s
 
@@ -272,6 +277,26 @@ public partial class Main : Node2D
 		_fadeOverlay.MouseFilter = Control.MouseFilterEnum.Ignore;
 		AddChild(_fadeOverlay);
 
+		// Floor-transition wipe — sits BELOW the floor banner (layer 20) so the banner reads over it.
+		_wipeLayer = new CanvasLayer { Layer = 18, Name = "WipeLayer" };
+		_wipeRect  = new ColorRect { Color = new Color(0f, 0f, 0f, 1f), MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
+		_wipeRect.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_wipeLayer.AddChild(_wipeRect);
+		AddChild(_wipeLayer);
+
+		// Subtle cave-mood vignette (static, under the HUD).
+		var vignetteLayer = new CanvasLayer { Layer = 8, Name = "VignetteLayer" };
+		var vignette = new TextureRect
+		{
+			Texture     = BuildVignetteTexture(256, new Color(0f, 0f, 0f, 0.5f)),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+			ExpandMode  = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.Scale,
+		};
+		vignette.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		vignetteLayer.AddChild(vignette);
+		AddChild(vignetteLayer);
+
 		nm.RegisterMatch(_host, _client);
 		nm.MatchEnded += OnMatchEnded;
 		nm.NewFloor += OnNewFloor;
@@ -317,6 +342,16 @@ public partial class Main : Node2D
 				alpha = Math.Max(0f, _floorBannerTimer / BannerFade);
 			if (_floorBannerTimer <= 0f) { _floorBannerLayer?.QueueFree(); _floorBannerLayer = null; _floorBanner = null; }
 			else _floorBanner.Modulate = new Color(1, 1, 1, alpha);
+		}
+
+		if (_wipeTimer > 0f)
+		{
+			_wipeTimer -= (float)delta;
+			// progress 0 (full black) → 1 (clear); black's left edge sweeps right, revealing left→right.
+			float progress = 1f - Mathf.Clamp(_wipeTimer / WipeDuration, 0f, 1f);
+			_wipeRect.AnchorLeft = progress;
+			_wipeRect.OffsetLeft = 0f;
+			if (_wipeTimer <= 0f) _wipeRect.Visible = false;
 		}
 
 		// Treasure-floor escape-open announcement.
@@ -783,6 +818,25 @@ public partial class Main : Node2D
 		_floorBannerLayer.AddChild(_floorBanner);
 		AddChild(_floorBannerLayer);
 		_floorBannerTimer = BannerTotal;
+		_wipeTimer = WipeDuration;
+		_wipeRect.Visible = true;
+	}
+
+	// Builds a radial-gradient texture: transparent at centre, `edge` at the corners,
+	// for the static cave-mood vignette. Called once from _Ready.
+	private static ImageTexture BuildVignetteTexture(int size, Color edge)
+	{
+		var img = Image.CreateEmpty(size, size, false, Image.Format.Rgba8);
+		float c = (size - 1) / 2f;
+		float maxD = Mathf.Sqrt(2f) * c;
+		for (int y = 0; y < size; y++)
+		for (int x = 0; x < size; x++)
+		{
+			float d = new Vector2(x - c, y - c).Length() / maxD;
+			float a = Mathf.SmoothStep(0.55f, 1f, d) * edge.A;
+			img.SetPixel(x, y, new Color(edge.R, edge.G, edge.B, a));
+		}
+		return ImageTexture.CreateFromImage(img);
 	}
 
 	private void OnFloorComplete(int floor)
