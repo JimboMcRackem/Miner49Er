@@ -179,6 +179,9 @@ public partial class Main : Node2D
 				escapeTile);
 			foreach (var item in hostMap.Items)
 				sim.AddItem(item);
+			sim.AddTrack(hostMap.TrackTiles);
+			foreach (var cart in hostMap.Carts)
+				sim.AddCart(cart);
 			var peerToMiner    = new System.Collections.Generic.Dictionary<long, int>();
 			var botConfigs     = new System.Collections.Generic.List<(int minerId, BotSkill skill)>();
 			var botMinerToPeer = new System.Collections.Generic.Dictionary<int, long>();

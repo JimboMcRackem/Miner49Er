@@ -44,6 +44,9 @@ public sealed class MapConfig
 
     public bool SealCenter { get; set; } = false; // ring center with Rock so ReachCenter requires digging
 
+    // Mine carts (pushable rail carts) — off by default; enabled per mode once rendering lands.
+    public bool MineCarts { get; set; } = false;   // gates rail + cart seeding
+
     // Bottomless pits (Phase 4d) — host lobby toggle, off by default.
     public bool Pits { get; set; } = false;            // gates the whole PlacePits pass
     public int PitSiteCount { get; set; } = 6;          // base number of pit sites (light per-player scaling)

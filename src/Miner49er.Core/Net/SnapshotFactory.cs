@@ -77,9 +77,13 @@ public static class SnapshotFactory
             holdTimes = sim.Miners.Select(m => new HoldTimeSnapshot(m.Id, (float)sim.HoldSecondsOf(m.Id))).ToList();
         }
 
+        var carts = sim.Carts
+            .Select(c => new CartSnapshot(c.Id, c.Pos.X, c.Pos.Y, (int)c.Dir, c.Cargo, 0))
+            .ToList();
+
         return new WorldSnapshot(tick, miners, charges, items, molds, monsters,
             (float)sim.SecondsRemaining, sim.EscapeOpen, octopus, lives, reelCharges,
             treasureProgress, placedChests, tripCharges, pendingFalls, PrizeEvent: prize,
-            Treasure: treasure, HoldTimes: holdTimes);
+            Treasure: treasure, HoldTimes: holdTimes, Carts: carts);
     }
 }

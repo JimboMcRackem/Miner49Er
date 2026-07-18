@@ -120,6 +120,10 @@ public static class SnapshotCodec
         if (snap.TreasureToast is { } tt)
         { w.Write(tt.Kind); w.Write(tt.MinerId); }
 
+        w.Write(snap.Carts?.Count ?? 0);
+        foreach (var ct in snap.Carts ?? System.Array.Empty<CartSnapshot>())
+        { w.Write(ct.Id); w.Write(ct.X); w.Write(ct.Y); w.Write(ct.Dir); w.Write((int)ct.Cargo); w.Write(ct.FuseRemaining); }
+
         w.Write(update.TileChanges.Count);
         foreach (var t in update.TileChanges)
         {
@@ -266,6 +270,13 @@ public static class SnapshotCodec
         if (r.ReadBoolean())
             treasureToast = new TreasureToastSnapshot(r.ReadByte(), r.ReadInt32());
 
+        int cartCount = r.ReadInt32();
+        List<CartSnapshot>? carts = cartCount > 0 ? new List<CartSnapshot>(cartCount) : null;
+        for (int i = 0; i < cartCount; i++)
+            carts!.Add(new CartSnapshot(
+                r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
+                r.ReadInt32(), (CartCargo)r.ReadInt32(), r.ReadDouble()));
+
         int changeCount = r.ReadInt32();
         var changes = new List<TileChange>(changeCount);
         for (int i = 0; i < changeCount; i++)
@@ -277,6 +288,6 @@ public static class SnapshotCodec
             Whistles: whistles, PortalUses: portalUses, Throws: throws,
             DynamiteThrows: dynamiteThrows, PrizeEvent: prizeEvent, PrizeClaim: prizeClaim,
             PendingFalls: pendingFalls, Treasure: treasure, HoldTimes: holdTimes,
-            TreasureToast: treasureToast), changes);
+            TreasureToast: treasureToast, Carts: carts), changes);
     }
 }

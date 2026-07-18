@@ -65,6 +65,15 @@ public static class MapGenerator
             : null;
         if (config.FloodedCave)
             FloodCavePass(grid, rng, config, spawns, items, shopPos);
+        // Rails are seeded LAST so their RNG draws never perturb existing placement; a floor
+        // without MineCarts (the default) draws nothing and is byte-identical to before.
+        IReadOnlyList<GridPos> trackTiles = System.Array.Empty<GridPos>();
+        IReadOnlyList<CartSpec> carts = System.Array.Empty<CartSpec>();
+        if (config.MineCarts && rng.NextDouble() < CartTrackFloorChance)
+        {
+            int cartsWanted = CartsPerTrackMin + rng.Next(CartsPerTrackMax - CartsPerTrackMin + 1);
+            (trackTiles, carts) = PlaceRail(grid, rng, cartsWanted);
+        }
         return new GeneratedMap
         {
             Grid = grid, Spawns = spawns, Center = center, Items = items, Decoys = decoys,
@@ -72,7 +81,47 @@ public static class MapGenerator
             ShopPos = shopPos,
             ExpeditionTreasurePos = expeditionTreasurePos,
             Portals = portals,
+            TrackTiles = trackTiles,
+            Carts = carts,
         };
+    }
+
+    private const double CartTrackFloorChance = 0.35;
+    private const int RailLength = 8;
+    private const int CartsPerTrackMin = 1;
+    private const int CartsPerTrackMax = 2;
+
+    // Lays a straight run of RailLength Floor tiles from a random start along a random axis,
+    // then seeds carts on interior rail tiles. Returns empty if no straight Floor run is found.
+    private static (IReadOnlyList<GridPos> track, IReadOnlyList<CartSpec> carts)
+        PlaceRail(TileGrid g, Random rng, int cartsWanted)
+    {
+        for (int attempt = 0; attempt < 40; attempt++)
+        {
+            if (RandomFloor(g, rng) is not { } s) break;
+            bool horizontal = rng.Next(2) == 0;
+            var step = horizontal ? new GridPos(1, 0) : new GridPos(0, 1);
+            var line = new List<GridPos>(RailLength);
+            bool ok = true;
+            for (int i = 0; i < RailLength; i++)
+            {
+                var p = new GridPos(s.X + step.X * i, s.Y + step.Y * i);
+                if (!g.InBounds(p) || g.Get(p) != TileType.Floor) { ok = false; break; }
+                line.Add(p);
+            }
+            if (!ok) continue;
+
+            var dir = horizontal ? Direction.East : Direction.South;
+            int n = System.Math.Clamp(cartsWanted, CartsPerTrackMin, CartsPerTrackMax);
+            var carts = new List<CartSpec>(n);
+            for (int k = 0; k < n; k++)
+            {
+                int idx = System.Math.Clamp(1 + k * (line.Count - 2) / n, 1, line.Count - 2);
+                carts.Add(new CartSpec(k + 1, line[idx], dir));
+            }
+            return (line, carts);
+        }
+        return (System.Array.Empty<GridPos>(), System.Array.Empty<CartSpec>());
     }
 
     private static void SealCenterTile(TileGrid g, GridPos center)

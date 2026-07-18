@@ -539,6 +539,10 @@ public partial class MatchHost : Node
 		foreach (var spec in newMap.Portals)
 			newSim.AddPortal(spec);
 
+		newSim.AddTrack(newMap.TrackTiles);
+		foreach (var cart in newMap.Carts)
+			newSim.AddCart(cart);
+
 		// Spawn every peer; miner IDs are 1-based so spawn index = minerId - 1.
 		GridPos monsterRef = newMap.Spawns.Count > 0 ? newMap.Spawns[0] : newMap.Center;
 		_spawnByMiner.Clear();

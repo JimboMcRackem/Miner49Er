@@ -42,6 +42,7 @@ public readonly record struct TreasureSnapshot(
     byte State, int X, int Y, int HolderId, float SuddenDeathProgress); // State: 0=buried,1=loose,2=carried
 public readonly record struct HoldTimeSnapshot(int MinerId, float Seconds);
 public readonly record struct TreasureToastSnapshot(byte Kind, int MinerId); // 0=Found,1=Recovered,2=Sneaking,3=Dropped
+public readonly record struct CartSnapshot(int Id, int X, int Y, int Dir, CartCargo Cargo, double FuseRemaining);
 
 public sealed record WorldSnapshot(
     int Tick, IReadOnlyList<MinerSnapshot> Miners, IReadOnlyList<ChargeSnapshot> Charges,
@@ -63,6 +64,7 @@ public sealed record WorldSnapshot(
     PrizeClaimSnapshot?                      PrizeClaim       = null,
     TreasureSnapshot?                        Treasure         = null,
     IReadOnlyList<HoldTimeSnapshot>?         HoldTimes        = null,
-    TreasureToastSnapshot?                   TreasureToast    = null);
+    TreasureToastSnapshot?                   TreasureToast    = null,
+    IReadOnlyList<CartSnapshot>?             Carts            = null);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);

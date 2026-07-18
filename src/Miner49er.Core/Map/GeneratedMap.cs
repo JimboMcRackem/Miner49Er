@@ -11,4 +11,6 @@ public sealed class GeneratedMap
     public GridPos? ShopPos { get; init; }
     public GridPos? ExpeditionTreasurePos { get; init; }
     public IReadOnlyList<PortalSpec> Portals { get; init; } = System.Array.Empty<PortalSpec>();
+    public IReadOnlyList<GridPos> TrackTiles { get; init; } = System.Array.Empty<GridPos>();
+    public IReadOnlyList<CartSpec> Carts { get; init; } = System.Array.Empty<CartSpec>();
 }
