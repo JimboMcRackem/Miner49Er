@@ -57,6 +57,17 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color WireColor         = new Color(0.9f, 0.55f, 0.1f, 0.75f);
 	private static readonly Color DetonatorItemColor = new("ff3355");
 	private const int ListenItemRevealRadius = 6;
+	private const uint PitPropSalt = 0xB0A5u;
+	private const uint PitPropThreshold = 38; // out of 256 → ≈15% of rock walls
+
+	// Deterministic per-tile: does this rock wall carry a pit prop? Shared by the
+	// draw pass and MatchClient's blast-debris check so the wall you SEE propped is
+	// exactly the wall that splinters. Caller is responsible for the tile being Rock.
+	public static bool HasPitProp(int x, int y)
+	{
+		uint h = (uint)(x * 2246822519u ^ y * 3266489917u ^ PitPropSalt);
+		return (h & 0xFFu) < PitPropThreshold;
+	}
 	private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.30f);
 	// HDR tints (>1.0) so these emissive draws bloom through the glow environment. Their own
 	// alpha/falloff is preserved; only the bright core pushes past the 1.0 glow threshold.
@@ -146,6 +157,7 @@ public partial class WorldRenderer : Node2D
 	private Texture2D?   _crystalRockTex;
 	private Texture2D?   _crystalShardTex;
 	private Texture2D?   _portalTex; // colour-coded teleport gate archway (tinted per state)
+	private Texture2D? _pitPropTex; // mine support timber overlay on rock walls
 	private Texture2D?[] _octopusIdleTex = new Texture2D?[9]; // idle_0..idle_8
 
 	// PixelLab monster sprites Ã¢â‚¬â€ [dir] order: 0=N 1=E 2=S 3=W
@@ -248,6 +260,8 @@ public partial class WorldRenderer : Node2D
 		                   ? GD.Load<Texture2D>("res://assets/objects/item_crystal_shard.png") : null;
 		_portalTex       = ResourceLoader.Exists("res://assets/portals/gate.png")
 		                   ? GD.Load<Texture2D>("res://assets/portals/gate.png") : null;
+		_pitPropTex = ResourceLoader.Exists("res://assets/objects/pit_prop.png")
+		              ? GD.Load<Texture2D>("res://assets/objects/pit_prop.png") : null;
 	}
 
 	private static ImageTexture BuildRadialGlowTex(int size = 128) =>
@@ -407,6 +421,20 @@ public partial class WorldRenderer : Node2D
 				  Mathf.Cos(ang) * spd, Mathf.Sin(ang) * spd - 30f,
 				  160f, 0.5f + _fxRng.NextSingle() * 0.4f, 1.6f,
 				  new Color(0.92f, 0.6f, 0.3f, 1f));
+		}
+	}
+
+	public void EmitWoodSplinters(Vector2 pos)
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			float ang = _fxRng.NextSingle() * Mathf.Tau;
+			float spd = 45f + _fxRng.NextSingle() * 85f;
+			float shade = 0.32f + _fxRng.NextSingle() * 0.22f;
+			Spawn(pos.X, pos.Y,
+			      Mathf.Cos(ang) * spd, Mathf.Sin(ang) * spd - 40f,
+			      200f, 0.45f + _fxRng.NextSingle() * 0.35f, 2.6f,
+			      new Color(0.30f + shade, 0.20f + shade * 0.7f, 0.10f + shade * 0.4f, 1f));
 		}
 	}
 
@@ -1034,6 +1062,32 @@ public partial class WorldRenderer : Node2D
 					DrawCircle(new Vector2(cx + 9f, cy + 6f), 1.5f, col);
 					break;
 				}
+			}
+		}
+
+		// Pit props — mine support timbers embedded on ~15% of rock walls (seeded, stable per tile).
+		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
+		{
+			if (grid.Get(p) != TileType.Rock) continue;
+			if (!HasPitProp(p.X, p.Y)) continue;
+			uint h = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ PitPropSalt);
+			bool flip = ((h >> 8) & 1u) == 1u;
+			var r = new Rect2(p.X * ts, p.Y * ts, ts, ts);
+			if (_pitPropTex != null)
+			{
+				var dr = flip ? new Rect2(r.Position.X + ts, r.Position.Y, -ts, ts) : r;
+				DrawTextureRect(_pitPropTex, dr, false);
+			}
+			else
+			{
+				// Procedural fallback: two vertical timber posts + a horizontal cap beam.
+				float x0 = p.X * ts, y0 = p.Y * ts;
+				var timber = new Color(0.40f, 0.27f, 0.14f, 0.95f);
+				var cap    = new Color(0.46f, 0.31f, 0.16f, 0.95f);
+				float postW = ts * 0.12f;
+				DrawRect(new Rect2(x0 + ts * 0.14f, y0 + ts * 0.18f, postW, ts * 0.70f), timber); // left post
+				DrawRect(new Rect2(x0 + ts * 0.74f, y0 + ts * 0.18f, postW, ts * 0.70f), timber); // right post
+				DrawRect(new Rect2(x0 + ts * 0.12f, y0 + ts * 0.14f, ts * 0.76f, ts * 0.12f), cap); // cap beam
 			}
 		}
 
