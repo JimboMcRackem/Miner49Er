@@ -192,6 +192,23 @@ public static class CartTactics
         return null;
     }
 
+    private const double LanternGrabChance = 0.02;   // ~ occasional; cosmetic light for the bot
+
+    /// <summary>Foreman+ : occasionally detach and carry a lantern from an adjacent lantern-carrying
+    /// cart (empty-handed only). Cosmetic — bots see the whole map — so kept small and low-priority.</summary>
+    public static BotAction? TryLantern(Simulation sim, Miner miner, BotSkill skill, System.Random rng)
+    {
+        if (skill < BotSkill.Foreman) return null;
+        if (miner.Held != null) return null;
+        foreach (var c in sim.Carts)
+        {
+            if (c.Cargo != CartCargo.Lantern) continue;
+            if (miner.Pos.ManhattanTo(c.Pos) != 1) continue;         // orthogonally adjacent
+            return rng.NextDouble() < LanternGrabChance ? new BotAction(-1, use: true) : (BotAction?)null;
+        }
+        return null;
+    }
+
     // ── shared helpers ──────────────────────────────────────────────────────
 
     private static bool MonsterNear(Simulation sim, Miner miner)

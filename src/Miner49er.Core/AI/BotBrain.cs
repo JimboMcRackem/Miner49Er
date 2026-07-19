@@ -202,6 +202,14 @@ public sealed class BotBrain
         // Cosmetic listen pose: Miner+ occasionally pauses to "listen" when nothing urgent is
         // happening (no hazard fled this tick, not racing for the exit). Purely visual.
         bool escapeUrgentNow = mode == GameMode.Expedition && sim.EscapeOpen;
+
+        // Foreman+ : occasionally grab a lantern off a nearby cart when nothing urgent is happening.
+        if (!escapeUrgentNow)
+        {
+            var lantern = CartTactics.TryLantern(sim, miner, Skill, _rng);
+            if (lantern != null) return lantern.Value;
+        }
+
         if (Skill >= BotSkill.Miner && !escapeUrgentNow)
         {
             if (_listenTicksRemaining > 0)

@@ -188,4 +188,45 @@ public class CartTacticsTests
         var bot = sim.AddMiner(3, new GridPos(8, 4));
         Assert.Null(CartTactics.TryBomb(sim, bot, BotSkill.Foreman));
     }
+
+    [Fact]
+    public void Lantern_foreman_detaches_from_adjacent_lantern_cart()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        MakeLanternCart(sim, cartId: 1, loaderId: 99, loaderPos: new GridPos(8, 6));
+        var bot = sim.AddMiner(3, new GridPos(8, 4));           // orthogonally adjacent, empty-handed
+        var rng = new System.Random(0);
+        // Roll until the ~2% chance fires within a bounded number of attempts.
+        BotAction? act = null;
+        for (int i = 0; i < 2000 && act == null; i++) act = CartTactics.TryLantern(sim, bot, BotSkill.Foreman, rng);
+        Assert.NotNull(act);
+        Assert.True(act!.Value.Use);
+        Assert.Equal(-1, act.Value.Dir);
+    }
+
+    [Fact]
+    public void Lantern_is_gated_off_below_foreman()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        MakeLanternCart(sim, cartId: 1, loaderId: 99, loaderPos: new GridPos(8, 6));
+        var bot = sim.AddMiner(3, new GridPos(8, 4));
+        var rng = new System.Random(0);
+        for (int i = 0; i < 2000; i++)
+            Assert.Null(CartTactics.TryLantern(sim, bot, BotSkill.Miner, rng));
+    }
+
+    [Fact]
+    public void Lantern_skips_when_hands_full()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        MakeLanternCart(sim, cartId: 1, loaderId: 99, loaderPos: new GridPos(8, 6));
+        var bot = sim.AddMiner(3, new GridPos(8, 4));
+        bot.Held = ItemKind.Lantern;                            // already carrying
+        var rng = new System.Random(0);
+        for (int i = 0; i < 2000; i++)
+            Assert.Null(CartTactics.TryLantern(sim, bot, BotSkill.Foreman, rng));
+    }
 }
