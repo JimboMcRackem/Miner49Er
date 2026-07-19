@@ -233,7 +233,7 @@ public sealed class Simulation
         return null;
     }
 
-    private static bool IsSquashable(MonsterKind k) =>
+    public static bool IsSquashable(MonsterKind k) =>
         k is MonsterKind.Slime or MonsterKind.ZombieMiner
           or MonsterKind.SkeletonHuman or MonsterKind.SkeletonDino or MonsterKind.Goat;
 
