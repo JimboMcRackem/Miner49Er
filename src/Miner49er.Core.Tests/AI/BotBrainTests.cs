@@ -1,3 +1,4 @@
+using System.Linq;
 using Miner49er.Core;
 using Miner49er.Core.AI;
 using Xunit;
@@ -6,6 +7,75 @@ public class BotBrainTests
 {
     private static Simulation MakeSim(TileGrid grid) =>
         new Simulation(grid, new SimConfig());
+
+    // Rail east-west on row 5 (x=2..12); empty cart at (8,5); a squashable slime east of it on the
+    // rail at (10,5); bot placed on the push tile (7,5) to shove EAST. Bot miner id = 3.
+    private static Simulation MakeCartSquashScenario()
+    {
+        var grid = new TileGrid(14, 10, TileType.Floor);
+        var sim  = MakeSim(grid);
+        sim.AddTrack(Enumerable.Range(2, 11).Select(x => new GridPos(x, 5)));
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        sim.AddMonster(1, new GridPos(10, 5), MonsterKind.Slime);
+        sim.AddMiner(3, new GridPos(7, 5));
+        return sim;
+    }
+
+    // Rail east-west row 5 (x=2..10); empty cart at (8,5); a GoldRock seam just past the rail's east
+    // end at (11,5) (bomb payoff, no direct squash); a slime OFF the roll path at (8,8) to satisfy the
+    // "monster near" gate without offering a squash. Bot on the perpendicular arm tile (8,4). Id = 3.
+    private static Simulation MakeCartBombScenario()
+    {
+        var grid = new TileGrid(16, 12, TileType.Floor);
+        var sim  = MakeSim(grid);
+        sim.AddTrack(Enumerable.Range(2, 9).Select(x => new GridPos(x, 5)));
+        sim.Grid.Set(new GridPos(11, 5), TileType.GoldRock);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        sim.AddMonster(1, new GridPos(8, 8), MonsterKind.Slime);
+        sim.AddMiner(3, new GridPos(8, 4));
+        return sim;
+    }
+
+    // Miner squashes: on the push tile, Think returns the shove into the cart.
+    [Fact]
+    public void Miner_pushes_cart_to_squash_a_monster()
+    {
+        var sim = MakeCartSquashScenario();
+        var brain = new BotBrain(3, BotSkill.Miner, seed: 1);
+        var act = brain.Think(sim, GameMode.Expedition);
+        Assert.Equal((int)Direction.East, act.Dir);
+        Assert.False(act.Plant);
+    }
+
+    // Miner never arms a bomb (bomb is Dan-only): on the gold-seam scenario it must not Plant.
+    [Fact]
+    public void Miner_does_not_arm_a_cart_bomb()
+    {
+        var sim = MakeCartBombScenario();
+        var brain = new BotBrain(3, BotSkill.Miner, seed: 1);
+        var act = brain.Think(sim, GameMode.Expedition);
+        Assert.False(act.Plant);
+    }
+
+    // Foreman does not arm bombs either.
+    [Fact]
+    public void Foreman_does_not_arm_a_cart_bomb()
+    {
+        var sim = MakeCartBombScenario();
+        var brain = new BotBrain(3, BotSkill.Foreman, seed: 1);
+        var act = brain.Think(sim, GameMode.Expedition);
+        Assert.False(act.Plant);
+    }
+
+    // DynamiteDan arms the cart bomb (Plant) toward the gold seam when no direct squash is available.
+    [Fact]
+    public void DynamiteDan_arms_a_cart_bomb()
+    {
+        var sim = MakeCartBombScenario();
+        var brain = new BotBrain(3, BotSkill.DynamiteDan, seed: 1);
+        var act = brain.Think(sim, GameMode.Expedition);
+        Assert.True(act.Plant);
+    }
 
     [Fact]
     public void Greenhorn_returns_valid_action_every_tick()

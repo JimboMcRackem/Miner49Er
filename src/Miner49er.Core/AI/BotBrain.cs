@@ -90,6 +90,19 @@ public sealed class BotBrain
             }
         }
 
+        // Cart squash: Miner+ shove a handy cart to crush a monster instead of fleeing. Checked
+        // before the flee block so a bot that can squash does; otherwise it falls through and flees.
+        {
+            var squash = CartTactics.TrySquash(sim, miner, Skill);
+            if (squash != null) { _ticksUntilReeval = 0; return squash.Value; }
+        }
+
+        // Cart-bomb: DynamiteDan arms & launches a rolling cart-bomb at a monster cluster / gold seam.
+        {
+            var bomb = CartTactics.TryBomb(sim, miner, Skill);
+            if (bomb != null) { _ticksUntilReeval = 0; return bomb.Value; }
+        }
+
         // Monster avoidance: Miner+ flees monsters within 2 tiles
         if (Skill >= BotSkill.Miner)
         {
@@ -189,6 +202,14 @@ public sealed class BotBrain
         // Cosmetic listen pose: Miner+ occasionally pauses to "listen" when nothing urgent is
         // happening (no hazard fled this tick, not racing for the exit). Purely visual.
         bool escapeUrgentNow = mode == GameMode.Expedition && sim.EscapeOpen;
+
+        // Foreman+ : occasionally grab a lantern off a nearby cart when nothing urgent is happening.
+        if (!escapeUrgentNow)
+        {
+            var lantern = CartTactics.TryLantern(sim, miner, Skill, _rng);
+            if (lantern != null) return lantern.Value;
+        }
+
         if (Skill >= BotSkill.Miner && !escapeUrgentNow)
         {
             if (_listenTicksRemaining > 0)
