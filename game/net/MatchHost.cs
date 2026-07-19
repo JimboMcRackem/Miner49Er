@@ -295,6 +295,17 @@ public partial class MatchHost : Node
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(update));
 	}
 
+	// Push the just-changed life count to clients immediately, without stepping the sim.
+	// A normal tick's snapshot is captured (in TickAndBroadcast) BEFORE that tick's death is
+	// resolved, so a spent life would only reach the HUD on the next tick. On the final solo
+	// death the match ends the same tick (_running = false) with no next tick — so without this
+	// re-send the HUD keeps showing the pre-death heart count (e.g. 1 when you've actually hit 0).
+	private void BroadcastLives()
+	{
+		var snapshot = SnapshotFactory.Capture(_sim, _tick, _livesRemaining);
+		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(new TickUpdate(snapshot, new List<TileChange>())));
+	}
+
 	private void StepOnce()
 	{
 		if (_respawnPending)
@@ -413,6 +424,8 @@ public partial class MatchHost : Node
 				{
 					// Pure solo (one human, no bots): spend a life and respawn all dead miners.
 					_livesRemaining--;
+					BroadcastLives();   // reflect the spent life on the HUD now — the final death
+					                    // ends the match this tick with no further snapshot to carry it.
 					if (_livesRemaining > 0)
 					{
 						_respawnPending = true;
