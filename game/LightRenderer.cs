@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using Miner49er.Core;
 
@@ -13,6 +14,17 @@ public partial class LightRenderer : Node2D
 {
     private MatchClient _client = null!;
     private readonly LightMap _lights = new();
+
+    // Static terrain lights (lava / vents / crystal-rock walls) never move and their shadowcast
+    // field is identical every frame — only the flicker scale varies. Computing a fresh field
+    // (a HashSet + Dictionary allocation + recursive shadowcast) for every on-screen glowing tile
+    // EVERY frame was the dominant GC/FPS cost on lava floors. We compute each source's field once,
+    // key it by origin, and re-add it each frame with only the flicker applied. The cache is
+    // invalidated whenever the grid instance changes (new floor) or its Version bumps (any tile
+    // mutation: mining, lava creep, quench) — then rebuilt lazily as tiles come back on-screen.
+    private readonly Dictionary<GridPos, Dictionary<GridPos, float>> _terrainCache = new();
+    private TileGrid? _terrainCacheGrid;
+    private int _terrainCacheVersion = -1;
 
     /// <summary>Set true when the local miner is dead — suppresses darkness so the full map reads clearly.</summary>
     public bool SpectatorMode { get; set; }
@@ -112,8 +124,15 @@ public partial class LightRenderer : Node2D
                 _lights.AddLight(grid, tile, LanternRadius, Flicker.Multiplier(HeldSeed(ct.Id), now, Flicker.Fire));
             }
 
-        // Lava, vents, and crystal-rock walls glow. Scan only the on-screen window so this
-        // stays bounded to viewport size (same order as the darkness draw).
+        // Lava, vents, and crystal-rock walls glow. These are STATIC sources — their light field
+        // is cached (see _terrainCache) and only the per-frame flicker scale varies. Scan only the
+        // on-screen window so this stays bounded to viewport size (same order as the darkness draw).
+        if (!ReferenceEquals(grid, _terrainCacheGrid) || grid.Version != _terrainCacheVersion)
+        {
+            _terrainCache.Clear();
+            _terrainCacheGrid = grid;
+            _terrainCacheVersion = grid.Version;
+        }
         int ts = MatchClient.TileSize;
         Rect2 vw = GetViewport().CanvasTransform.AffineInverse() * GetViewportRect();
         int vx0 = Mathf.Max(0, (int)Mathf.Floor(vw.Position.X / ts) - 1);
@@ -126,12 +145,25 @@ public partial class LightRenderer : Node2D
                 var p = new GridPos(x, y);
                 var t = grid.Get(p);
                 if (t == TileType.Lava || t == TileType.LavaVent)
-                    _lights.AddLight(grid, p, LavaRadius,
+                    _lights.AddField(TerrainField(grid, p, LavaRadius),
                         Flicker.Multiplier(TileSeed(x, y), now, Flicker.Fire));
                 else if (t == TileType.CrystalRock)
-                    _lights.AddLight(grid, p, CrystalRadius,
+                    _lights.AddField(TerrainField(grid, p, CrystalRadius),
                         Flicker.Multiplier(TileSeed(x, y), now, Flicker.Crystal));
             }
+    }
+
+    // Cached shadowcast field for a static terrain source. Within one grid Version the tile at
+    // this origin keeps its type (and therefore its radius), so a field cached by origin is valid
+    // until the next Version bump clears the whole cache.
+    private Dictionary<GridPos, float> TerrainField(TileGrid grid, GridPos origin, int radius)
+    {
+        if (!_terrainCache.TryGetValue(origin, out var field))
+        {
+            field = LightField.Compute(grid, origin, radius);
+            _terrainCache[origin] = field;
+        }
+        return field;
     }
 
     // Stable per-source flicker seeds. Tile-based for stationary sources; miner-based

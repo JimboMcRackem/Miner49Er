@@ -6,6 +6,11 @@ public sealed class TileGrid
     public int Height { get; }
     private readonly TileType[] _tiles;
 
+    /// <summary>Monotonic counter bumped whenever a tile actually changes value. Lets
+    /// presentation caches (e.g. the client's static terrain-light fields) detect that the
+    /// map mutated without hooking every mutation path — compare against a stored snapshot.</summary>
+    public int Version { get; private set; }
+
     public TileGrid(int width, int height, TileType fill = TileType.Rock)
     {
         if (width <= 0 || height <= 0)
@@ -27,7 +32,10 @@ public sealed class TileGrid
     public void Set(GridPos p, TileType t)
     {
         if (!InBounds(p)) throw new ArgumentOutOfRangeException(nameof(p));
-        _tiles[p.Y * Width + p.X] = t;
+        int i = p.Y * Width + p.X;
+        if (_tiles[i] == t) return;   // no-op write leaves Version (and the grid) unchanged
+        _tiles[i] = t;
+        Version++;
     }
 
     public bool IsWalkable(GridPos p) => InBounds(p) && Get(p).IsWalkable();

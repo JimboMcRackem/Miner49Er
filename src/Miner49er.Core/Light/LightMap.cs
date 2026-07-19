@@ -18,6 +18,17 @@ public sealed class LightMap
             _acc[p] = (_acc.TryGetValue(p, out var cur) ? cur : 0f) + intensity * scale;
     }
 
+    /// <summary>Accumulate a precomputed <see cref="LightField"/> with a flicker scale, without
+    /// recomputing the shadowcast. Lets callers cache the (static) field of an unmoving source
+    /// once and re-add it each frame with only the per-frame flicker varying. The parameter is
+    /// the concrete <see cref="Dictionary{TKey,TValue}"/> so the foreach uses its struct
+    /// enumerator — no per-frame heap allocation on the render hot path.</summary>
+    public void AddField(Dictionary<GridPos, float> field, float scale = 1f)
+    {
+        foreach (var (p, intensity) in field)
+            _acc[p] = (_acc.TryGetValue(p, out var cur) ? cur : 0f) + intensity * scale;
+    }
+
     /// <summary>Total light at a tile, clamped to [0,1]. Unlit tiles return 0.</summary>
     public float SampleClamped(GridPos p) =>
         _acc.TryGetValue(p, out var v) ? (v > 1f ? 1f : v) : 0f;
