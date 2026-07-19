@@ -138,4 +138,54 @@ public class CartTacticsTests
         var bot = sim.AddMiner(3, new GridPos(7, 5));
         Assert.Null(CartTactics.TrySquash(sim, bot, BotSkill.Greenhorn));
     }
+
+    [Fact]
+    public void Bomb_arms_empty_cart_from_a_perpendicular_tile()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));   // empty
+        sim.AddMonster(1, new GridPos(10, 5), MonsterKind.Slime);
+        // Bot on the perpendicular arm tile (north of the cart). Perpendicular move south into the
+        // cart is blocked (no N-S track) → plant arms it. Expect Plant, facing the cart (South).
+        var bot = sim.AddMiner(3, new GridPos(8, 4));
+        var act = CartTactics.TryBomb(sim, bot, BotSkill.DynamiteDan);
+        Assert.NotNull(act);
+        Assert.True(act!.Value.Plant);
+        Assert.Equal((int)Direction.South, act.Value.Dir);       // faces the cart to arm it
+    }
+
+    [Fact]
+    public void Bomb_pushes_an_already_armed_cart_from_the_push_tile()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        ArmCart(sim, cartId: 1, loaderId: 99, loaderPos: new GridPos(8, 4)); // Cargo = Charge, fuse unlit
+        sim.AddMonster(1, new GridPos(10, 5), MonsterKind.Slime);
+        var bot = sim.AddMiner(3, new GridPos(7, 5));            // on push tile
+        var act = CartTactics.TryBomb(sim, bot, BotSkill.DynamiteDan);
+        Assert.NotNull(act);
+        Assert.False(act!.Value.Plant);
+        Assert.Equal((int)Direction.East, act.Value.Dir);        // launch east into the monster
+    }
+
+    [Fact]
+    public void Bomb_skips_when_a_teammate_is_in_the_roll_path()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        sim.AddMonster(1, new GridPos(10, 5), MonsterKind.Slime);
+        sim.AddMiner(9, new GridPos(9, 5));                      // teammate in path
+        var bot = sim.AddMiner(3, new GridPos(8, 4));
+        Assert.Null(CartTactics.TryBomb(sim, bot, BotSkill.DynamiteDan));
+    }
+
+    [Fact]
+    public void Bomb_is_gated_to_dynamite_dan_only()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        sim.AddMonster(1, new GridPos(10, 5), MonsterKind.Slime);
+        var bot = sim.AddMiner(3, new GridPos(8, 4));
+        Assert.Null(CartTactics.TryBomb(sim, bot, BotSkill.Foreman));
+    }
 }

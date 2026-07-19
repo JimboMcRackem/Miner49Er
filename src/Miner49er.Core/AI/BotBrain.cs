@@ -97,6 +97,12 @@ public sealed class BotBrain
             if (squash != null) { _ticksUntilReeval = 0; return squash.Value; }
         }
 
+        // Cart-bomb: DynamiteDan arms & launches a rolling cart-bomb at a monster cluster / gold seam.
+        {
+            var bomb = CartTactics.TryBomb(sim, miner, Skill);
+            if (bomb != null) { _ticksUntilReeval = 0; return bomb.Value; }
+        }
+
         // Monster avoidance: Miner+ flees monsters within 2 tiles
         if (Skill >= BotSkill.Miner)
         {

@@ -141,6 +141,57 @@ public static class CartTactics
         return step == -1 ? (BotAction?)null : new BotAction(step);
     }
 
+    /// <summary>DynamiteDan: arm an empty cart and launch it as a rolling bomb toward a monster
+    /// cluster or a gold seam. Stateless — reads the cart's Cargo each tick. Empty cart → walk to a
+    /// perpendicular arm tile and Plant; armed cart → walk to the push tile and shove. Teammate-safe
+    /// via FindBestPush. Returns null when no safe opportunity is actionable.</summary>
+    public static BotAction? TryBomb(Simulation sim, Miner miner, BotSkill skill)
+    {
+        if (skill != BotSkill.DynamiteDan) return null;
+        if (!MonsterNear(sim, miner)) return null;
+
+        var opt = FindBestPush(sim, miner, forBomb: true);
+        if (opt is not { } o) return null;
+        var cart = CartAt(sim, o.CartPos);
+        if (cart is not { } c) return null;
+
+        if (c.Cargo == CartCargo.Charge)
+        {
+            if (c.FuseRemaining > 0) return null;                        // already launched/rolling
+            if (miner.Pos == o.PushTile) return new BotAction((int)o.Dir); // shove the armed cart
+            int step = BotPathfinder.NextDir(sim.Grid, miner.Pos, o.PushTile,
+                                             passRock: false, avoidHazards: true, blocked: CartTiles(sim));
+            return step == -1 ? (BotAction?)null : new BotAction(step);
+        }
+
+        if (c.Cargo == CartCargo.None)
+        {
+            if (o.ArmTile is not { } arm) return null;                  // no safe place to arm from
+            if (miner.Pos == arm)
+            {
+                var face = DirToward(arm, o.CartPos);                    // face the cart (non-blastable) to arm
+                return face is { } f ? new BotAction((int)f, plant: true) : (BotAction?)null;
+            }
+            int step = BotPathfinder.NextDir(sim.Grid, miner.Pos, arm,
+                                             passRock: false, avoidHazards: true, blocked: CartTiles(sim));
+            return step == -1 ? (BotAction?)null : new BotAction(step);
+        }
+
+        return null;   // lantern-laden cart etc.
+    }
+
+    // Direction from `from` to an orthogonally-adjacent `to`, or null if not orthogonally adjacent.
+    private static Direction? DirToward(GridPos from, GridPos to)
+    {
+        int dx = to.X - from.X, dy = to.Y - from.Y;
+        foreach (var d in AllDirs)
+        {
+            var o = d.ToOffset();
+            if (o.X == dx && o.Y == dy) return d;
+        }
+        return null;
+    }
+
     // ── shared helpers ──────────────────────────────────────────────────────
 
     private static bool MonsterNear(Simulation sim, Miner miner)
