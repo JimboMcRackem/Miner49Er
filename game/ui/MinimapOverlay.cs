@@ -7,9 +7,12 @@ namespace Miner49er;
 public partial class MinimapOverlay : CanvasLayer
 {
 	private MapCanvas _canvas = null!;
+	private MatchClient? _client;
+	private int _lastFogVersion = -1;
 
 	public void Init(MatchClient client)
 	{
+		_client = client;
 		_canvas.Client = client;
 	}
 
@@ -22,7 +25,19 @@ public partial class MinimapOverlay : CanvasLayer
 		AddChild(_canvas);
 	}
 
-	public override void _Process(double delta) => _canvas.QueueRedraw();
+	public override void _Process(double delta)
+	{
+		// The minimap changes only when fog/position updates (FogVersion) — redraw then rather
+		// than every frame walking every explored tile. Exception: an active prize or treasure
+		// ping animates (pulse / carrier tracking), so keep redrawing while one is on the map.
+		bool animatedPing = _client is { PrizeEvent: not null }
+			|| _client is { Treasure.HolderId: >= 0 };
+		if (animatedPing || _client == null || _client.FogVersion != _lastFogVersion)
+		{
+			if (_client != null) _lastFogVersion = _client.FogVersion;
+			_canvas.QueueRedraw();
+		}
+	}
 
 	private partial class MapCanvas : Control
 	{

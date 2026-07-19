@@ -21,6 +21,32 @@ public class TileGridTests
     }
 
     [Fact]
+    public void New_grid_starts_at_version_zero()
+    {
+        var grid = new TileGrid(3, 3);
+        Assert.Equal(0, grid.Version);
+    }
+
+    [Fact]
+    public void Set_to_a_new_value_bumps_version()
+    {
+        var grid = new TileGrid(3, 3, TileType.Rock);
+        int before = grid.Version;
+        grid.Set(new GridPos(1, 1), TileType.Floor);
+        Assert.True(grid.Version > before, "changing a tile should bump Version");
+    }
+
+    [Fact]
+    public void Set_to_the_same_value_does_not_bump_version()
+    {
+        var grid = new TileGrid(3, 3, TileType.Rock);
+        grid.Set(new GridPos(1, 1), TileType.Floor);
+        int after = grid.Version;
+        grid.Set(new GridPos(1, 1), TileType.Floor); // no-op write
+        Assert.Equal(after, grid.Version);
+    }
+
+    [Fact]
     public void InBounds_rejects_outside_positions()
     {
         var grid = new TileGrid(3, 3);

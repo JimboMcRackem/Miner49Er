@@ -114,6 +114,10 @@ public partial class MatchClient : Node2D
 	private const int CrystalShardFloorRadius = 2;
 	private const int CrystalShardHeldRadius  = 3;
 	public bool FogDirty { get; private set; }
+	// Monotonic fog-change counter for multi-consumer renderers that can't share the single-use
+	// FogDirty flag (FogRenderer consumes it via ClearFogDirty). A consumer stores the last value
+	// it drew and redraws when it differs — no clear, so any number of renderers can watch it.
+	public int FogVersion { get; private set; }
 
 	// Random idle fidget state (local miner only)
 	private const int   IdleVariantCount  = 3;
@@ -926,6 +930,7 @@ public partial class MatchClient : Node2D
 
 			Fog.Update(visible);
 			FogDirty = true;
+			FogVersion++;
 		}
 	}
 
