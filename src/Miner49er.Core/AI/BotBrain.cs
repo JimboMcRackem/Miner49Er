@@ -90,6 +90,13 @@ public sealed class BotBrain
             }
         }
 
+        // Cart squash: Miner+ shove a handy cart to crush a monster instead of fleeing. Checked
+        // before the flee block so a bot that can squash does; otherwise it falls through and flees.
+        {
+            var squash = CartTactics.TrySquash(sim, miner, Skill);
+            if (squash != null) { _ticksUntilReeval = 0; return squash.Value; }
+        }
+
         // Monster avoidance: Miner+ flees monsters within 2 tiles
         if (Skill >= BotSkill.Miner)
         {

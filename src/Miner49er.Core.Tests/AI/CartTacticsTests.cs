@@ -81,4 +81,61 @@ public class CartTacticsTests
         Assert.True(pred.Derails);
         Assert.Equal(new GridPos(5, 5), pred.Tiles.Last());       // stops AT the lethal tile
     }
+
+    [Fact]
+    public void Squash_pushes_into_cart_when_on_the_push_tile()
+    {
+        var sim = MakeSim(railY: 5);
+        // rail east-west on row 5. Cart at x=8, slime at x=10 (east of cart). Bot at x=7 (push tile
+        // to shove the cart EAST). Expected: push east (Direction.East ordinal 1).
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        sim.AddMonster(1, new GridPos(10, 5), MonsterKind.Slime);
+        var bot = sim.AddMiner(3, new GridPos(7, 5));
+        var act = CartTactics.TrySquash(sim, bot, BotSkill.Miner);
+        Assert.NotNull(act);
+        Assert.Equal((int)Direction.East, act!.Value.Dir);
+        Assert.False(act.Value.Plant);
+    }
+
+    [Fact]
+    public void Squash_navigates_toward_push_tile_when_not_on_it()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        sim.AddMonster(1, new GridPos(10, 5), MonsterKind.Slime);
+        var bot = sim.AddMiner(3, new GridPos(5, 5));   // west of push tile (x=7); step east toward it
+        var act = CartTactics.TrySquash(sim, bot, BotSkill.Miner);
+        Assert.NotNull(act);
+        Assert.Equal((int)Direction.East, act!.Value.Dir);
+    }
+
+    [Fact]
+    public void Squash_skips_when_a_teammate_is_in_the_roll_path()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        sim.AddMonster(1, new GridPos(10, 5), MonsterKind.Slime);
+        sim.AddMiner(9, new GridPos(9, 5));             // teammate between cart and slime
+        var bot = sim.AddMiner(3, new GridPos(7, 5));
+        Assert.Null(CartTactics.TrySquash(sim, bot, BotSkill.Miner));
+    }
+
+    [Fact]
+    public void Squash_does_nothing_with_no_monster_near()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        var bot = sim.AddMiner(3, new GridPos(7, 5));
+        Assert.Null(CartTactics.TrySquash(sim, bot, BotSkill.Miner));
+    }
+
+    [Fact]
+    public void Squash_is_gated_off_for_greenhorn()
+    {
+        var sim = MakeSim(railY: 5);
+        sim.AddCart(new CartSpec(1, new GridPos(8, 5), Direction.East));
+        sim.AddMonster(1, new GridPos(10, 5), MonsterKind.Slime);
+        var bot = sim.AddMiner(3, new GridPos(7, 5));
+        Assert.Null(CartTactics.TrySquash(sim, bot, BotSkill.Greenhorn));
+    }
 }
