@@ -5,7 +5,7 @@ namespace Miner49er;
 public static class MinerVariants
 {
     public static readonly string[] Names =
-        { "Classic Miner", "Burly Prospector", "Gaunt Digger", "Grizzled Veteran", "Stout Matron", "Buxom Maiden" };
+        { "Classic Miner", "Burly Prospector", "Gaunt Digger", "Grizzled Veteran", "Stout Matron", "Plucky Pioneer" };
 
     // Asset subfolder for each variant; "" means the base res://assets/miners/ path.
     public static readonly string[] Slugs = { "", "burly", "gaunt", "veteran", "matron", "maiden" };
