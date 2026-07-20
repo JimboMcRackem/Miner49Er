@@ -380,7 +380,7 @@ public partial class MainMenu : Control
 		if (err != Error.Ok) { nm.ExpeditionResume = null; return; }
 		nm.StartMatch(GameMode.Expedition, 0,
 			save.Flood, save.Pits, save.CaveIns, save.Lava, 0.12f,
-			save.MapScale, startFloor: save.Floor);
+			save.MapScale, startFloor: save.Floor, seed: (int)save.Seed);
 	}
 
 	private void OnMatchStarting() => GetTree().ChangeSceneToFile("res://game/Main.tscn");

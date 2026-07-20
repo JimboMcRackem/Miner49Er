@@ -406,7 +406,7 @@ public partial class NetworkManager : Node
 		_matchClient = client;
 	}
 
-	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1, int blastRadius = 1, int visionRadius = 5, bool prizeEvents = false, int prizeFrequency = 1, bool treasureWinByCumulative = false, bool treasureRespawn = true)
+	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1, int blastRadius = 1, int visionRadius = 5, bool prizeEvents = false, int prizeFrequency = 1, bool treasureWinByCumulative = false, bool treasureRespawn = true, int? seed = null)
 	{
 		if (!IsHost) return;
 		// Host-only: the sim runs on the host, so this never needs to travel in the BeginMatch RPC.
@@ -416,9 +416,11 @@ public partial class NetworkManager : Node
 		MatchTreasureRespawn = treasureRespawn;
 		if (flooding && timeLimitSeconds <= 0) timeLimitSeconds = 60; // a flooded match needs a clock
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
-		int seed = System.Random.Shared.Next();
-		Rpc(nameof(BeginMatch), seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order, startFloor, blastRadius, visionRadius);
-		BeginMatch(seed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order, startFloor, blastRadius, visionRadius); // host applies locally too
+		// A resumed expedition passes its saved seed so the checkpoint floor regenerates identically;
+		// every other entry point leaves it null and gets a fresh random layout.
+		int matchSeed = seed ?? System.Random.Shared.Next();
+		Rpc(nameof(BeginMatch), matchSeed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order, startFloor, blastRadius, visionRadius);
+		BeginMatch(matchSeed, order.Length, (int)mode, timeLimitSeconds, flooding, pits, caveIns, lava, baseMoveSeconds, mapScale, (int)explosive, order, startFloor, blastRadius, visionRadius); // host applies locally too
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority)]
