@@ -139,7 +139,7 @@ public class SimulationSkeletonTests
     // ── SkeletonDino floor damage ─────────────────────────────────────────
 
     [Fact]
-    public void SkeletonDino_cracks_floor_tile_it_exits()
+    public void SkeletonDino_does_not_crush_solid_floor_it_walks_on()
     {
         var grid = MakeGrid();
         var sim = new Simulation(grid, SkeletonCfg());
@@ -152,8 +152,9 @@ public class SimulationSkeletonTests
         sim.Tick(0.1);   // wake tick
         sim.Tick(2.0);   // movement ticks
         var dinoPos = sim.Monsters.First().Pos;
+        // The dino walks over solid floor without crushing it: tiles it exits stay Floor.
         if (dinoPos != startPos)
-            Assert.Equal(TileType.Cracked, grid.Get(startPos));
+            Assert.Equal(TileType.Floor, grid.Get(startPos));
     }
 
     [Fact]

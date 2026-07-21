@@ -896,17 +896,14 @@ public sealed class Simulation
             MaulMiner(target, mo.Kind);
 
         if (mo.Kind == MonsterKind.SkeletonDino && mo.Alive)
-            DinoFloorDamage(mo, from);
+            DinoBrokenFloorDrop(mo);
     }
 
-    private void DinoFloorDamage(Monster dino, GridPos from)
+    // The heavy dino drops straight through any ALREADY-broken tile (Cracked or Crumbling):
+    // the tile becomes a Pit, the dino dies, and any miner sharing the tile is crushed. It does
+    // NOT crush solid floor — it only falls through floors broken by cave-ins, miners, etc.
+    private void DinoBrokenFloorDrop(Monster dino)
     {
-        if (Grid.InBounds(from) && Grid.Get(from) == TileType.Floor)
-        {
-            Grid.Set(from, TileType.Cracked);
-            _events.Add(new CrackWeakened(from));
-        }
-
         var landed = Grid.Get(dino.Pos);
         if (landed != TileType.Cracked && landed != TileType.Crumbling) return;
 
@@ -918,7 +915,8 @@ public sealed class Simulation
             if (m.Alive && m.Pos == dino.Pos) CollapseKill(m);
     }
 
-    // Ghosts float over cracks; the dino has its own (more destructive) floor damage.
+    // Ghosts float over cracks; the dino has its own broken-floor drop (see DinoBrokenFloorDrop),
+    // so neither uses the shared progressive crack-loading below.
     private static bool MonsterLoadsCracks(MonsterKind kind) =>
         kind != MonsterKind.Ghost && kind != MonsterKind.SkeletonDino;
 
