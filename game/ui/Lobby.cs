@@ -56,14 +56,16 @@ public partial class Lobby : Control
 		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor, savedBlast, savedVision, savedPrize, savedPrizeFreq, savedAdvanced, savedHeistWinBy, savedHeistRespawn) = SettingsStore.LoadLobby();
 
 		_modePicker = new OptionButton();
-		_modePicker.AddItem("Last Man Standing",  (int)GameMode.LastManStanding);
-		_modePicker.AddItem("Gold Rush",          (int)GameMode.GoldRush);
-		_modePicker.AddItem("Reach Center",       (int)GameMode.ReachCenter);
-		_modePicker.AddItem("Expedition",         (int)GameMode.Expedition);
-		_modePicker.AddItem("Treasure Hunt",      (int)GameMode.TreasureHunt);
+		// Listed alphabetically by display name; item ids stay the GameMode enum value,
+		// so persistence and every GetSelectedId() call are unaffected by the order.
 		_modePicker.AddItem("Demolition Derby",   (int)GameMode.DemolitionDerby);
+		_modePicker.AddItem("Expedition",         (int)GameMode.Expedition);
+		_modePicker.AddItem("Gold Rush",          (int)GameMode.GoldRush);
+		_modePicker.AddItem("Last Man Standing",  (int)GameMode.LastManStanding);
+		_modePicker.AddItem("Reach Center",       (int)GameMode.ReachCenter);
 		_modePicker.AddItem("Treasure Heist",     (int)GameMode.TreasureHeist);
-		_modePicker.Select(savedMode);
+		_modePicker.AddItem("Treasure Hunt",      (int)GameMode.TreasureHunt);
+		SelectById(_modePicker, savedMode);
 		_modePicker.Visible = NetworkManager.Instance.IsHost;
 		leftCol.AddChild(_modePicker);
 
