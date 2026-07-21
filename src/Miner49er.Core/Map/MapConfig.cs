@@ -84,7 +84,7 @@ public sealed class MapConfig
                                 int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite)
     {
         var cfg = new MapConfig { Seed = seed, PlayerCount = playerCount, Pits = pits, CaveIns = caveIns, Lava = lava };
-        cfg.MineCarts = mode == GameMode.Expedition;   // rails on exploration floors (incl. floor 1)
+        cfg.MineCarts = true;   // rails + carts seeded in every mode (probabilistic per floor)
         if (mode == GameMode.ReachCenter)
         {
             cfg.BaseWidth = 64;

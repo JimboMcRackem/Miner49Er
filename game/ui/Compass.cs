@@ -72,12 +72,26 @@ public partial class Compass : CanvasLayer
 
 	private float? ComputeExitAngle()
 	{
+		GridPos? self = null;
+		foreach (var m in _client.Miners)
+			if (m.Id == _client.LocalMinerId && m.Alive) { self = new GridPos(m.X, m.Y); break; }
+		if (self is null) return null;
+
+		var mode = NetworkManager.Instance.MatchMode;
 		GridPos? target;
-		if (NetworkManager.Instance.MatchMode == GameMode.TreasureHeist && _client.Treasure is { } t)
+		if (mode == GameMode.TreasureHeist && _client.Treasure is { } t)
 		{
 			// Treasure Heist: point at the treasure in all states (including buried) so players
 			// can navigate to dig it out, then track it once it's loose or carried.
 			target = new GridPos(t.X, t.Y);
+		}
+		else if (mode == GameMode.TreasureHunt)
+		{
+			// Point at the nearest of THIS player's two assigned idols still in the world
+			// (buried or loose). The assignment is deterministic from the match seed + miner id,
+			// so the client derives it locally with no extra network traffic.
+			var (a, b) = TreasureAssignment.For(NetworkManager.Instance.MatchSeed, _client.LocalMinerId);
+			target = TreasureHuntCompass.NearestIdolTarget(self.Value, a, b, _client.Items);
 		}
 		else
 		{
@@ -85,15 +99,9 @@ public partial class Compass : CanvasLayer
 			// then pivots to the exit once EscapeOpen (ExpeditionTreasurePos cleared on that transition).
 			target = _client.ExpeditionTreasurePos
 				// In ReachCenter the goal is the centre tile, not an escape ladder.
-				?? (NetworkManager.Instance.MatchMode == GameMode.ReachCenter
-					? _client.CenterTile
-					: _client.EscapeTile);
+				?? (mode == GameMode.ReachCenter ? _client.CenterTile : _client.EscapeTile);
 		}
-		if (target is not { } et) return null;
-		GridPos? self = null;
-		foreach (var m in _client.Miners)
-			if (m.Id == _client.LocalMinerId && m.Alive) { self = new GridPos(m.X, m.Y); break; }
-		if (self is null || (et.X == self.Value.X && et.Y == self.Value.Y)) return null;
+		if (target is not { } et || (et.X == self.Value.X && et.Y == self.Value.Y)) return null;
 		float dx = et.X - self.Value.X, dy = et.Y - self.Value.Y;
 		return Mathf.Atan2(dy, dx);
 	}
