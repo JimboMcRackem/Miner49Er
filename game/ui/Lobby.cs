@@ -345,17 +345,26 @@ public partial class Lobby : Control
 		_heistWinByPicker.Visible   = isHost && heist;
 		_heistRespawnPicker.Visible = isHost && heist;
 
+		// Treasure Heist is decided at the buzzer, so it must always have a clock:
+		// forbid "No Time Limit" and bump off it to a map-size-appropriate default.
+		_timePicker.SetItemDisabled(0, heist);
+		if (heist && _timePicker.GetSelectedId() == 0)
+			SelectById(_timePicker, SuggestedTimeSeconds());
+
 		_modeDesc.Text = ModeDescription(_modePicker.GetSelectedId());
+	}
+
+	// Map-size-appropriate round length in seconds (matches the _timePicker item ids).
+	private int SuggestedTimeSeconds()
+	{
+		int mapScale = _mapSizePicker.GetSelectedId();
+		return mapScale switch { 1 => 120, 2 => 180, 3 => 300, _ => 420 };
 	}
 
 	private void SuggestTimerForMapSize()
 	{
 		if (_timePicker.GetSelectedId() == 0) return; // "No Time Limit" — don't override user's choice
-		int mapScale = _mapSizePicker.GetSelectedId();
-		int suggested = mapScale switch { 1 => 120, 2 => 180, 3 => 300, _ => 420 };
-		int idx = Enumerable.Range(0, _timePicker.ItemCount)
-			.FirstOrDefault(i => _timePicker.GetItemId(i) == suggested, -1);
-		if (idx >= 0) _timePicker.Select(idx);
+		SelectById(_timePicker, SuggestedTimeSeconds());
 	}
 
 	private static string ModeDescription(int modeId) => (GameMode)modeId switch
