@@ -151,6 +151,49 @@ public class SimulationDetonatorTests
     }
 
     [Fact]
+    public void UnlimitedDetonators_regrants_detonator_after_detonating()
+    {
+        // Wide grid: rock column at x=9, miner at (8,2), retreat west to a safe distance.
+        var grid = new TileGrid(15, 5, TileType.Floor);
+        for (int y = 0; y < 5; y++) grid.Set(new GridPos(9, y), TileType.Rock);
+        var cfg = new SimConfig { PlantSeconds = 1.0, ReelSafeDistance = 3, ReelMaxLength = 20, UnlimitedDetonators = true };
+        var sim = new Simulation(grid, cfg);
+        var m = sim.AddMiner(1, new GridPos(8, 2));
+        sim.TryMove(1, Direction.East); // face east, blocked by rock at (9,2)
+        m.Held = ItemKind.Detonator;
+        sim.DrainEvents();
+
+        sim.TryUseItem(1);
+        sim.Tick(1.0); // plant at (9,2); now holds Reel
+        Walk(sim, 1, Direction.West, 4, cfg); // retreat to dist=5
+        sim.TryUseItem(1); // detonate
+
+        Assert.Empty(sim.ReelCharges);
+        Assert.Equal(ItemKind.Detonator, m.Held); // detonator replenished, not consumed
+    }
+
+    [Fact]
+    public void UnlimitedDetonators_regrants_detonator_when_wire_snaps()
+    {
+        var grid = new TileGrid(15, 5, TileType.Floor);
+        for (int y = 0; y < 5; y++) grid.Set(new GridPos(9, y), TileType.Rock);
+        var cfg = new SimConfig { PlantSeconds = 1.0, ReelSafeDistance = 3, ReelMaxLength = 4, UnlimitedDetonators = true };
+        var sim = new Simulation(grid, cfg);
+        var m = sim.AddMiner(1, new GridPos(8, 2));
+        sim.TryMove(1, Direction.East);
+        m.Held = ItemKind.Detonator;
+        sim.DrainEvents();
+
+        sim.TryUseItem(1);
+        sim.Tick(1.0); // plant at (9,2); dist=1
+        Walk(sim, 1, Direction.West, 5, cfg); // dist=6 > MaxLength=4 → wire snaps
+        sim.Tick(0.01);
+
+        Assert.Empty(sim.ReelCharges);
+        Assert.Equal(ItemKind.Detonator, m.Held); // detonator replenished after snap
+    }
+
+    [Fact]
     public void Detonation_kills_miner_in_blast_radius()
     {
         // Two miners: one plants detonator, one stands in blast zone.

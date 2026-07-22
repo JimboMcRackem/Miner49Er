@@ -145,6 +145,7 @@ public partial class Main : Node2D
 				BaseMoveSeconds  = nm.MatchBaseMoveSeconds,
 				Seed             = floorSeed,
 				DynamiteEnabled  = nm.MatchExplosive != ExplosiveMode.DetonatorsOnly,
+				UnlimitedDetonators = nm.MatchExplosive == ExplosiveMode.DetonatorsOnly,
 				TreasureHuntMode = nm.MatchMode == GameMode.TreasureHunt,
 				TripMinesEnabled = nm.MatchMode == GameMode.LastManStanding || nm.MatchMode == GameMode.DemolitionDerby
 					|| nm.MatchMode == GameMode.TreasureHeist,

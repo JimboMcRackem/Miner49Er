@@ -2218,7 +2218,7 @@ public sealed class Simulation
         if (rc == null) return false;
         if (m.Pos.ManhattanTo(rc.WallPos) < Config.ReelSafeDistance) return false;
         _reelCharges.Remove(rc);
-        m.Held = null;
+        m.Held = Config.UnlimitedDetonators ? ItemKind.Detonator : null;
         _events.Add(new ReelDetonated(m.Id, rc.WallPos));
         DetonateAt(rc.WallPos, rc.BlastBonus, rc.OwnerId);
         return true;
@@ -2317,7 +2317,8 @@ public sealed class Simulation
             if (m.Pos.ManhattanTo(rc.WallPos) > Config.ReelMaxLength)
             {
                 _reelCharges.RemoveAt(i);
-                if (m.Held == ItemKind.Reel) m.Held = null;
+                if (m.Held == ItemKind.Reel)
+                    m.Held = Config.UnlimitedDetonators ? ItemKind.Detonator : null;
                 _events.Add(new ReelSnapped(rc.OwnerId));
             }
         }

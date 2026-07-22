@@ -108,6 +108,9 @@ public sealed class SimConfig
     // When set, the escape opens when this idol is picked up (not on 50% gold).
     public ItemKind? ExpeditionTreasureKind { get; set; } = null;
     public bool DynamiteEnabled { get; set; } = true;
+    // Detonators-Only mode: the detonator is the miner's sole, permanent mining tool,
+    // so a fresh one is re-granted whenever the reel is spent (detonated or wire-snapped).
+    public bool UnlimitedDetonators { get; set; } = false;
     public bool TreasureHuntMode { get; set; } = false;
 
     // Treasure Heist: one buried treasure carried & held; winner decided by the treasure.
