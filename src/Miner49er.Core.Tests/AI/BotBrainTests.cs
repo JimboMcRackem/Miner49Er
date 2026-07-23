@@ -244,4 +244,128 @@ public class BotBrainTests
         for (int i = 0; i < 2000; i++)
             Assert.False(brain.Think(sim, GameMode.GoldRush).Listen);
     }
+
+    // ── LMS hunting ─────────────────────────────────────────────────────────
+
+    // Greenhorn stumbles toward a nearby rival in LMS (within its 8-tile leash),
+    // whereas in a non-hunting mode it would wander.
+    [Fact]
+    public void Greenhorn_hunts_a_nearby_rival_in_LMS()
+    {
+        var grid = new TileGrid(13, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(2, 1));  // bot
+        sim.AddMiner(2, new GridPos(6, 1));  // rival, 4 tiles east
+        var brain = new BotBrain(1, BotSkill.Greenhorn, seed: 7);
+
+        var action = brain.Think(sim, GameMode.LastManStanding);
+
+        Assert.Equal((int)Direction.East, action.Dir);
+    }
+
+    // A Miner pursues a rival that's within its 12-tile range.
+    [Fact]
+    public void Miner_pursues_a_rival_within_range_in_LMS()
+    {
+        var grid = new TileGrid(15, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(1, 1));   // bot
+        sim.AddMiner(2, new GridPos(11, 1));  // rival, 10 tiles east (within 12)
+        var brain = new BotBrain(1, BotSkill.Miner, seed: 0);
+
+        var action = brain.Think(sim, GameMode.LastManStanding);
+
+        Assert.Equal((int)Direction.East, action.Dir);
+    }
+
+    // A Miner ignores a rival beyond its 12-tile range and falls back to seeking gold.
+    [Fact]
+    public void Miner_ignores_a_distant_rival_and_seeks_gold_in_LMS()
+    {
+        // Bot at (14,1). Rival far west at (0,1) — Chebyshev 14, beyond the 12-tile leash.
+        // GoldRock just east at (16,1); the bot should head east toward gold, not west at the rival.
+        var grid = new TileGrid(20, 3, TileType.Floor);
+        grid.Set(new GridPos(16, 1), TileType.GoldRock);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(14, 1));
+        sim.AddMiner(2, new GridPos(0, 1));
+        var brain = new BotBrain(1, BotSkill.Miner, seed: 0);
+
+        var action = brain.Think(sim, GameMode.LastManStanding);
+
+        Assert.Equal((int)Direction.East, action.Dir);
+    }
+
+    // A Miner throws a stone at a rival within 2 tiles in LMS.
+    [Fact]
+    public void Miner_throws_a_stone_at_a_close_rival_in_LMS()
+    {
+        var grid = new TileGrid(9, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(2, 1));  // bot
+        sim.AddMiner(2, new GridPos(4, 1));  // rival, 2 tiles east
+        sim.AddStones(1, 3);
+        var brain = new BotBrain(1, BotSkill.Miner, seed: 0);
+
+        var action = brain.Think(sim, GameMode.LastManStanding);
+
+        Assert.True(action.Throw);
+    }
+
+    // A Foreman tracks a rival on the far side of the map (whole-map targeting) and
+    // digs toward it (passRock), stepping in the rival's direction.
+    [Fact]
+    public void Foreman_hunts_a_far_rival_across_the_map_in_LMS()
+    {
+        var grid = new TileGrid(30, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(1, 1));    // bot
+        sim.AddMiner(2, new GridPos(28, 1));   // rival, 27 tiles east
+        var brain = new BotBrain(1, BotSkill.Foreman, seed: 0);
+
+        var action = brain.Think(sim, GameMode.LastManStanding);
+
+        Assert.Equal((int)Direction.East, action.Dir);
+    }
+
+    // Dynamite Dan lobs dynamite at a rival standing in its facing line within throw range.
+    [Fact]
+    public void DynamiteDan_throws_dynamite_at_a_rival_in_line_in_LMS()
+    {
+        // Bot faces South by default; rival 3 tiles south, clear floor between.
+        var grid = new TileGrid(5, 8, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(2, 2));  // bot, facing South
+        sim.AddMiner(2, new GridPos(2, 5));  // rival, 3 tiles south
+        var brain = new BotBrain(1, BotSkill.DynamiteDan, seed: 0);
+
+        var action = brain.Think(sim, GameMode.LastManStanding);
+
+        Assert.True(action.ThrowDynamite);
+        Assert.Equal(-1, action.Dir); // stands and lobs
+    }
+
+    // In LMS a hunter presses an adjacent rival: it steps into the rival and swings
+    // (pickaxe stun). In a non-hunting mode (GoldRush) it never swings at the rival.
+    [Fact]
+    public void Hunter_swings_at_an_adjacent_rival_only_in_LMS()
+    {
+        static (int dir, bool mine) Act(GameMode mode)
+        {
+            var grid = new TileGrid(7, 3, TileType.Floor);
+            var sim = new Simulation(grid, new SimConfig());
+            sim.AddMiner(1, new GridPos(3, 1));  // bot
+            sim.AddMiner(2, new GridPos(4, 1));  // rival, adjacent east
+            var brain = new BotBrain(1, BotSkill.Miner, seed: 0);
+            var a = brain.Think(sim, mode);
+            return (a.Dir, a.Mine);
+        }
+
+        var lms = Act(GameMode.LastManStanding);
+        Assert.Equal((int)Direction.East, lms.dir); // steps into the rival
+        Assert.True(lms.mine);                       // pickaxe stun swing
+
+        // GoldRush is not a hunting mode — the bot never swings its pickaxe at the rival.
+        Assert.False(Act(GameMode.GoldRush).mine);
+    }
 }

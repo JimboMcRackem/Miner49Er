@@ -333,6 +333,7 @@ public partial class MatchHost : Node
 			if (action.Plant) _pendingPlant.Add(minerId);
 			if (action.Use)   _pendingUse.Add(minerId);
 			if (action.Throw) _pendingThrow.Add(minerId);
+			if (action.ThrowDynamite) _pendingThrowDynamite.Add(minerId);
 			if (action.Whistle)
 			{
 				WhistleBots();

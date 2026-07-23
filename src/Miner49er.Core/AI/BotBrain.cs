@@ -185,7 +185,8 @@ public sealed class BotBrain
 
         // Rival proximity (PvP, defensive): Miner+ flees when a rival is adjacent,
         // unless in a mode where this bot is already chasing rivals (handled by attack swing instead).
-        if (isPvP && Skill >= BotSkill.Miner && !derby && !(lms && Skill >= BotSkill.Foreman))
+        // In LMS every hunter presses the attack instead of backing off.
+        if (isPvP && Skill >= BotSkill.Miner && !derby && !lms)
         {
             var nearestRival = NearestRivalPos(sim, miner);
             if (nearestRival.HasValue && miner.Pos.ChebyshevTo(nearestRival.Value) <= 1)
@@ -269,6 +270,12 @@ public sealed class BotBrain
             }
         }
 
+        // Dan (LMS): bombard from range. If a rival sits in the current facing line ≥2 tiles
+        // out (self-preservation) and within throw range, lob dynamite instead of closing.
+        if (lms && Skill == BotSkill.DynamiteDan && sim.Config.DynamiteEnabled
+            && miner.DynamiteThrowCooldown <= 0 && RivalInThrowLine(sim, miner))
+            return new BotAction(-1, throwDynamite: true);
+
         if (_goal == null) return BotAction.Idle;
 
         bool passRock = Skill >= BotSkill.Foreman
@@ -306,7 +313,8 @@ public sealed class BotBrain
         }
 
         // Aggressive swing: Derby/LMS-pursuing bots swing (pickaxe stun) at a rival in the step direction.
-        bool aggressiveTowardRivals = isPvP && (derby || (lms && Skill >= BotSkill.Foreman)
+        // In LMS every tier swings — hunting is the whole point of the mode.
+        bool aggressiveTowardRivals = isPvP && (derby || lms
             || (mode == GameMode.TreasureHeist && sim.TreasureHolderId >= 0 && sim.TreasureHolderId != MinerId));
         if (aggressiveTowardRivals && !mine && sim.Grid.InBounds(nextPos) && RivalAt(sim, nextPos, miner.Id))
             mine = true;
@@ -321,10 +329,13 @@ public sealed class BotBrain
                 ? (Skill >= BotSkill.Foreman && NearestRivalDist(sim, miner) <= 2 && nextTile.IsMinable())
                     || (Skill == BotSkill.DynamiteDan && GoldClusterAdjacent(sim.Grid, miner.Pos))
                 : Skill == BotSkill.DynamiteDan && GoldClusterAdjacent(sim.Grid, miner.Pos);
-        bool throwStone = miner.StoneCount > 0 && NearestRivalDist(sim, miner) <= 2
-                          && (derby ? Skill >= BotSkill.Miner : Skill == BotSkill.DynamiteDan
-                              || (mode == GameMode.TreasureHeist && Skill >= BotSkill.Miner
-                                  && sim.TreasureHolderId >= 0 && sim.TreasureHolderId != MinerId));
+        bool rivalInStoneRange = miner.StoneCount > 0 && NearestRivalDist(sim, miner) <= 2;
+        bool throwStone = rivalInStoneRange && (
+            derby ? Skill >= BotSkill.Miner
+            : lms ? Skill >= BotSkill.Miner
+            : Skill == BotSkill.DynamiteDan
+              || (mode == GameMode.TreasureHeist && Skill >= BotSkill.Miner
+                  && sim.TreasureHolderId >= 0 && sim.TreasureHolderId != MinerId));
 
         return new BotAction(dir, mine, plant, throwStone: throwStone);
     }
@@ -338,11 +349,21 @@ public sealed class BotBrain
             return esc;
 
         if (mode == GameMode.DemolitionDerby) return DerbyGoal(sim, miner);
-        if (mode == GameMode.LastManStanding && Skill >= BotSkill.Foreman)
+        if (mode == GameMode.LastManStanding)
         {
+            // LMS is won by being the last miner alive, so gold is irrelevant — hunt rivals.
+            // Pursuit range scales with skill: Greenhorn only stumbles toward nearby rivals,
+            // Miner tracks at mid-range, Foreman/Dan lock on across the whole map.
+            int huntRange = Skill switch
+            {
+                BotSkill.Greenhorn => 8,
+                BotSkill.Miner     => 12,
+                _ => int.MaxValue, // Foreman/Dan: map-wide
+            };
             var nearest = NearestRivalPos(sim, miner);
-            if (nearest.HasValue && miner.Pos.ChebyshevTo(nearest.Value) <= 6)
+            if (nearest.HasValue && miner.Pos.ChebyshevTo(nearest.Value) <= huntRange)
                 return nearest;
+            // No rival in range — fall through to the skill's default (wander / gold).
         }
         return Skill switch
         {
@@ -465,6 +486,21 @@ public sealed class BotBrain
     {
         foreach (var m in sim.Miners)
             if (m.Id != selfId && m.Alive && m.Pos == pos) return true;
+        return false;
+    }
+
+    // True if a living rival stands in the bot's current facing line, at least 2 tiles out
+    // (so a lobbed stick doesn't land on the thrower) and within throw range, with only
+    // enterable tiles in between (a wall blocks the lob).
+    private static bool RivalInThrowLine(Simulation sim, Miner miner)
+    {
+        var off = miner.Facing.ToOffset();
+        for (int i = 1; i <= sim.Config.ThrownDynamiteRange; i++)
+        {
+            var p = new GridPos(miner.Pos.X + off.X * i, miner.Pos.Y + off.Y * i);
+            if (!sim.Grid.InBounds(p) || !sim.Grid.Get(p).IsEnterable()) break;
+            if (i >= 2 && RivalAt(sim, p, miner.Id)) return true;
+        }
         return false;
     }
 
