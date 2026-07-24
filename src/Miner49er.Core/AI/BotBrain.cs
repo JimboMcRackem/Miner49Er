@@ -189,7 +189,9 @@ public sealed class BotBrain
         if (isPvP && Skill >= BotSkill.Miner && !derby && !lms)
         {
             var nearestRival = NearestRivalPos(sim, miner);
-            if (nearestRival.HasValue && miner.Pos.ChebyshevTo(nearestRival.Value) <= 1)
+            // Don't flee a rival that's banking a prize — press in to contest (stun) it instead.
+            if (nearestRival.HasValue && miner.Pos.ChebyshevTo(nearestRival.Value) <= 1
+                && !RivalIsPrizeClaimant(sim, nearestRival.Value, miner.Id))
             {
                 var fleeTarget = FleeFrom(sim.Grid, miner.Pos, nearestRival.Value);
                 if (fleeTarget != null)
@@ -224,6 +226,13 @@ public sealed class BotBrain
                 return new BotAction(-1, listen: true);
             }
         }
+
+        // Prize event (competitive modes): divert to seek/contest an active prize. Runs after
+        // every hazard-flee block (never walk into a fuse for a coin) but before the treasure
+        // carry logic, so an idol/urn carrier's own objective still wins. Reassigns the goal
+        // every tick because CarryRelic rides its carrier.
+        var prizeGoal = PrizeGoal(sim, mode, miner);
+        if (prizeGoal.HasValue) { _goal = prizeGoal; _ticksUntilReeval = 0; }
 
         // Treasure Hunt: place chest, pick up idol, navigate to deposit.
         if (mode == GameMode.TreasureHunt)
@@ -270,9 +279,9 @@ public sealed class BotBrain
             }
         }
 
-        // Dan (LMS): bombard from range. If a rival sits in the current facing line ≥2 tiles
-        // out (self-preservation) and within throw range, lob dynamite instead of closing.
-        if (lms && Skill == BotSkill.DynamiteDan && sim.Config.DynamiteEnabled
+        // Dan (LMS / Derby): bombard from range. If a rival sits in the current facing line ≥2
+        // tiles out (self-preservation) and within throw range, lob dynamite instead of closing.
+        if ((lms || derby) && Skill == BotSkill.DynamiteDan && sim.Config.DynamiteEnabled
             && miner.DynamiteThrowCooldown <= 0 && RivalInThrowLine(sim, miner))
             return new BotAction(-1, throwDynamite: true);
 
@@ -317,6 +326,13 @@ public sealed class BotBrain
         bool aggressiveTowardRivals = isPvP && (derby || lms
             || (mode == GameMode.TreasureHeist && sim.TreasureHolderId >= 0 && sim.TreasureHolderId != MinerId));
         if (aggressiveTowardRivals && !mine && sim.Grid.InBounds(nextPos) && RivalAt(sim, nextPos, miner.Id))
+            mine = true;
+
+        // Prize contest (even in non-combat modes): Miner+ swing at the specific rival banking a
+        // claim-over-time prize (MineOut/HoldPoint/CarryRelic set PrizeHolderId). A stun resets
+        // their progress / drops the relic. Narrow: only the holder, never bystanders.
+        if (!mine && Skill >= BotSkill.Miner && sim.Grid.InBounds(nextPos)
+            && RivalIsPrizeClaimant(sim, nextPos, miner.Id))
             mine = true;
 
         // Hold the current goal while actively mining so the bot doesn't drift mid-swing
@@ -501,6 +517,38 @@ public sealed class BotBrain
             if (!sim.Grid.InBounds(p) || !sim.Grid.Get(p).IsEnterable()) break;
             if (i >= 2 && RivalAt(sim, p, miner.Id)) return true;
         }
+        return false;
+    }
+
+    // Where a prize-seeking bot should head, or null if there's no active prize worth chasing.
+    // CarryRelic: if I'm the holder, bank it at my spawn; otherwise (and for every other type)
+    // head for the prize tile (which rides the carrier for an already-grabbed relic). Commitment
+    // range scales with skill so lower tiers only notice a prize that's close.
+    private GridPos? PrizeGoal(Simulation sim, GameMode mode, Miner miner)
+    {
+        if (mode == GameMode.Expedition || sim.PrizeState != PrizeState.Active) return null;
+
+        // Carrying the relic home is a committed objective — pursue it regardless of range.
+        if (sim.PrizeType == PrizeType.CarryRelic && sim.PrizeHolderId == miner.Id)
+            return miner.SpawnPos;
+
+        int commitRange = Skill switch
+        {
+            BotSkill.Greenhorn => 8,
+            BotSkill.Miner     => 14,
+            _ => int.MaxValue, // Foreman/Dan: map-wide
+        };
+        return miner.Pos.ChebyshevTo(sim.PrizePos) <= commitRange ? sim.PrizePos : null;
+    }
+
+    // True if the rival at pos is the one currently banking a claim-over-time prize
+    // (MineOut/HoldPoint/CarryRelic populate PrizeHolderId; GrabAndGo is instant and never does).
+    private static bool RivalIsPrizeClaimant(Simulation sim, GridPos pos, int selfId)
+    {
+        if (sim.PrizeState != PrizeState.Active || sim.PrizeHolderId < 0 || sim.PrizeHolderId == selfId)
+            return false;
+        foreach (var m in sim.Miners)
+            if (m.Id != selfId && m.Alive && m.Pos == pos && m.Id == sim.PrizeHolderId) return true;
         return false;
     }
 

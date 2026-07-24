@@ -347,6 +347,9 @@ public sealed class Simulation
     internal void SetMinerPositionForTest(int id, GridPos p)
     { if (_miners.TryGetValue(id, out var m)) m.Pos = p; }
 
+    /// <summary>Test-only: set the current prize's holder/claimant id.</summary>
+    internal void SetPrizeHolderForTest(int id) => _prizeHolderId = id;
+
     /// <summary>Test-only: force a miner's facing direction.</summary>
     internal void SetFacingForTest(int id, Direction dir)
     { if (_miners.TryGetValue(id, out var m)) m.Facing = dir; }

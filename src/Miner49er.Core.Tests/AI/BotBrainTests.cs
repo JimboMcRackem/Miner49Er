@@ -368,4 +368,131 @@ public class BotBrainTests
         // GoldRush is not a hunting mode — the bot never swings its pickaxe at the rival.
         Assert.False(Act(GameMode.GoldRush).mine);
     }
+
+    // A Foreman locks onto an active prize on the far side of the map and digs toward it.
+    [Fact]
+    public void Foreman_seeks_a_GrabAndGo_prize_across_the_map()
+    {
+        var grid = new TileGrid(30, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(1, 1));              // bot
+        sim.ForcePrizeForTest(PrizeType.GrabAndGo, new GridPos(28, 1));
+        var brain = new BotBrain(1, BotSkill.Foreman, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GoldRush);
+
+        Assert.Equal((int)Direction.East, action.Dir);
+    }
+
+    // A Miner within commit range (≤14) diverts from gold to a MineOut prize.
+    [Fact]
+    public void Miner_seeks_a_nearby_prize()
+    {
+        var grid = new TileGrid(20, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(2, 1));              // bot
+        sim.ForcePrizeForTest(PrizeType.MineOut, new GridPos(12, 1)); // 10 tiles east
+        var brain = new BotBrain(1, BotSkill.Miner, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GoldRush);
+
+        Assert.Equal((int)Direction.East, action.Dir);
+    }
+
+    // A distant prize (>14 for a Miner) is ignored — the bot keeps mining nearby gold.
+    [Fact]
+    public void Miner_ignores_a_distant_prize()
+    {
+        var grid = new TileGrid(40, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(5, 1));              // bot
+        sim.Grid.Set(new GridPos(2, 1), TileType.GoldRock); // gold 3 tiles west
+        sim.ForcePrizeForTest(PrizeType.GrabAndGo, new GridPos(39, 1)); // prize 34 tiles east
+        var brain = new BotBrain(1, BotSkill.Miner, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GoldRush);
+
+        Assert.Equal((int)Direction.West, action.Dir); // toward gold, not the far prize
+    }
+
+    // Greenhorn only commits to a prize that's close (≤8 tiles).
+    [Fact]
+    public void Greenhorn_seeks_a_close_prize()
+    {
+        var grid = new TileGrid(12, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(2, 1));              // bot
+        sim.ForcePrizeForTest(PrizeType.GrabAndGo, new GridPos(7, 1)); // 5 tiles east
+        var brain = new BotBrain(1, BotSkill.Greenhorn, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GoldRush);
+
+        Assert.Equal((int)Direction.East, action.Dir);
+    }
+
+    // Holding the relic, a bot routes home to its spawn to bank it.
+    [Fact]
+    public void CarryRelic_holder_heads_home()
+    {
+        var grid = new TileGrid(12, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(2, 1));              // bot: SpawnPos = (2,1)
+        sim.SetMinerPositionForTest(1, new GridPos(8, 1)); // now standing east
+        sim.ForcePrizeForTest(PrizeType.CarryRelic, new GridPos(8, 1));
+        sim.SetPrizeHolderForTest(1);                   // bot is the carrier
+        var brain = new BotBrain(1, BotSkill.Foreman, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GoldRush);
+
+        Assert.Equal((int)Direction.West, action.Dir); // heads back toward spawn (2,1)
+    }
+
+    // In a non-combat mode a Miner+ swings at the specific rival banking the prize.
+    [Fact]
+    public void Miner_swings_at_a_rival_banking_the_prize_in_GoldRush()
+    {
+        var grid = new TileGrid(7, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(3, 1));              // bot
+        sim.AddMiner(2, new GridPos(4, 1));             // rival, adjacent east
+        sim.ForcePrizeForTest(PrizeType.MineOut, new GridPos(4, 1)); // rival stands on it
+        sim.SetPrizeHolderForTest(2);                   // rival is channeling the claim
+        var brain = new BotBrain(1, BotSkill.Miner, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GoldRush);
+
+        Assert.Equal((int)Direction.East, action.Dir); // steps in to contest
+        Assert.True(action.Mine);                       // pickaxe stun resets their channel
+    }
+
+    // Control: with no prize, a GoldRush Miner does not swing at an adjacent rival (it stays
+    // defensive — the contest swing must not over-fire on ordinary bystanders).
+    [Fact]
+    public void Miner_does_not_swing_at_a_bystander_rival_in_GoldRush()
+    {
+        var grid = new TileGrid(7, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(3, 1));              // bot
+        sim.AddMiner(2, new GridPos(4, 1));             // rival, adjacent east, not a claimant
+        var brain = new BotBrain(1, BotSkill.Miner, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GoldRush);
+
+        Assert.False(action.Mine);
+    }
+
+    // Dynamite Dan bombards a rival in its facing line in Demolition Derby (same as LMS).
+    [Fact]
+    public void DynamiteDan_throws_dynamite_at_a_rival_in_line_in_Derby()
+    {
+        var grid = new TileGrid(5, 8, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(2, 2));  // bot, facing South by default
+        sim.AddMiner(2, new GridPos(2, 5));  // rival, 3 tiles south
+        var brain = new BotBrain(1, BotSkill.DynamiteDan, seed: 0);
+
+        var action = brain.Think(sim, GameMode.DemolitionDerby);
+
+        Assert.True(action.ThrowDynamite);
+    }
 }
