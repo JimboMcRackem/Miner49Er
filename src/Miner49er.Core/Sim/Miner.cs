@@ -11,6 +11,7 @@ public sealed class Miner
     public bool Alive { get; internal set; } = true;
     public DeathCause DeathCause { get; internal set; } = DeathCause.None;
     public int GoldCollected { get; internal set; }
+    public int Kills { get; internal set; }   // rivals eliminated by this miner's explosives (PvP scoring)
 
     public ItemKind? Held { get; internal set; }   // null = empty hand (1-slot inventory)
 

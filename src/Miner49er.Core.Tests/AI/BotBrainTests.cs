@@ -495,4 +495,35 @@ public class BotBrainTests
 
         Assert.True(action.ThrowDynamite);
     }
+
+    // Grudge Match is a deathmatch — a bot presses an adjacent rival and swings, like Derby.
+    [Fact]
+    public void Grudge_bot_hunts_and_swings_at_an_adjacent_rival()
+    {
+        var grid = new TileGrid(7, 3, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(3, 1));  // bot
+        sim.AddMiner(2, new GridPos(4, 1));  // rival, adjacent east
+        var brain = new BotBrain(1, BotSkill.Miner, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GrudgeMatch);
+
+        Assert.Equal((int)Direction.East, action.Dir); // steps into the rival
+        Assert.True(action.Mine);                       // pickaxe stun swing
+    }
+
+    // Dynamite Dan bombards a rival in its facing line in Grudge Match too.
+    [Fact]
+    public void DynamiteDan_throws_dynamite_at_a_rival_in_line_in_Grudge()
+    {
+        var grid = new TileGrid(5, 8, TileType.Floor);
+        var sim = MakeSim(grid);
+        sim.AddMiner(1, new GridPos(2, 2));  // bot, facing South by default
+        sim.AddMiner(2, new GridPos(2, 5));  // rival, 3 tiles south
+        var brain = new BotBrain(1, BotSkill.DynamiteDan, seed: 0);
+
+        var action = brain.Think(sim, GameMode.GrudgeMatch);
+
+        Assert.True(action.ThrowDynamite);
+    }
 }

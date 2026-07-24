@@ -370,10 +370,10 @@ public partial class MatchHost : Node
 
 		// With bots: end when all human miners are dead and no human respawns are pending.
 		// Prevents bots-only fights continuing after every human is eliminated.
-		// Treasure Heist is excluded: its respawns run through the sim (AdvanceRespawns, not
-		// _coopRespawnTimers) and the treasure — not survivor count — always decides the winner,
-		// so the round must fall through to RoundResolver.Resolve in both respawn sub-modes.
-		if (_botBrains.Count > 0 && _humanMinerIds.Count > 0 && nm.MatchMode != GameMode.TreasureHeist)
+		// Treasure Heist and Grudge Match are excluded: their respawns run through the sim
+		// (AdvanceRespawns, not _coopRespawnTimers) and the clock — not survivor count —
+		// decides the winner, so the round must fall through to RoundResolver.Resolve.
+		if (_botBrains.Count > 0 && _humanMinerIds.Count > 0 && nm.MatchMode != GameMode.TreasureHeist && nm.MatchMode != GameMode.GrudgeMatch)
 		{
 			bool anyHumanAlive         = _humanMinerIds.Any(mid => _sim.GetMiner(mid).Alive);
 			bool anyHumanRespawnPending = _humanMinerIds.Any(mid => _coopRespawnTimers.ContainsKey(mid));

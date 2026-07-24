@@ -442,7 +442,7 @@ public partial class Main : Node2D
 					}
 					else if (NetworkManager.Instance.MatchMode == GameMode.DemolitionDerby)
 					{
-						_hud.SetHud(0, "Demolition Derby", $"{status}{heldStr}");
+						_hud.SetHud(0, $"Demolition Derby — Kills: {m.Kills}", $"{status}{timeStr}{heldStr}");
 					}
 					else if (NetworkManager.Instance.MatchMode == GameMode.TreasureHeist)
 					{
@@ -479,7 +479,15 @@ public partial class Main : Node2D
 					}
 					else
 					{
-						_hud.SetHud(0, $"Gold: {m.Gold}", $"{status}{timeStr}{heldStr}{stonesStr}");
+						string fallbackObjective = NetworkManager.Instance.MatchMode switch
+						{
+							GameMode.LastManStanding => $"Last Man Standing — Kills: {m.Kills}",
+							GameMode.GrudgeMatch => localAlive
+								? $"Grudge Match — Kills: {m.Kills}"
+								: $"Respawning… — Kills: {m.Kills}",
+							_ => $"Gold: {m.Gold}",
+						};
+						_hud.SetHud(0, fallbackObjective, $"{status}{timeStr}{heldStr}{stonesStr}");
 					}
 
 					// Timer urgency: flash red when under 30 s.

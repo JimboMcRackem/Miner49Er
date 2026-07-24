@@ -78,7 +78,7 @@ public sealed class Simulation
             : 0.0;
     public double  HoldSecondsOf(int minerId) => _holdSeconds.GetValueOrDefault(minerId);
     public bool    WinByCumulative() => Config.TreasureWinByCumulative;
-    public bool    RespawnEnabled    => Config.TreasureRespawnEnabled;
+    public bool    RespawnEnabled    => Config.TreasureRespawnEnabled || Config.Mode == GameMode.GrudgeMatch;
 
     internal void ForceTreasureLooseForTest(GridPos pos)
     {
@@ -1417,6 +1417,7 @@ public sealed class Simulation
                     BuffTuning.SpeedMagnitude, BuffTuning.SpeedSeconds);
                 break;
             case GameMode.DemolitionDerby:
+            case GameMode.GrudgeMatch:
                 // Combat loadout: extra throwing stones + a bigger blast.
                 AddStones(minerId, 3);
                 ApplyEffect(minerId, EffectKind.BiggerBlast, EffectChannel.BlastRadius,
@@ -1603,6 +1604,7 @@ public sealed class Simulation
         AdvanceCooldowns(dt);
         AdvancePrizeEvent(dt);
         AdvanceTreasureHeist(dt);
+        if (Config.Mode == GameMode.GrudgeMatch) AdvanceRespawns(dt); // infinite lives deathmatch
         AdvancePortals(dt);
         AdvanceCracks(dt);
         AdvanceLava(dt);
@@ -2105,6 +2107,9 @@ public sealed class Simulation
                 m.Alive = false;
                 m.Activity = ActivityKind.None;
                 m.DeathCause = DeathCause.Exploded;
+                // Credit a PvP kill to the blast's owner (not for blowing yourself up).
+                if (m.Id != ownerId && _miners.TryGetValue(ownerId, out var killer))
+                    killer.Kills++;
                 _events.Add(new MinerKilled(m.Id));
             }
         }

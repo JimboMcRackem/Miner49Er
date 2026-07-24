@@ -135,6 +135,21 @@ public sealed class MapConfig
             cfg.ChestCount       = 0;
             cfg.DecoyCount       = 0;
         }
+        if (mode == GameMode.GrudgeMatch)
+        {
+            // A deathmatch arena: strip the loot (like Derby) and open the map right up so
+            // it's mostly floor broken by scattered rock cover to plant charges in / dodge behind.
+            cfg.GoldVeinCount    = 0;
+            cfg.BaseItemCount    = 0;
+            cfg.VisibleItemCount = 0;
+            cfg.WaterPlankCount  = 0;
+            cfg.SlowMoldCount    = 0;
+            cfg.LanternCount     = 0;
+            cfg.ChestCount       = 0;
+            cfg.DecoyCount       = 0;
+            cfg.InitialFloorChance = 0.60f; // open arena (base is 0.45) — big floor, scattered clumps
+            cfg.StonePileCount     = 10;    // generous throwables so every tier has a kill/stun tool
+        }
         cfg.DetonatorCount = explosive == ExplosiveMode.Dynamite ? 0 : playerCount;
         return cfg;
     }

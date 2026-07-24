@@ -48,6 +48,12 @@ public static class RoundResolver
         if (mode == GameMode.TreasureHeist)
             return ResolveTreasureHeist(sim);
 
+        // Grudge Match: infinite respawns make "all dead" transient, so it is never decided by
+        // last-man-standing — only by most kills when the clock runs out. Resolved before the
+        // universal rule for that reason.
+        if (mode == GameMode.GrudgeMatch)
+            return sim.TimeExpired ? MostKillsResult(sim.Miners.ToList()) : RoundResult.Ongoing();
+
         // Universal last-man-standing.
         if (alive.Count <= 1)
             return alive.Count == 1
@@ -61,6 +67,8 @@ public static class RoundResolver
                 => RoundResult.Win(sim.FirstToReachCenter),
             GameMode.GoldRush when sim.TimeExpired
                 => GoldRushResult(alive),
+            GameMode.DemolitionDerby when sim.TimeExpired
+                => MostKillsResult(alive),
             GameMode.TreasureHunt when sim.TreasureWinner() >= 0
                 => RoundResult.Win(sim.TreasureWinner()),
             GameMode.TreasureHunt when sim.TreasureHuntUnwinnable()
@@ -85,6 +93,17 @@ public static class RoundResolver
         int max = alive.Max(m => m.GoldCollected);
         var leaders = alive.Where(m => m.GoldCollected == max).ToList();
         return leaders.Count == 1 ? leaders[0].Id : -1;
+    }
+
+    // At the buzzer, the sole miner with the most kills wins; a tie for the lead (including
+    // everyone on zero) is a draw. Shared by timed Demolition Derby and Grudge Match.
+    private static RoundResult MostKillsResult(List<Miner> contenders)
+    {
+        if (contenders.Count == 0) return RoundResult.Loss(RoundEndReason.Tie);
+        int max = contenders.Max(m => m.Kills);
+        var leaders = contenders.Where(m => m.Kills == max).ToList();
+        return leaders.Count == 1 ? RoundResult.Win(leaders[0].Id)
+                                  : RoundResult.Loss(RoundEndReason.Tie);
     }
 
     private static RoundResult ResolveTreasureHeist(Simulation sim)

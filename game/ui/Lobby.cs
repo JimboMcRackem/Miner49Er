@@ -61,6 +61,7 @@ public partial class Lobby : Control
 		_modePicker.AddItem("Demolition Derby",   (int)GameMode.DemolitionDerby);
 		_modePicker.AddItem("Expedition",         (int)GameMode.Expedition);
 		_modePicker.AddItem("Gold Rush",          (int)GameMode.GoldRush);
+		_modePicker.AddItem("Grudge Match",       (int)GameMode.GrudgeMatch);
 		_modePicker.AddItem("Last Man Standing",  (int)GameMode.LastManStanding);
 		_modePicker.AddItem("Reach Center",       (int)GameMode.ReachCenter);
 		_modePicker.AddItem("Treasure Heist",     (int)GameMode.TreasureHeist);
@@ -267,9 +268,11 @@ public partial class Lobby : Control
 			bool expedition = _modePicker.GetSelectedId() == (int)GameMode.Expedition;
 			bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
 			bool derby      = _modePicker.GetSelectedId() == (int)GameMode.DemolitionDerby;
+			bool grudge     = _modePicker.GetSelectedId() == (int)GameMode.GrudgeMatch;
 			int mapScale   = _mapSizePicker.GetSelectedId();
-			int explosive  = (expedition || treasure || derby) ? 0 : _explosivePicker.GetSelectedId();
-			int timeLimit  = (expedition || treasure || derby) ? 0 : _timePicker.GetSelectedId();
+			int explosive  = (expedition || treasure || derby || grudge) ? 0 : _explosivePicker.GetSelectedId();
+			// Derby & Grudge carry the picker's clock (Derby 0 = untimed last-man-standing; Grudge is forced timed).
+			int timeLimit  = (expedition || treasure) ? 0 : _timePicker.GetSelectedId();
 			int startFloor = expedition ? (int)_startFloorPicker.Value : 1;
 			int blastRadius  = _explosionSizePicker.GetSelectedId();
 			int visionRadius = _visionPicker.GetSelectedId();
@@ -336,21 +339,24 @@ public partial class Lobby : Control
 		bool treasure   = _modePicker.GetSelectedId() == (int)GameMode.TreasureHunt;
 		bool derby      = _modePicker.GetSelectedId() == (int)GameMode.DemolitionDerby;
 		bool heist      = _modePicker.GetSelectedId() == (int)GameMode.TreasureHeist;
+		bool grudge     = _modePicker.GetSelectedId() == (int)GameMode.GrudgeMatch;
 		bool normalMode = !expedition && !treasure && !derby;
+		bool alwaysTimed = heist || grudge; // decided at the buzzer — must carry a clock
 		_advancedBox.Visible       = isHost && _advancedToggle.ButtonPressed;
-		_timePicker.Visible        = isHost && normalMode;
+		// Derby and Grudge now carry a clock too (Derby's is optional; Grudge's is mandatory).
+		_timePicker.Visible        = isHost && (normalMode || derby);
 		_mapSizePicker.Visible     = isHost;
 		_startFloorPicker.Visible  = isHost && expedition;
-		_explosivePicker.Visible   = isHost && normalMode;
+		_explosivePicker.Visible   = isHost && normalMode && !grudge; // Grudge forces Dynamite
 		_prizeCheck.Visible        = isHost && !expedition; // competitive only
 		_prizeFreqPicker.Visible   = isHost && !expedition;
 		_heistWinByPicker.Visible   = isHost && heist;
 		_heistRespawnPicker.Visible = isHost && heist;
 
-		// Treasure Heist is decided at the buzzer, so it must always have a clock:
+		// Buzzer-decided modes (Treasure Heist, Grudge Match) must always have a clock:
 		// forbid "No Time Limit" and bump off it to a map-size-appropriate default.
-		_timePicker.SetItemDisabled(0, heist);
-		if (heist && _timePicker.GetSelectedId() == 0)
+		_timePicker.SetItemDisabled(0, alwaysTimed);
+		if (alwaysTimed && _timePicker.GetSelectedId() == 0)
 			SelectById(_timePicker, SuggestedTimeSeconds());
 
 		_modeDesc.Text = ModeDescription(_modePicker.GetSelectedId());
@@ -378,6 +384,7 @@ public partial class Lobby : Control
 		GameMode.TreasureHunt    => "Someone moved the idols. Centuries-old relics, scattered through the dark by hands unknown — and your buyer wants two specific ones. You've got the descriptions, you've got a chest, and you've got competition. First to seal their haul wins.",
 		GameMode.DemolitionDerby => "No gold. No mercy. Just dynamite and bad intentions. Every miner starts with unlimited charges and one objective: be the last one breathing. Blow through walls, chase rivals into dead ends, and don't stand next to anything that's about to explode.",
 		GameMode.TreasureHeist   => "Grab the buried treasure and hold it when the clock runs out — stone rivals to make them drop it.",
+		GameMode.GrudgeMatch     => "An open arena, infinite lives, and a grudge to settle. Respawn, rearm, and get back in it — the only thing that counts is the body count. Rack up the most kills before the clock runs out and the win is yours.",
 		_                        => "",
 	};
 
@@ -398,6 +405,7 @@ public partial class Lobby : Control
 		GameMode.TreasureHunt    => "Treasure Hunt",
 		GameMode.DemolitionDerby => "Demolition Derby",
 		GameMode.TreasureHeist   => "Treasure Heist",
+		GameMode.GrudgeMatch     => "Grudge Match",
 		_                        => "Unknown",
 	};
 

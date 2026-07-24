@@ -70,9 +70,15 @@ public partial class ScoreboardOverlay : CanvasLayer
 			miners.Add((m, name, colorIdx));
 		}
 
+		bool killMode = mode is GameMode.GrudgeMatch or GameMode.DemolitionDerby or GameMode.LastManStanding;
 		miners.Sort((a, b) =>
 		{
-			// Alive players above dead.
+			// Combat modes rank by kills first; others by gold, always with alive above dead.
+			if (killMode)
+			{
+				int byKills = b.snap.Kills.CompareTo(a.snap.Kills);
+				if (byKills != 0) return byKills;
+			}
 			if (a.snap.Alive != b.snap.Alive) return b.snap.Alive.CompareTo(a.snap.Alive);
 			return b.snap.Gold.CompareTo(a.snap.Gold);
 		});
@@ -102,7 +108,9 @@ public partial class ScoreboardOverlay : CanvasLayer
 			string scoreStr = mode switch
 			{
 				GameMode.TreasureHunt => TreasureScore(snap),
-				GameMode.LastManStanding or GameMode.DemolitionDerby => snap.Alive ? "Alive" : "Dead",
+				GameMode.GrudgeMatch => $"{snap.Kills} kills",
+				GameMode.LastManStanding or GameMode.DemolitionDerby
+					=> $"{snap.Kills} kills · {(snap.Alive ? "Alive" : "Dead")}",
 				_ => $"{snap.Gold}g",
 			};
 

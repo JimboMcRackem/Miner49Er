@@ -415,7 +415,8 @@ public partial class NetworkManager : Node
 		MatchTreasureWinByCumulative = treasureWinByCumulative;
 		MatchTreasureRespawn = treasureRespawn;
 		if (flooding && timeLimitSeconds <= 0) timeLimitSeconds = 60; // a flooded match needs a clock
-		if (mode == GameMode.TreasureHeist && timeLimitSeconds <= 0) timeLimitSeconds = 180; // Heist is decided at the buzzer — always needs a clock
+		// Buzzer-decided modes always need a clock (safety net if a client somehow sends 0).
+		if ((mode == GameMode.TreasureHeist || mode == GameMode.GrudgeMatch) && timeLimitSeconds <= 0) timeLimitSeconds = 180;
 		var order = Players.Keys.ToArray(); // deterministic enough; same array sent to all
 		// A resumed expedition passes its saved seed so the checkpoint floor regenerates identically;
 		// every other entry point leaves it null and gets a fresh random layout.

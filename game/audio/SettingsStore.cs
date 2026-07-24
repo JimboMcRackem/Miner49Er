@@ -209,7 +209,7 @@ public static class SettingsStore
 		bool heistRespawn = (bool)cfg.GetValue(LobbySection, "heist_respawn", true);
 		// Upper bound must track the highest GameMode value (TreasureHeist=6) or saved modes above
 		// Expedition(3) get silently clamped away on load, defeating persistence.
-		return (Mathf.Clamp(mode, 0, (int)GameMode.TreasureHeist), time, flood, pits, caveIns, lava,
+		return (Mathf.Clamp(mode, 0, (int)GameMode.GrudgeMatch), time, flood, pits, caveIns, lava,
 		        Mathf.Clamp(speed, 0, 2), Mathf.Clamp(scale, 1, 4), Mathf.Clamp(explosive, 0, 2),
 		        Mathf.Clamp(startFloor, 1, 20), Mathf.Clamp(blast, 1, 3), Mathf.Clamp(vision, 3, 8), prize,
 		        Mathf.Clamp(prizeFreq, 0, 2), advanced, heistWinBy, heistRespawn);

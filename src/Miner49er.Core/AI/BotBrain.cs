@@ -57,7 +57,8 @@ public sealed class BotBrain
         if (miner.Activity != ActivityKind.None) return BotAction.Idle;
 
         bool isPvP  = mode != GameMode.Expedition;
-        bool derby  = mode == GameMode.DemolitionDerby;
+        // Grudge Match is a free-for-all deathmatch — bots fight exactly like Demolition Derby.
+        bool derby  = mode is GameMode.DemolitionDerby or GameMode.GrudgeMatch;
         bool lms    = mode == GameMode.LastManStanding;
 
         _ticksUntilReeval--;
@@ -364,7 +365,7 @@ public sealed class BotBrain
         if (mode == GameMode.Expedition && sim.EscapeOpen && sim.EscapeTile is { } esc)
             return esc;
 
-        if (mode == GameMode.DemolitionDerby) return DerbyGoal(sim, miner);
+        if (mode is GameMode.DemolitionDerby or GameMode.GrudgeMatch) return DerbyGoal(sim, miner);
         if (mode == GameMode.LastManStanding)
         {
             // LMS is won by being the last miner alive, so gold is irrelevant — hunt rivals.
