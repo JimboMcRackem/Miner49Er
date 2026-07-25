@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Text;
 using Godot;
+using Miner49er.Core;
 using Miner49er.Core.Net;
 
 namespace Miner49er;
@@ -67,8 +69,15 @@ public partial class StatsOverlay : CanvasLayer
 		var nm = NetworkManager.Instance;
 		sb.Append($"[b]Floor[/b] {nm.MatchFloor}   [b]Mode[/b] {nm.MatchMode}\n");
 
-		// Players
+		// Players — combat modes lead with kills (ranked) and drop gold; other modes show gold.
+		bool killMode = nm.MatchMode.IsKillScored();
 		var miners = _client.Miners;
+		if (killMode)
+		{
+			var sorted = new List<MinerSnapshot>(miners);
+			sorted.Sort((a, b) => b.Kills.CompareTo(a.Kills));
+			miners = sorted;
+		}
 		sb.Append($"\n[b]Players ({miners.Count})[/b]\n");
 		foreach (var m in miners)
 		{
@@ -76,7 +85,8 @@ public partial class StatsOverlay : CanvasLayer
 			string name = PlayerColors.Names[((m.Id % PlayerColors.Names.Length) + PlayerColors.Names.Length) % PlayerColors.Names.Length];
 			string state = m.Alive ? "✓" : "✗";
 			string you = m.Id == _client.LocalMinerId ? "  (you)" : "";
-			sb.Append($"[color=#{col.ToHtml(false)}]P{m.Id} {name}[/color]  {state}  {m.Gold}g{you}\n");
+			string stat = killMode ? $"{m.Kills} kills" : $"{m.Gold}g";
+			sb.Append($"[color=#{col.ToHtml(false)}]P{m.Id} {name}[/color]  {state}  {stat}{you}\n");
 		}
 
 		// Engine

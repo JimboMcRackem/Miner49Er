@@ -968,6 +968,10 @@ public partial class Main : Node2D
 			label = winnerPeerId == -1
 				? NoWinLabel(endReason)
 				: localWon ? "🏆 You Win!" : $"Winner: {NameOf(winnerPeerId)}";
+
+			// Combat modes: show the final kill tally under the winner banner.
+			if (nm.MatchMode.IsKillScored())
+				scoreText = BuildKillSummary();
 		}
 		_results.Show(label, nm.IsHost,
 			expedition ? "Return to Menu" : "Return to Lobby", scoreText, playAgain,
@@ -993,6 +997,20 @@ public partial class Main : Node2D
 	{
 		var order = NetworkManager.Instance.PeerOrder;
 		return (minerId >= 1 && minerId <= order.Length) ? NameOf(order[minerId - 1]) : $"Miner {minerId}";
+	}
+
+	// Ranked "Kills — You 4 · Alice 2 · Bob 1" summary for the combat-mode results screen.
+	private string BuildKillSummary()
+	{
+		var miners = new List<Core.Net.MinerSnapshot>(_client.Miners);
+		miners.Sort((a, b) => b.Kills.CompareTo(a.Kills));
+		var parts = new List<string>();
+		foreach (var m in miners)
+		{
+			string who = m.Id == _client.LocalMinerId ? "You" : NameForMiner(m.Id);
+			parts.Add($"{who} {m.Kills}");
+		}
+		return parts.Count > 0 ? $"Kills — {string.Join(" · ", parts)}" : "";
 	}
 
 	private static string PrizeName(PrizeType type) => type switch

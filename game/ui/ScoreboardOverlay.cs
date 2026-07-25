@@ -70,7 +70,7 @@ public partial class ScoreboardOverlay : CanvasLayer
 			miners.Add((m, name, colorIdx));
 		}
 
-		bool killMode = mode is GameMode.GrudgeMatch or GameMode.DemolitionDerby or GameMode.LastManStanding;
+		bool killMode = mode.IsKillScored();
 		miners.Sort((a, b) =>
 		{
 			// Combat modes rank by kills first; others by gold, always with alive above dead.

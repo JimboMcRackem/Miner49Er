@@ -99,4 +99,20 @@ public class GameModeTests
         sim.TryMove(1, Direction.East);
         Assert.Equal(1, sim.FirstToReachCenter);
     }
+
+    [Theory]
+    [InlineData(GameMode.LastManStanding)]
+    [InlineData(GameMode.DemolitionDerby)]
+    [InlineData(GameMode.GrudgeMatch)]
+    public void IsKillScored_true_for_combat_modes(GameMode mode)
+        => Assert.True(mode.IsKillScored());
+
+    [Theory]
+    [InlineData(GameMode.GoldRush)]
+    [InlineData(GameMode.ReachCenter)]
+    [InlineData(GameMode.Expedition)]
+    [InlineData(GameMode.TreasureHunt)]
+    [InlineData(GameMode.TreasureHeist)]
+    public void IsKillScored_false_for_non_combat_modes(GameMode mode)
+        => Assert.False(mode.IsKillScored());
 }
