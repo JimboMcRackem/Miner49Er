@@ -31,6 +31,8 @@
     { "name": "Cyan",   "colors": ["black", "lightblue", "cyan"],    "edges": [0.20, 0.55] },
     { "name": "Pink",   "colors": ["black", "red", "lightred"],      "edges": [0.20, 0.55] }
   ],
+  "_tint_preserve_comment": "Palette colours a miner sprite keeps instead of taking the team colour. The flesh ramp puts skin on lightred and the hard hat on yellow, so those two are the miner's identity and everything else (outline, trousers, shirt) carries the team. This replaced an HSV heuristic that was calibrated on the pre-conversion art: after conversion lightred's hue wraps to 0.99 and yellow sits at 0.172, so both fell outside a hue<0.14 test and the whole miner went team-coloured.",
+  "tint_preserve": ["lightred", "yellow"],
   "_exclude_comment": "Marketing art, redrawn wholesale in M6. Excluded from BOTH conversion and verification - posterising a 1024px icon to four bands would look worse than leaving it alone until it is redrawn. M6 deletes these entries.",
   "exclude": [
     "Icon.png",

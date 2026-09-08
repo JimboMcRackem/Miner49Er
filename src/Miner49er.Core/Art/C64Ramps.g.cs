@@ -27,6 +27,14 @@ public static class C64Ramps
         "Gold", "Blue", "Red", "Green", "Purple", "Orange", "Cyan", "Pink"
     };
 
+    /// <summary>Palette colours a miner sprite keeps instead of taking the team
+    /// colour: skin and the hard hat. See art/ramps.json for why this is exact
+    /// set membership rather than an HSV test.</summary>
+    public static readonly Rgb[] TintPreserve =
+    {
+        C64Palette.LightRed, C64Palette.Yellow
+    };
+
     private static readonly Dictionary<string, ColorRamp> Families = new()
     {
         ["rock"] = new(new[] { C64Palette.Black, C64Palette.Brown, C64Palette.Orange, C64Palette.Grey }, new[] { 0.1f, 0.3f, 0.55f }),
