@@ -1,0 +1,21 @@
+{
+  "_comment": "Pepto reference values for the Commodore 64 hardware palette. Source of truth for all art and UI colour in this project.",
+  "colors": {
+    "black":      "000000",
+    "white":      "FFFFFF",
+    "red":        "813338",
+    "cyan":       "75CEC8",
+    "purple":     "8E3C97",
+    "green":      "56AC4D",
+    "blue":       "2E2C9B",
+    "yellow":     "EDF171",
+    "orange":     "8E5029",
+    "brown":      "553800",
+    "lightred":   "C46C71",
+    "darkgrey":   "4A4A4A",
+    "grey":       "7B7B7B",
+    "lightgreen": "A9FF9F",
+    "lightblue":  "706DEB",
+    "lightgrey":  "B2B2B2"
+  }
+}
