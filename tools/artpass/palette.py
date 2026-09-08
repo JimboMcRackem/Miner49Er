@@ -76,3 +76,40 @@ def ramp_colors(name, ramps, pal):
     """(list[(r,g,b)], list[float]) for a named family ramp."""
     spec = ramps["families"][name]
     return [pal[c] for c in spec["colors"]], spec["edges"]
+
+
+def hue(rgb):
+    """HSV hue, 0.0-1.0. Matches Rgb.Hue in Core and Godot's Color.H."""
+    r, g, b = [v / 255.0 for v in rgb]
+    mx, mn = max(r, g, b), min(r, g, b)
+    d = mx - mn
+    if d <= 0:
+        return 0.0
+    if mx == r:
+        h = ((g - b) / d) % 6
+    elif mx == g:
+        h = (b - r) / d + 2
+    else:
+        h = (r - g) / d + 4
+    h /= 6
+    return h + 1 if h < 0 else h
+
+
+def ramp_hue_split(name, ramps, pal):
+    """Resolved hue exception for a family ramp: colour name -> rgb, or None."""
+    spec = ramps["families"][name].get("hue_split")
+    if not spec:
+        return None
+    return {"band": spec["band"], "hue_below": spec["hue_below"],
+            "color": pal[spec["color"]]}
+
+
+def hue_split_for(name, ramps):
+    """Optional hue exception for a family ramp, or None.
+
+    Luminance alone cannot separate a miner's yellow hard hat from their skin - across
+    the six variants those two overlap, and on 'veteran' the hat is actually darker than
+    the skin. Hue separates them cleanly (skin ~0.04, hat ~0.11), so one band may be
+    split by hue. This is the 'semantic, not statistical' call the design calls for.
+    """
+    return ramps["families"][name].get("hue_split")

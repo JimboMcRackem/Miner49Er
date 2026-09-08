@@ -30,3 +30,10 @@ Thumbs.db
 .vs/
 .idea/
 .vscode/
+
+# Art-pass review sheets (regenerate with python -m tools.artpass.contact_sheet)
+art/review/
+
+# Python bytecode from the art-pass tools
+__pycache__/
+*.pyc

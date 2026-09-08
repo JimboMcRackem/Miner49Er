@@ -60,5 +60,43 @@ class PosterizeTests(unittest.TestCase):
         self.assertEqual(pixels(once), pixels(twice))
 
 
+class HueSplitTests(unittest.TestCase):
+    """Luminance alone cannot separate a miner's yellow hard hat from their skin -
+    across the six variants they overlap, and on 'veteran' the hat is darker than the
+    skin. One band may therefore be split by hue."""
+
+    def setUp(self):
+        pal = palette.load_palette()
+        self.colors = [pal["black"], pal["brown"], pal["lightred"], pal["yellow"], pal["white"]]
+        self.edges = [0.10, 0.30, 0.55, 0.84]
+        self.split = {"band": 3, "hue_below": 0.085, "color": pal["lightred"]}
+
+    def _one(self, rgb):
+        img = Image.new("RGBA", (1, 1), rgb + (255,))
+        out = convert.posterize_image(img, self.colors, self.edges, hue_split=self.split)
+        return out.getpixel((0, 0))[:3]
+
+    def test_skin_in_the_split_band_becomes_lightred(self):
+        pal = palette.load_palette()
+        for skin in [(0xD2, 0x9C, 0x84), (0xEE, 0xAD, 0x92), (0xDD, 0xA4, 0x93)]:
+            self.assertEqual(pal["lightred"], self._one(skin), f"{skin} should read as skin")
+
+    def test_hardhat_in_the_split_band_stays_yellow(self):
+        pal = palette.load_palette()
+        for hat in [(0xE6, 0xAE, 0x42), (0xF4, 0xBE, 0x27), (0xEA, 0x9C, 0x1C)]:
+            self.assertEqual(pal["yellow"], self._one(hat), f"{hat} should read as hard hat")
+
+    def test_other_bands_are_untouched_by_the_split(self):
+        pal = palette.load_palette()
+        self.assertEqual(pal["white"], self._one((0xDE, 0xDB, 0xD1)))   # shirt
+        self.assertEqual(pal["black"], self._one((0x1A, 0x12, 0x16)))   # outline
+
+    def test_no_split_leaves_the_band_alone(self):
+        pal = palette.load_palette()
+        img = Image.new("RGBA", (1, 1), (0xD2, 0x9C, 0x84, 255))
+        out = convert.posterize_image(img, self.colors, self.edges)
+        self.assertEqual(pal["yellow"], out.getpixel((0, 0))[:3])
+
+
 if __name__ == "__main__":
     unittest.main()

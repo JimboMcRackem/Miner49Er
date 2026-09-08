@@ -18,19 +18,32 @@ SRC_ROOT = os.path.join(ROOT, "art", "source")
 DST_ROOT = os.path.join(ROOT, "assets")
 
 
-def posterize_image(img, colors, edges):
-    """Map every opaque pixel's luminance into the ramp; force alpha binary."""
+def posterize_image(img, colors, edges, hue_split=None):
+    """Map every opaque pixel's luminance into the ramp; force alpha binary.
+
+    `hue_split` optionally rescues one band that luminance cannot resolve. On the
+    miners, skin and the yellow hard hat share a luminance range (and on 'veteran'
+    the hat is the darker of the two), so that band is divided by hue instead.
+    """
     img = img.convert("RGBA")
     out = Image.new("RGBA", img.size, (0, 0, 0, 0))
     src = img.load()
     dst = out.load()
+
+    split_band = hue_split["band"] if hue_split else -1
+    split_below = hue_split["hue_below"] if hue_split else 0.0
+    split_color = hue_split["color"] if hue_split else None
+
     for y in range(img.height):
         for x in range(img.width):
             r, g, b, a = src[x, y]
             if a < ALPHA_THRESHOLD:
                 continue
             i = palette.band_index(palette.luminance((r, g, b)), edges)
-            cr, cg, cb = colors[i]
+            if i == split_band and palette.hue((r, g, b)) < split_below:
+                cr, cg, cb = split_color
+            else:
+                cr, cg, cb = colors[i]
             dst[x, y] = (cr, cg, cb, 255)
     return out
 
@@ -56,7 +69,8 @@ def convert_tree(src_root=SRC_ROOT, dst_root=DST_ROOT, pal=None, ramps=None, ver
                 continue
 
             colors, edges = palette.ramp_colors(ramp_name, ramps, pal)
-            out = posterize_image(Image.open(abs_src), colors, edges)
+            split = palette.ramp_hue_split(ramp_name, ramps, pal)
+            out = posterize_image(Image.open(abs_src), colors, edges, hue_split=split)
 
             abs_dst = os.path.join(dst_root, rel.replace("/", os.sep))
             os.makedirs(os.path.dirname(abs_dst), exist_ok=True)
@@ -76,6 +90,12 @@ def main():
         for rel in skipped:
             print(f"  {rel}", file=sys.stderr)
         return 1
+
+    # The TileSet bakes the terrain atlas in as raw bytes rather than referencing the
+    # PNG, so converting the PNG alone would leave all terrain unchanged on screen.
+    from tools.artpass import embed_tileset
+    n = embed_tileset.embed()
+    print(f"embedded {n} bytes into assets/tiles/combined_terrain.tres")
 
     from tools.artpass import verify
     violations = verify.check_tree(DST_ROOT)
