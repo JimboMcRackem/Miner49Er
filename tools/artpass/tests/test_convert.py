@@ -98,5 +98,50 @@ class HueSplitTests(unittest.TestCase):
         self.assertEqual(pal["yellow"], out.getpixel((0, 0))[:3])
 
 
+class RegionTests(unittest.TestCase):
+    """The terrain atlas packs five different terrains into one sheet - lava, rock,
+    pit, shallow water and deep water. A single ramp turns lethal deep water into
+    ordinary brown rock, so the sheet is converted in horizontal bands."""
+
+    def setUp(self):
+        pal = palette.load_palette()
+        self.regions = [
+            {"y": [0, 2], "colors": [pal["black"], pal["red"], pal["yellow"]],
+             "edges": [0.10, 0.50], "hue_split": None},
+            {"y": [2, 4], "colors": [pal["black"], pal["blue"], pal["cyan"]],
+             "edges": [0.10, 0.50], "hue_split": None},
+        ]
+
+    def test_each_band_uses_its_own_ramp(self):
+        pal = palette.load_palette()
+        img = Image.new("RGBA", (1, 4), (255, 255, 255, 255))
+        out = convert.posterize_regions(img, self.regions)
+        self.assertEqual(pal["yellow"], out.getpixel((0, 0))[:3])
+        self.assertEqual(pal["yellow"], out.getpixel((0, 1))[:3])
+        self.assertEqual(pal["cyan"], out.getpixel((0, 2))[:3])
+        self.assertEqual(pal["cyan"], out.getpixel((0, 3))[:3])
+
+    def test_transparency_survives_regions(self):
+        img = Image.new("RGBA", (1, 4), (255, 255, 255, 0))
+        out = convert.posterize_regions(img, self.regions)
+        self.assertEqual((0, 0, 0, 0), out.getpixel((0, 0)))
+
+    def test_atlas_regions_tile_the_whole_sheet(self):
+        """Every row of the real atlas must be covered exactly once."""
+        ramps = palette.load_ramps()
+        regions = ramps["region_overrides"]["tiles/combined_terrain_atlas.png"]
+        covered = []
+        for r in regions:
+            covered.extend(range(r["y"][0], r["y"][1]))
+        self.assertEqual(list(range(640)), sorted(covered))
+
+    def test_deep_and_shallow_water_use_different_ramps(self):
+        """Deep water is lethal; it must not look like shallow water."""
+        ramps = palette.load_ramps()
+        regions = ramps["region_overrides"]["tiles/combined_terrain_atlas.png"]
+        by_row = {r["y"][0]: r["ramp"] for r in regions}
+        self.assertNotEqual(by_row[384], by_row[512])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -104,6 +104,24 @@ def ramp_hue_split(name, ramps, pal):
             "color": pal[spec["color"]]}
 
 
+def regions_for(relpath, ramps, pal):
+    """Resolved horizontal bands for a multi-terrain sheet, or None.
+
+    The terrain atlas packs lava, rock, pit, shallow water and deep water into one
+    image. Converting it with a single ramp made lethal deep water look like ordinary
+    rock, so such sheets declare per-band ramps instead.
+    """
+    spec = ramps.get("region_overrides", {}).get(relpath.replace("\\", "/"))
+    if not spec:
+        return None
+    out = []
+    for r in spec:
+        colors, edges = ramp_colors(r["ramp"], ramps, pal)
+        out.append({"y": r["y"], "colors": colors, "edges": edges,
+                    "hue_split": ramp_hue_split(r["ramp"], ramps, pal)})
+    return out
+
+
 def hue_split_for(name, ramps):
     """Optional hue exception for a family ramp, or None.
 

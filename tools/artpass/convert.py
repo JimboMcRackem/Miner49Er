@@ -48,6 +48,24 @@ def posterize_image(img, colors, edges, hue_split=None):
     return out
 
 
+def posterize_regions(img, regions):
+    """Posterise a sheet in horizontal bands, each with its own ramp.
+
+    The terrain atlas holds five terrains in one image; a single ramp made lethal deep
+    water render as ordinary rock. Each band is `{"y": [y0, y1), colors, edges,
+    hue_split}`.
+    """
+    img = img.convert("RGBA")
+    out = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    for band in regions:
+        y0, y1 = band["y"]
+        strip = img.crop((0, y0, img.width, min(y1, img.height)))
+        done = posterize_image(strip, band["colors"], band["edges"],
+                               hue_split=band.get("hue_split"))
+        out.paste(done, (0, y0))
+    return out
+
+
 def convert_tree(src_root=SRC_ROOT, dst_root=DST_ROOT, pal=None, ramps=None, verbose=True):
     """Convert every PNG under src_root into dst_root, mirroring paths."""
     pal = pal or palette.load_palette()
@@ -68,9 +86,14 @@ def convert_tree(src_root=SRC_ROOT, dst_root=DST_ROOT, pal=None, ramps=None, ver
                 skipped.append(rel)
                 continue
 
-            colors, edges = palette.ramp_colors(ramp_name, ramps, pal)
-            split = palette.ramp_hue_split(ramp_name, ramps, pal)
-            out = posterize_image(Image.open(abs_src), colors, edges, hue_split=split)
+            regions = palette.regions_for(rel, ramps, pal)
+            if regions:
+                out = posterize_regions(Image.open(abs_src), regions)
+                ramp_name += " (banded)"
+            else:
+                colors, edges = palette.ramp_colors(ramp_name, ramps, pal)
+                split = palette.ramp_hue_split(ramp_name, ramps, pal)
+                out = posterize_image(Image.open(abs_src), colors, edges, hue_split=split)
 
             abs_dst = os.path.join(dst_root, rel.replace("/", os.sep))
             os.makedirs(os.path.dirname(abs_dst), exist_ok=True)

@@ -16,6 +16,7 @@
     "spectral":   { "colors": ["black", "blue", "lightblue", "cyan", "white"],          "edges": [0.15, 0.45, 0.70, 0.92] },
     "crystal":    { "colors": ["black", "blue", "lightblue", "cyan", "white"],          "edges": [0.08, 0.26, 0.48, 0.80] },
     "water":      { "colors": ["black", "blue", "lightblue", "cyan"],                   "edges": [0.08, 0.30, 0.60] },
+    "deepwater":  { "colors": ["black", "blue", "lightblue"],                           "edges": [0.20, 0.70] },
     "lava":       { "colors": ["black", "red", "orange", "yellow", "white"],            "edges": [0.08, 0.26, 0.50, 0.84] },
     "beast":      { "colors": ["black", "blue", "purple", "lightred", "cyan"],          "edges": [0.08, 0.26, 0.48, 0.74] },
     "foliage":    { "colors": ["black", "green", "lightgreen", "yellow"],               "edges": [0.10, 0.40, 0.76] }
@@ -36,6 +37,16 @@
     "Icon_Old.png",
     "Splash.png"
   ],
+  "_region_comment": "combined_terrain_atlas.png packs five terrains into one 160x640 sheet as 5 blocks of 4 tile-rows. One ramp for the whole sheet turned lethal deep water into ordinary brown rock, so it is converted in bands. Deep water deliberately uses a darker ramp than shallow water - the two must never look alike.",
+  "region_overrides": {
+    "tiles/combined_terrain_atlas.png": [
+      { "y": [0, 128],   "ramp": "lava"      },
+      { "y": [128, 256], "ramp": "rock"      },
+      { "y": [256, 384], "ramp": "bedrock"   },
+      { "y": [384, 512], "ramp": "water"     },
+      { "y": [512, 640], "ramp": "deepwater" }
+    ]
+  },
   "assign": [
     { "glob": "miners/**",                 "ramp": "flesh" },
     { "glob": "monsters/skeleton_*",       "ramp": "bone" },

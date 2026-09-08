@@ -42,6 +42,7 @@ public static class C64Ramps
         ["spectral"] = new(new[] { C64Palette.Black, C64Palette.Blue, C64Palette.LightBlue, C64Palette.Cyan, C64Palette.White }, new[] { 0.15f, 0.45f, 0.7f, 0.92f }),
         ["crystal"] = new(new[] { C64Palette.Black, C64Palette.Blue, C64Palette.LightBlue, C64Palette.Cyan, C64Palette.White }, new[] { 0.08f, 0.26f, 0.48f, 0.8f }),
         ["water"] = new(new[] { C64Palette.Black, C64Palette.Blue, C64Palette.LightBlue, C64Palette.Cyan }, new[] { 0.08f, 0.3f, 0.6f }),
+        ["deepwater"] = new(new[] { C64Palette.Black, C64Palette.Blue, C64Palette.LightBlue }, new[] { 0.2f, 0.7f }),
         ["lava"] = new(new[] { C64Palette.Black, C64Palette.Red, C64Palette.Orange, C64Palette.Yellow, C64Palette.White }, new[] { 0.08f, 0.26f, 0.5f, 0.84f }),
         ["beast"] = new(new[] { C64Palette.Black, C64Palette.Blue, C64Palette.Purple, C64Palette.LightRed, C64Palette.Cyan }, new[] { 0.08f, 0.26f, 0.48f, 0.74f }),
         ["foliage"] = new(new[] { C64Palette.Black, C64Palette.Green, C64Palette.LightGreen, C64Palette.Yellow }, new[] { 0.1f, 0.4f, 0.76f }),
