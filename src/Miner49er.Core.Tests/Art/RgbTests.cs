@@ -51,4 +51,29 @@ public class RgbTests
     {
         Assert.Throws<KeyNotFoundException>(() => C64Palette.ByName("chartreuse"));
     }
+
+    [Fact]
+    public void FromFloat_round_trips_every_byte_value()
+    {
+        // An engine hands pixels back as floats. If this truncated instead of rounding,
+        // palette colours would come back one short and preservation would silently fail.
+        for (int v = 0; v <= 255; v++)
+        {
+            float f = v / 255f;
+            Assert.Equal(new Rgb(v, v, v), Rgb.FromFloat(f, f, f));
+        }
+    }
+
+    [Fact]
+    public void FromFloat_recovers_every_palette_colour_exactly()
+    {
+        foreach (var c in C64Palette.All)
+            Assert.Equal(c, Rgb.FromFloat(c.R / 255f, c.G / 255f, c.B / 255f));
+    }
+
+    [Fact]
+    public void FromFloat_clamps_out_of_range_input()
+    {
+        Assert.Equal(new Rgb(255, 0, 255), Rgb.FromFloat(1.4f, -0.2f, 1.0f));
+    }
 }

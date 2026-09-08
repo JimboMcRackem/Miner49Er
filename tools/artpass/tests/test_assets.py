@@ -55,5 +55,42 @@ class TilesetEmbedTests(unittest.TestCase):
         self.assertEqual(set(), bad, f"{len(bad)} off-palette colour(s) in the TileSet")
 
 
+class MinerTintContractTests(unittest.TestCase):
+    """The asset side and the runtime tint have to agree. If a converted miner stopped
+    containing the preserved colours, every pixel would take the team ramp and the whole
+    sprite would render in one flat colour - the bug reported from playtest."""
+
+    def test_converted_miners_contain_both_preserved_colours(self):
+        import glob
+        from PIL import Image
+        from tools.artpass import palette
+        ramps = palette.load_ramps()
+        preserve = {palette.load_palette()[c] for c in ramps["tint_preserve"]}
+        checked = 0
+        for path in glob.glob("assets/miners/*/idle/*.png") + glob.glob("assets/miners/idle/*.png"):
+            img = Image.open(path).convert("RGBA")
+            px = img.load()
+            used = {px[x, y][:3] for y in range(img.height) for x in range(img.width)
+                    if px[x, y][3]}
+            self.assertTrue(used & preserve, f"{path} has no preserved colour - would tint flat")
+            checked += 1
+        self.assertGreater(checked, 0, "no miner idle sprites found")
+
+    def test_miner_sprites_only_use_the_flesh_ramp(self):
+        import glob
+        from PIL import Image
+        from tools.artpass import palette
+        pal = palette.load_palette()
+        ramps = palette.load_ramps()
+        legal = {pal[c] for c in ramps["families"]["flesh"]["colors"]}
+        legal.add(pal[ramps["families"]["flesh"]["hue_split"]["color"]])
+        for path in glob.glob("assets/miners/*/idle/idle0.png"):
+            img = Image.open(path).convert("RGBA")
+            px = img.load()
+            used = {px[x, y][:3] for y in range(img.height) for x in range(img.width)
+                    if px[x, y][3]}
+            self.assertTrue(used <= legal, f"{path} uses {used - legal}")
+
+
 if __name__ == "__main__":
     unittest.main()

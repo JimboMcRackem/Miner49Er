@@ -853,18 +853,18 @@ public partial class MatchClient : Node2D
 		variant = MinerVariants.Clamp(variant);
 		if (_minerSets.TryGetValue((variant, color), out var set)) return set;
 		var src = GetVariantSources(variant);
-		var tint = PlayerColors.At(color);
+		var ramp = PlayerColors.RampAt(color);
 		set = new MinerTextureSet();
 		for (int d = 0; d < 4; d++)
 		{
-			if (src.Facing[d] != null) set.Facing[d] = ImageTexture.CreateFromImage(TintMiner(src.Facing[d]!, tint));
-			if (src.Listen[d] != null) set.Listen[d] = ImageTexture.CreateFromImage(TintMiner(src.Listen[d]!, tint));
-			for (int f = 0; f < 4; f++) if (src.Walk[d, f]  != null) set.Walk[d, f]  = ImageTexture.CreateFromImage(TintMiner(src.Walk[d, f]!,  tint));
-			for (int f = 0; f < 7; f++) if (src.Mine[d, f]  != null) set.Mine[d, f]  = ImageTexture.CreateFromImage(TintMiner(src.Mine[d, f]!,  tint));
-			for (int f = 0; f < 5; f++) if (src.Plant[d, f] != null) set.Plant[d, f] = ImageTexture.CreateFromImage(TintMiner(src.Plant[d, f]!, tint));
-			for (int f = 0; f < 4; f++) if (src.Throw[d, f] != null) set.Throw[d, f] = ImageTexture.CreateFromImage(TintMiner(src.Throw[d, f]!, tint));
+			if (src.Facing[d] != null) set.Facing[d] = ImageTexture.CreateFromImage(TintMiner(src.Facing[d]!, ramp));
+			if (src.Listen[d] != null) set.Listen[d] = ImageTexture.CreateFromImage(TintMiner(src.Listen[d]!, ramp));
+			for (int f = 0; f < 4; f++) if (src.Walk[d, f]  != null) set.Walk[d, f]  = ImageTexture.CreateFromImage(TintMiner(src.Walk[d, f]!,  ramp));
+			for (int f = 0; f < 7; f++) if (src.Mine[d, f]  != null) set.Mine[d, f]  = ImageTexture.CreateFromImage(TintMiner(src.Mine[d, f]!,  ramp));
+			for (int f = 0; f < 5; f++) if (src.Plant[d, f] != null) set.Plant[d, f] = ImageTexture.CreateFromImage(TintMiner(src.Plant[d, f]!, ramp));
+			for (int f = 0; f < 4; f++) if (src.Throw[d, f] != null) set.Throw[d, f] = ImageTexture.CreateFromImage(TintMiner(src.Throw[d, f]!, ramp));
 		}
-		for (int i = 0; i < IdleVariantCount; i++) if (src.Idle[i] != null) set.Idle[i] = ImageTexture.CreateFromImage(TintMiner(src.Idle[i]!, tint));
+		for (int i = 0; i < IdleVariantCount; i++) if (src.Idle[i] != null) set.Idle[i] = ImageTexture.CreateFromImage(TintMiner(src.Idle[i]!, ramp));
 		_minerSets[(variant, color)] = set;
 		return set;
 	}
@@ -879,7 +879,15 @@ public partial class MatchClient : Node2D
 		return 0;
 	}
 
-	private static Image TintMiner(Image src, Color tint)
+	/// <summary>Recolour a miner sprite into a team's ramp.
+	///
+	/// The pixel maths lives in <see cref="MinerTint"/> so it can be unit-tested without
+	/// Godot; this only walks the image. It used to multiply the team colour by each
+	/// pixel's luminance, which emitted arbitrary RGB and put off-palette miners on
+	/// screen. Worse, its skin/hard-hat exemption was tuned on the pre-conversion art:
+	/// against converted sprites nothing matched it, so every pixel took the tint and a
+	/// Gold player rendered entirely gold.</summary>
+	private static Image TintMiner(Image src, ColorRamp ramp)
 	{
 		var img = (Image)src.Duplicate();
 		for (int y = 0; y < img.GetHeight(); y++)
@@ -887,15 +895,9 @@ public partial class MatchClient : Node2D
 			{
 				var px = img.GetPixel(x, y);
 				if (px.A < 0.05f) continue;
-				float lum = 0.299f * px.R + 0.587f * px.G + 0.114f * px.B;
-				// Preserve skin and the yellow hard hat: both are warm-hued AND bright. Grey/dark
-				// clothing is either low-saturation or low-luminance and takes the team colour.
-				// (Keyed on luminance rather than a tight saturation floor so the variants' lighter,
-				// less-saturated skin tones — S as low as ~0.26 — are not tinted like the old S>0.3 test.)
-				if (px.H < 0.14f && px.S > 0.18f && lum > 0.5f) continue;
-				// Lift luminance floor so dark overalls show a vivid team colour, not near-black.
-				float l = lum * 0.6f + 0.4f;
-				img.SetPixel(x, y, new Color(tint.R * l, tint.G * l, tint.B * l, px.A));
+				var source = Rgb.FromFloat(px.R, px.G, px.B);
+				var mapped = MinerTint.Apply(source, ramp);
+				img.SetPixel(x, y, new Color(mapped.R / 255f, mapped.G / 255f, mapped.B / 255f, px.A));
 			}
 		return img;
 	}

@@ -15,6 +15,17 @@ public readonly struct Rgb : IEquatable<Rgb>
 
     public Rgb(int r, int g, int b) : this((byte)r, (byte)g, (byte)b) { }
 
+    /// <summary>Build from 0.0-1.0 floats, as an engine hands pixels back.
+    ///
+    /// Rounds rather than truncates. Truncation is a real hazard here: preservation is
+    /// exact palette membership, so a hard hat arriving as 236.9999 would cast to 236,
+    /// miss palette yellow by one, and take the team colour - the whole-miner-one-colour
+    /// bug all over again.</summary>
+    public static Rgb FromFloat(float r, float g, float b) => new(
+        (byte)Math.Clamp(MathF.Round(r * 255f), 0f, 255f),
+        (byte)Math.Clamp(MathF.Round(g * 255f), 0f, 255f),
+        (byte)Math.Clamp(MathF.Round(b * 255f), 0f, 255f));
+
     /// <summary>Rec.601 luma, 0.0-1.0. Matches tools/artpass/palette.py:luminance.</summary>
     public float Luminance => (0.299f * R + 0.587f * G + 0.114f * B) / 255f;
 
