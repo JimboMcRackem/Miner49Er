@@ -58,8 +58,17 @@ public class MinerTintTests
         var ramp = Blue;
         Assert.Equal(C64Palette.LightRed, MinerTint.Apply(C64Palette.LightRed, ramp)); // skin
         Assert.Equal(C64Palette.Yellow, MinerTint.Apply(C64Palette.Yellow, ramp));     // hat
-        Assert.NotEqual(C64Palette.LightRed, MinerTint.Apply(C64Palette.Brown, ramp)); // trousers
-        Assert.NotEqual(C64Palette.White, MinerTint.Apply(C64Palette.White, ramp));    // shirt
+        Assert.Equal(ramp.Identity, MinerTint.Apply(C64Palette.Brown, ramp));          // trousers
+        Assert.Equal(C64Palette.White, MinerTint.Apply(C64Palette.White, ramp));       // shirt highlight
+    }
+
+    [Fact]
+    public void Trousers_carry_the_team_identity_on_every_team()
+    {
+        // Trousers and torso are ~48% of the sprite, so this is the band a player
+        // actually reads a team from.
+        foreach (var ramp in C64Ramps.Teams)
+            Assert.Equal(ramp.Identity, MinerTint.Apply(C64Palette.Brown, ramp));
     }
 
     [Fact]

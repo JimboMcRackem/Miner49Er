@@ -12,7 +12,9 @@ public sealed class ColorRamp
     /// <summary>Ascending luminance thresholds; always <c>Colors.Length - 1</c> of them.</summary>
     public readonly float[] Edges;
 
-    public ColorRamp(Rgb[] colors, float[] edges)
+    private readonly int _identity;
+
+    public ColorRamp(Rgb[] colors, float[] edges, int identity = -1)
     {
         if (colors.Length < 2)
             throw new ArgumentException("a ramp needs at least two colours", nameof(colors));
@@ -20,13 +22,22 @@ public sealed class ColorRamp
             throw new ArgumentException(
                 $"expected {colors.Length - 1} edges for {colors.Length} colours, got {edges.Length}",
                 nameof(edges));
+        if (identity >= colors.Length)
+            throw new ArgumentOutOfRangeException(nameof(identity),
+                $"identity index {identity} is outside a {colors.Length}-colour ramp");
 
         Colors = colors;
         Edges = edges;
+        _identity = identity < 0 ? colors.Length - 1 : identity;
     }
 
-    /// <summary>The brightest colour — what identifies this ramp to a player.</summary>
-    public Rgb Identity => Colors[Colors.Length - 1];
+    /// <summary>The colour that identifies this ramp to a player.
+    ///
+    /// Defaults to the brightest band, but team ramps set it explicitly to the middle
+    /// one: that band paints the trousers and torso — roughly half a miner's pixels —
+    /// while the top band is only a small shirt highlight. Keying team identity off the
+    /// brightest colour made four of the eight teams read as grey.</summary>
+    public Rgb Identity => Colors[_identity];
 
     /// <summary>Map a 0.0-1.0 luminance to its band. A value exactly on an edge takes
     /// the upper band, matching tools/artpass/palette.py:band_index.</summary>

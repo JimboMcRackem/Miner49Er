@@ -12,19 +12,19 @@ public static class C64Ramps
     /// <summary>Per-player ramps, indexed by lobby colour selection.</summary>
     public static readonly ColorRamp[] Teams =
     {
-        new(new[] { C64Palette.Black, C64Palette.Orange, C64Palette.Yellow }, new[] { 0.2f, 0.55f }), // Gold
-        new(new[] { C64Palette.Black, C64Palette.Blue, C64Palette.LightBlue }, new[] { 0.2f, 0.55f }), // Blue
-        new(new[] { C64Palette.Black, C64Palette.Brown, C64Palette.Red }, new[] { 0.2f, 0.55f }), // Red
-        new(new[] { C64Palette.Black, C64Palette.Green, C64Palette.LightGreen }, new[] { 0.2f, 0.55f }), // Green
-        new(new[] { C64Palette.Black, C64Palette.Blue, C64Palette.Purple }, new[] { 0.2f, 0.55f }), // Purple
-        new(new[] { C64Palette.Black, C64Palette.Brown, C64Palette.Orange }, new[] { 0.2f, 0.55f }), // Orange
-        new(new[] { C64Palette.Black, C64Palette.LightBlue, C64Palette.Cyan }, new[] { 0.2f, 0.55f }), // Cyan
-        new(new[] { C64Palette.Black, C64Palette.Red, C64Palette.LightRed }, new[] { 0.2f, 0.55f }), // Pink
+        new(new[] { C64Palette.Black, C64Palette.Orange, C64Palette.White }, new[] { 0.2f, 0.8f }, 1), // Gold
+        new(new[] { C64Palette.Black, C64Palette.Blue, C64Palette.White }, new[] { 0.2f, 0.8f }, 1), // Blue
+        new(new[] { C64Palette.Black, C64Palette.Red, C64Palette.White }, new[] { 0.2f, 0.8f }, 1), // Red
+        new(new[] { C64Palette.Black, C64Palette.Green, C64Palette.White }, new[] { 0.2f, 0.8f }, 1), // Green
+        new(new[] { C64Palette.Black, C64Palette.Purple, C64Palette.White }, new[] { 0.2f, 0.8f }, 1), // Purple
+        new(new[] { C64Palette.Black, C64Palette.Brown, C64Palette.White }, new[] { 0.2f, 0.8f }, 1), // Rust
+        new(new[] { C64Palette.Black, C64Palette.Cyan, C64Palette.White }, new[] { 0.2f, 0.8f }, 1), // Cyan
+        new(new[] { C64Palette.Black, C64Palette.LightGrey, C64Palette.White }, new[] { 0.2f, 0.8f }, 1), // Silver
     };
 
     public static readonly string[] TeamNames =
     {
-        "Gold", "Blue", "Red", "Green", "Purple", "Orange", "Cyan", "Pink"
+        "Gold", "Blue", "Red", "Green", "Purple", "Rust", "Cyan", "Silver"
     };
 
     /// <summary>Palette colours a miner sprite keeps instead of taking the team

@@ -80,8 +80,19 @@ class RampTests(unittest.TestCase):
     def test_eight_teams_with_unique_identity_colours(self):
         ramps = palette.load_ramps()
         self.assertEqual(8, len(ramps["teams"]))
-        identities = [t["colors"][-1] for t in ramps["teams"]]
-        self.assertEqual(8, len(set(identities)))
+        # A team's identity is the band it declares, not simply its brightest colour:
+        # the mid band paints ~48% of a miner, the top band only a small highlight.
+        identities = [t["colors"][t.get("identity", len(t["colors"]) - 1)]
+                      for t in ramps["teams"]]
+        self.assertEqual(8, len(set(identities)), identities)
+
+    def test_no_team_ramp_uses_a_preserved_colour(self):
+        """A team colour equal to the hard hat or skin would merge into the miner."""
+        ramps = palette.load_ramps()
+        reserved = set(ramps["tint_preserve"])
+        for t in ramps["teams"]:
+            for c in t["colors"]:
+                self.assertNotIn(c, reserved, f"{t['name']} uses reserved {c}")
 
     def test_override_beats_glob(self):
         ramps = palette.load_ramps()

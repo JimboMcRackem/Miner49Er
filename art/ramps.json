@@ -21,15 +21,16 @@
     "beast":      { "colors": ["black", "blue", "purple", "lightred", "cyan"],          "edges": [0.08, 0.26, 0.48, 0.74] },
     "foliage":    { "colors": ["black", "green", "lightgreen", "yellow"],               "edges": [0.10, 0.40, 0.76] }
   },
+  "_teams_comment": "Three-step ramps: outline, team identity, highlight. The IDENTITY is the middle band, not the brightest: it paints the trousers and torso, about 48% of a miner's pixels, whereas the top band is a ~4% shirt highlight. An earlier version made the top band the identity and four teams read as grey. yellow and lightred are unavailable - reserved for the hard hat and skin (see tint_preserve).",
   "teams": [
-    { "name": "Gold",   "colors": ["black", "orange", "yellow"],     "edges": [0.20, 0.55] },
-    { "name": "Blue",   "colors": ["black", "blue", "lightblue"],    "edges": [0.20, 0.55] },
-    { "name": "Red",    "colors": ["black", "brown", "red"],         "edges": [0.20, 0.55] },
-    { "name": "Green",  "colors": ["black", "green", "lightgreen"],  "edges": [0.20, 0.55] },
-    { "name": "Purple", "colors": ["black", "blue", "purple"],       "edges": [0.20, 0.55] },
-    { "name": "Orange", "colors": ["black", "brown", "orange"],      "edges": [0.20, 0.55] },
-    { "name": "Cyan",   "colors": ["black", "lightblue", "cyan"],    "edges": [0.20, 0.55] },
-    { "name": "Pink",   "colors": ["black", "red", "lightred"],      "edges": [0.20, 0.55] }
+    { "name": "Gold",   "colors": ["black", "orange", "white"],    "edges": [0.20, 0.80], "identity": 1 },
+    { "name": "Blue",   "colors": ["black", "blue", "white"],      "edges": [0.20, 0.80], "identity": 1 },
+    { "name": "Red",    "colors": ["black", "red", "white"],       "edges": [0.20, 0.80], "identity": 1 },
+    { "name": "Green",  "colors": ["black", "green", "white"],     "edges": [0.20, 0.80], "identity": 1 },
+    { "name": "Purple", "colors": ["black", "purple", "white"],    "edges": [0.20, 0.80], "identity": 1 },
+    { "name": "Rust",   "colors": ["black", "brown", "white"],     "edges": [0.20, 0.80], "identity": 1 },
+    { "name": "Cyan",   "colors": ["black", "cyan", "white"],      "edges": [0.20, 0.80], "identity": 1 },
+    { "name": "Silver", "colors": ["black", "lightgrey", "white"], "edges": [0.20, 0.80], "identity": 1 }
   ],
   "_tint_preserve_comment": "Palette colours a miner sprite keeps instead of taking the team colour. The flesh ramp puts skin on lightred and the hard hat on yellow, so those two are the miner's identity and everything else (outline, trousers, shirt) carries the team. This replaced an HSV heuristic that was calibrated on the pre-conversion art: after conversion lightred's hue wraps to 0.99 and yellow sits at 0.172, so both fell outside a hue<0.14 test and the whole miner went team-coloured.",
   "tint_preserve": ["lightred", "yellow"],

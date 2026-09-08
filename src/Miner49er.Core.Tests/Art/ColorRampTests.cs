@@ -1,3 +1,4 @@
+using System;
 using Miner49er.Core;
 using Xunit;
 
@@ -60,5 +61,43 @@ public class ColorRampTests
         foreach (var ramp in C64Ramps.Teams)
             for (float l = 0f; l <= 1f; l += 0.01f)
                 Assert.Contains(ramp.Map(l), palette);
+    }
+
+    [Fact]
+    public void No_team_ramp_emits_a_preserved_identity_colour()
+    {
+        // A team whose shirt resolves to yellow or lightred would merge into the
+        // miner's own hard hat or skin. Gold and Pink both did before re-assignment.
+        var reserved = new HashSet<Rgb>(C64Ramps.TintPreserve);
+        foreach (var ramp in C64Ramps.Teams)
+            foreach (var c in ramp.Colors)
+                Assert.DoesNotContain(c, reserved);
+    }
+
+    [Fact]
+    public void Team_identity_is_the_band_that_paints_most_of_the_sprite()
+    {
+        // The middle band paints trousers and torso (~48% of a miner's pixels); the top
+        // band is a ~4% shirt highlight. Keying identity off the brightest colour made
+        // four of the eight teams read as grey.
+        foreach (var ramp in C64Ramps.Teams)
+            Assert.Equal(ramp.Colors[1], ramp.Identity);
+    }
+
+    [Fact]
+    public void A_custom_identity_index_overrides_the_brightest_default()
+    {
+        var ramp = new ColorRamp(
+            new[] { C64Palette.Black, C64Palette.Green, C64Palette.White },
+            new[] { 0.2f, 0.8f }, identity: 1);
+        Assert.Equal(C64Palette.Green, ramp.Identity);
+        Assert.Equal(C64Palette.White, ramp.Map(1f));
+    }
+
+    [Fact]
+    public void An_identity_index_past_the_end_is_rejected()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ColorRamp(
+            new[] { C64Palette.Black, C64Palette.White }, new[] { 0.5f }, identity: 2));
     }
 }
