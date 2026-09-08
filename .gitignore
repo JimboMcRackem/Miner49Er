@@ -37,3 +37,7 @@ art/review/
 # Python bytecode from the art-pass tools
 __pycache__/
 *.pyc
+
+# art/source is a conversion input, not a Godot asset dir - Godot still scans it
+art/source/**/*.import
+art/source/*.import
