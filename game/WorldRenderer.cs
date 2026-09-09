@@ -337,6 +337,19 @@ public partial class WorldRenderer : Node2D
 	/// their original size.</summary>
 	public const float SpriteScale = 0.5f;
 
+	/// <summary>Full source resolution, for creatures that half-scale leaves too small.
+	///
+	/// Only exact ratios are usable, so the available steps are 1.0 and 0.5 with nothing
+	/// between — the old per-creature scales (0.71 for the goat, 0.87 for the ghost) are
+	/// exactly the fractional values that resampled the art. Half-scale is relative to
+	/// the source, so it shrinks the most generously-padded canvases furthest: it took
+	/// the goat down 29% and left the ghost 5px wide, a sixth of a tile.
+	///
+	/// These render every authored pixel instead. Hitting the old sizes exactly would
+	/// mean baking the scale into the art and drawing 1:1 — worth doing if the jump to
+	/// full size reads too large.</summary>
+	public const float FullScale = 1.0f;
+
 	// Opaque-bottom row per texture. Reading the image is far too slow for a draw call,
 	// and a sprite's art never changes, so each is measured once.
 	private static readonly System.Collections.Generic.Dictionary<ulong, float> FootRowCache = new();
@@ -370,10 +383,11 @@ public partial class WorldRenderer : Node2D
 	/// Anchoring is by the feet, not the canvas centre. These canvases carry 7-11px of
 	/// empty space below the sprite, so centring a full-size canvas drops the feet about
 	/// 12px below the tile and away from their own shadow.</summary>
-	public static void DrawSpriteGrounded(CanvasItem ci, Texture2D tex, Vector2 c, Color? modulate = null)
+	public static void DrawSpriteGrounded(CanvasItem ci, Texture2D tex, Vector2 c,
+		Color? modulate = null, float scale = SpriteScale)
 	{
-		var s = tex.GetSize() * SpriteScale;
-		float top = c.Y + GroundLine - FootRow(tex) * SpriteScale;
+		var s = tex.GetSize() * scale;
+		float top = c.Y + GroundLine - FootRow(tex) * scale;
 		var rect = new Rect2(c.X - s.X / 2f, top, s.X, s.Y);
 		if (modulate.HasValue) ci.DrawTextureRect(tex, rect, false, modulate.Value);
 		else                   ci.DrawTextureRect(tex, rect, false);
@@ -1731,7 +1745,7 @@ public partial class WorldRenderer : Node2D
 					var tex = _slimeWalkTex[mo.Facing, slimeFrame] ?? _slimeTex[mo.Facing];
 					if (tex != null)
 					{
-						DrawSpriteGrounded(this, tex, c);
+						DrawSpriteGrounded(this, tex, c, null, FullScale);
 					}
 					else
 					{
@@ -1746,7 +1760,7 @@ public partial class WorldRenderer : Node2D
 					var tex = _goatWalkTex[mo.Facing, goatFrame] ?? _goatTex[mo.Facing];
 					if (tex != null)
 					{
-						DrawSpriteGrounded(this, tex, c);
+						DrawSpriteGrounded(this, tex, c, null, FullScale);
 					}
 					else
 					{
@@ -1810,7 +1824,7 @@ public partial class WorldRenderer : Node2D
 						var tex   = _skeletonDinoWalkTex[dir, frame] ?? _skeletonDinoTex[dir];
 						if (tex != null)
 						{
-							DrawSpriteGrounded(this, tex, c);
+							DrawSpriteGrounded(this, tex, c, null, FullScale);
 						}
 						else
 							DrawCircle(c, ts * 0.32f, Colors.White);
@@ -2038,7 +2052,7 @@ public partial class WorldRenderer : Node2D
 				// Same exact ratio as everything else, but centred rather than grounded —
 				// a ghost hovers, which is also why it is the one monster drawn without a
 				// shadow.
-				var gs = tex.GetSize() * SpriteScale;
+				var gs = tex.GetSize() * FullScale;
 				target.DrawTextureRect(tex, new Rect2(c - gs / 2f, gs), false);
 			}
 			else
