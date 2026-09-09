@@ -319,16 +319,54 @@ public partial class WorldRenderer : Node2D
 		if (ResourceLoader.Exists(path)) _prizeTex[(int)type] = GD.Load<Texture2D>(path);
 	}
 
-	/// <summary>Draw a sprite at its own pixel size, centred on <paramref name="c"/>.
+	/// <summary>Where a sprite's feet sit, relative to its tile centre. The ground
+	/// shadows are drawn on this same line, so sprite and shadow stay together.</summary>
+	public const float GroundLine = 11f;
+
+	// Opaque-bottom row per texture. Reading the image is far too slow for a draw call,
+	// and a sprite's art never changes, so each is measured once.
+	private static readonly System.Collections.Generic.Dictionary<ulong, float> FootRowCache = new();
+
+	/// <summary>The row of a sprite's lowest opaque pixel — its feet.</summary>
+	public static float FootRow(Texture2D tex)
+	{
+		ulong key = tex.GetRid().Id;
+		if (FootRowCache.TryGetValue(key, out var cached)) return cached;
+
+		var img = tex.GetImage();
+		float row = img.GetHeight();
+		for (int y = img.GetHeight() - 1; y >= 0; y--)
+		{
+			bool any = false;
+			for (int x = 0; x < img.GetWidth() && !any; x++)
+				any = img.GetPixel(x, y).A > 0.02f;
+			if (any) { row = y + 1; break; }
+		}
+		FootRowCache[key] = row;
+		return row;
+	}
+
+	/// <summary>Draw a sprite at its own pixel size, standing on the ground line.
 	///
-	/// Pixel art only survives at a 1:1 ratio. Every other scale resamples, and with
+	/// Pixel art only survives at a 1:1 ratio — every other scale resamples, and with
 	/// filtering on that converts the sprite to continuous tone at display time: a
-	/// 27-colour miner drawn into a 32px rect from a 68px source arrived on screen as
-	/// ~196 colours, 99% of them used by two pixels or fewer. Tiles looked crisp only
-	/// because they alone were already 1:1.
+	/// 27-colour miner squeezed from a 68px source into a 32px rect arrived on screen
+	/// as ~196 colours. Tiles looked crisp only because they alone were already 1:1.
 	///
-	/// One rule instead of a per-creature scale constant, so nothing can drift back to
-	/// a fractional ratio.</summary>
+	/// Anchoring is by the feet, not the canvas centre. These canvases carry 7-11px of
+	/// empty space below the sprite, so centring a full-size canvas drops the feet about
+	/// 12px below the tile and away from their own shadow.</summary>
+	public static void DrawSpriteGrounded(CanvasItem ci, Texture2D tex, Vector2 c, Color? modulate = null)
+	{
+		var s = tex.GetSize();
+		float top = c.Y + GroundLine - FootRow(tex);
+		var rect = new Rect2(c.X - s.X / 2f, top, s.X, s.Y);
+		if (modulate.HasValue) ci.DrawTextureRect(tex, rect, false, modulate.Value);
+		else                   ci.DrawTextureRect(tex, rect, false);
+	}
+
+	/// <summary>Draw a sprite at 1:1 centred on <paramref name="c"/> — for things that
+	/// float or have no feet (the ghost, the octopus).</summary>
 	private void DrawSpriteNative(Texture2D tex, Vector2 c)
 	{
 		var s = tex.GetSize();
@@ -1679,7 +1717,7 @@ public partial class WorldRenderer : Node2D
 					var tex = _slimeWalkTex[mo.Facing, slimeFrame] ?? _slimeTex[mo.Facing];
 					if (tex != null)
 					{
-						DrawSpriteNative(tex, c);
+						DrawSpriteGrounded(this, tex, c);
 					}
 					else
 					{
@@ -1694,7 +1732,7 @@ public partial class WorldRenderer : Node2D
 					var tex = _goatWalkTex[mo.Facing, goatFrame] ?? _goatTex[mo.Facing];
 					if (tex != null)
 					{
-						DrawSpriteNative(tex, c);
+						DrawSpriteGrounded(this, tex, c);
 					}
 					else
 					{
@@ -1714,7 +1752,7 @@ public partial class WorldRenderer : Node2D
 					int frame = (int)(Time.GetTicksMsec() / 175u) % 4;
 					var tex   = _zombieWalkTex[dir, frame] ?? _zombieIdleTex[dir];
 					if (tex != null)
-						DrawSpriteNative(tex, c);
+						DrawSpriteGrounded(this, tex, c);
 					else
 						DrawCircle(c, ts * 0.28f, ZombieColor);
 					break;
@@ -1724,7 +1762,7 @@ public partial class WorldRenderer : Node2D
 					if (mo.Dormant)
 					{
 						if (_bonesPileTex != null)
-							DrawSpriteNative(_bonesPileTex, c);
+							DrawSpriteGrounded(this, _bonesPileTex, c);
 						else
 							DrawCircle(c, ts * 0.20f, Colors.White);
 					}
@@ -1735,7 +1773,7 @@ public partial class WorldRenderer : Node2D
 						var tex   = _skeletonHumanWalkTex[dir, frame] ?? _skeletonHumanTex[dir];
 						if (tex != null)
 						{
-							DrawSpriteNative(tex, c);
+							DrawSpriteGrounded(this, tex, c);
 						}
 						else
 							DrawCircle(c, ts * 0.28f, Colors.White);
@@ -1747,7 +1785,7 @@ public partial class WorldRenderer : Node2D
 					if (mo.Dormant)
 					{
 						if (_bonesPileTex != null)
-							DrawSpriteNative(_bonesPileTex, c);
+							DrawSpriteGrounded(this, _bonesPileTex, c);
 						else
 							DrawCircle(c, ts * 0.24f, Colors.White);
 					}
@@ -1758,7 +1796,7 @@ public partial class WorldRenderer : Node2D
 						var tex   = _skeletonDinoWalkTex[dir, frame] ?? _skeletonDinoTex[dir];
 						if (tex != null)
 						{
-							DrawSpriteNative(tex, c);
+							DrawSpriteGrounded(this, tex, c);
 						}
 						else
 							DrawCircle(c, ts * 0.32f, Colors.White);
@@ -1777,7 +1815,7 @@ public partial class WorldRenderer : Node2D
 						// snake's pixels rectangular: a 2.37:1 distortion no other sprite has.
 						// The sprite is already drawn coiled and low; the shape belongs in the
 						// art, not in the draw rect.
-						DrawSpriteNative(snakeTex, c);
+						DrawSpriteGrounded(this, snakeTex, c);
 					}
 					else
 					{
@@ -1983,8 +2021,10 @@ public partial class WorldRenderer : Node2D
 			var tex = _ghostWalkTex[mo.Facing, ghostFrame] ?? _ghostTex[mo.Facing];
 			if (tex != null)
 			{
-				float gs = ts * 1.3f;
-				target.DrawTextureRect(tex, new Rect2(c.X - gs / 2f, c.Y - gs / 2f, gs, gs), false);
+				// 1:1 like everything else, but centred rather than grounded — a ghost
+				// hovers, which is also why it is the one monster drawn without a shadow.
+				var gs = tex.GetSize();
+				target.DrawTextureRect(tex, new Rect2(c - gs / 2f, gs), false);
 			}
 			else
 			{
