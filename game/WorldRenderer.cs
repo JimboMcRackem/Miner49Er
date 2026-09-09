@@ -319,6 +319,22 @@ public partial class WorldRenderer : Node2D
 		if (ResourceLoader.Exists(path)) _prizeTex[(int)type] = GD.Load<Texture2D>(path);
 	}
 
+	/// <summary>Draw a sprite at its own pixel size, centred on <paramref name="c"/>.
+	///
+	/// Pixel art only survives at a 1:1 ratio. Every other scale resamples, and with
+	/// filtering on that converts the sprite to continuous tone at display time: a
+	/// 27-colour miner drawn into a 32px rect from a 68px source arrived on screen as
+	/// ~196 colours, 99% of them used by two pixels or fewer. Tiles looked crisp only
+	/// because they alone were already 1:1.
+	///
+	/// One rule instead of a per-creature scale constant, so nothing can drift back to
+	/// a fractional ratio.</summary>
+	private void DrawSpriteNative(Texture2D tex, Vector2 c)
+	{
+		var s = tex.GetSize();
+		DrawTextureRect(tex, new Rect2(c - s / 2f, s), false);
+	}
+
 	// Loads n/e/s/w.png from assets/monsters/<folder>/ into a [4] array (0=N 1=E 2=S 3=W).
 	private static void LoadMonsterTex(Texture2D?[] arr, string folder)
 	{
@@ -1663,8 +1679,7 @@ public partial class WorldRenderer : Node2D
 					var tex = _slimeWalkTex[mo.Facing, slimeFrame] ?? _slimeTex[mo.Facing];
 					if (tex != null)
 					{
-						float ss = ts * 1.3f;
-						DrawTextureRect(tex, new Rect2(c.X - ss / 2f, c.Y - ss / 2f, ss, ss), false);
+						DrawSpriteNative(tex, c);
 					}
 					else
 					{
@@ -1679,8 +1694,7 @@ public partial class WorldRenderer : Node2D
 					var tex = _goatWalkTex[mo.Facing, goatFrame] ?? _goatTex[mo.Facing];
 					if (tex != null)
 					{
-						float gs = ts * 1.5f;
-						DrawTextureRect(tex, new Rect2(c.X - gs / 2f, c.Y - gs / 2f, gs, gs), false);
+						DrawSpriteNative(tex, c);
 					}
 					else
 					{
@@ -1700,7 +1714,7 @@ public partial class WorldRenderer : Node2D
 					int frame = (int)(Time.GetTicksMsec() / 175u) % 4;
 					var tex   = _zombieWalkTex[dir, frame] ?? _zombieIdleTex[dir];
 					if (tex != null)
-						DrawTextureRect(tex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+						DrawSpriteNative(tex, c);
 					else
 						DrawCircle(c, ts * 0.28f, ZombieColor);
 					break;
@@ -1710,7 +1724,7 @@ public partial class WorldRenderer : Node2D
 					if (mo.Dormant)
 					{
 						if (_bonesPileTex != null)
-							DrawTextureRect(_bonesPileTex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+							DrawSpriteNative(_bonesPileTex, c);
 						else
 							DrawCircle(c, ts * 0.20f, Colors.White);
 					}
@@ -1721,8 +1735,7 @@ public partial class WorldRenderer : Node2D
 						var tex   = _skeletonHumanWalkTex[dir, frame] ?? _skeletonHumanTex[dir];
 						if (tex != null)
 						{
-							float ss = ts * 1.2f;
-							DrawTextureRect(tex, new Rect2(c.X - ss / 2f, c.Y - ss / 2f, ss, ss), false);
+							DrawSpriteNative(tex, c);
 						}
 						else
 							DrawCircle(c, ts * 0.28f, Colors.White);
@@ -1734,7 +1747,7 @@ public partial class WorldRenderer : Node2D
 					if (mo.Dormant)
 					{
 						if (_bonesPileTex != null)
-							DrawTextureRect(_bonesPileTex, new Rect2(c.X - ts / 2f, c.Y - ts / 2f, ts, ts), false);
+							DrawSpriteNative(_bonesPileTex, c);
 						else
 							DrawCircle(c, ts * 0.24f, Colors.White);
 					}
@@ -1745,8 +1758,7 @@ public partial class WorldRenderer : Node2D
 						var tex   = _skeletonDinoWalkTex[dir, frame] ?? _skeletonDinoTex[dir];
 						if (tex != null)
 						{
-							float ss = ts * 1.5f;
-							DrawTextureRect(tex, new Rect2(c.X - ss / 2f, c.Y - ss / 2f, ss, ss), false);
+							DrawSpriteNative(tex, c);
 						}
 						else
 							DrawCircle(c, ts * 0.32f, Colors.White);
@@ -1765,8 +1777,7 @@ public partial class WorldRenderer : Node2D
 						// snake's pixels rectangular: a 2.37:1 distortion no other sprite has.
 						// The sprite is already drawn coiled and low; the shape belongs in the
 						// art, not in the draw rect.
-						float ss = ts * 1.875f;
-						DrawTextureRect(snakeTex, new Rect2(c.X - ss / 2f, c.Y - ss / 2f, ss, ss), false);
+						DrawSpriteNative(snakeTex, c);
 					}
 					else
 					{

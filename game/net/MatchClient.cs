@@ -774,7 +774,14 @@ public partial class MatchClient : Node2D
 
 			WorldRenderer.DrawGroundShadow(this, new Vector2(p.X, p.Y + 11f), 9f, 3.5f);
 			if (tex != null)
-				DrawTextureRect(tex, new Rect2(p.X - 16, p.Y - 16, 32, 32), false, new Color(1, 1, 1, alpha));
+			{
+				// 1:1 with the source. Miner art is authored at 68px; squeezing it into a
+				// 32px rect resampled every pixel, which with filtering turned a 27-colour
+				// sprite into ~196 colours on screen.
+				var sz = tex.GetSize();
+				DrawTextureRect(tex, new Rect2(p.X - sz.X / 2f, p.Y - sz.Y / 2f, sz.X, sz.Y),
+					false, new Color(1, 1, 1, alpha));
+			}
 			else
 			{
 				var col = PlayerColors.At(colorIdx);

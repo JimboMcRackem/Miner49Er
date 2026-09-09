@@ -34,3 +34,9 @@ project/assembly_name="Miner49er"
 [rendering]
 
 viewport/hdr_2d=true
+; Pixel art: sample texels, never blend them. With the default Linear filter a
+; 27-colour miner arrives on screen as ~196 colours with 99% of them used by two
+; pixels or fewer - the renderer was converting every sprite into a continuous-tone
+; image at display time, while tiles (drawn 1:1) survived as authored. That split
+; was the cohesion problem.
+textures/canvas_textures/default_texture_filter=0
