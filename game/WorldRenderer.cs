@@ -323,6 +323,20 @@ public partial class WorldRenderer : Node2D
 	/// shadows are drawn on this same line, so sprite and shadow stay together.</summary>
 	public const float GroundLine = 11f;
 
+	/// <summary>How much of a character sprite's source resolution reaches the screen.
+	///
+	/// Must stay an exact power-of-two fraction. Nearest filtering only looks right on
+	/// an exact ratio: at 0.5 it takes every other texel, which is predictable and
+	/// crisp, whereas the old fractional scales (0.47, 0.56, 0.71, 0.87) dropped texels
+	/// on an irregular lattice and, with the old Linear filter, blurred the art into
+	/// continuous tone.
+	///
+	/// 1.0 renders every authored pixel and is sharpest, but character art is drawn on
+	/// 48-120px canvases against a 32px tile, so full size made them tower over the
+	/// one-tile corridors. 0.5 costs half the authored detail and returns them to about
+	/// their original size.</summary>
+	public const float SpriteScale = 0.5f;
+
 	// Opaque-bottom row per texture. Reading the image is far too slow for a draw call,
 	// and a sprite's art never changes, so each is measured once.
 	private static readonly System.Collections.Generic.Dictionary<ulong, float> FootRowCache = new();
@@ -358,8 +372,8 @@ public partial class WorldRenderer : Node2D
 	/// 12px below the tile and away from their own shadow.</summary>
 	public static void DrawSpriteGrounded(CanvasItem ci, Texture2D tex, Vector2 c, Color? modulate = null)
 	{
-		var s = tex.GetSize();
-		float top = c.Y + GroundLine - FootRow(tex);
+		var s = tex.GetSize() * SpriteScale;
+		float top = c.Y + GroundLine - FootRow(tex) * SpriteScale;
 		var rect = new Rect2(c.X - s.X / 2f, top, s.X, s.Y);
 		if (modulate.HasValue) ci.DrawTextureRect(tex, rect, false, modulate.Value);
 		else                   ci.DrawTextureRect(tex, rect, false);
@@ -369,7 +383,7 @@ public partial class WorldRenderer : Node2D
 	/// float or have no feet (the ghost, the octopus).</summary>
 	private void DrawSpriteNative(Texture2D tex, Vector2 c)
 	{
-		var s = tex.GetSize();
+		var s = tex.GetSize() * SpriteScale;
 		DrawTextureRect(tex, new Rect2(c - s / 2f, s), false);
 	}
 
@@ -2021,9 +2035,10 @@ public partial class WorldRenderer : Node2D
 			var tex = _ghostWalkTex[mo.Facing, ghostFrame] ?? _ghostTex[mo.Facing];
 			if (tex != null)
 			{
-				// 1:1 like everything else, but centred rather than grounded — a ghost
-				// hovers, which is also why it is the one monster drawn without a shadow.
-				var gs = tex.GetSize();
+				// Same exact ratio as everything else, but centred rather than grounded —
+				// a ghost hovers, which is also why it is the one monster drawn without a
+				// shadow.
+				var gs = tex.GetSize() * SpriteScale;
 				target.DrawTextureRect(tex, new Rect2(c - gs / 2f, gs), false);
 			}
 			else

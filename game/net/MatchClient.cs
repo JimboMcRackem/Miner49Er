@@ -774,11 +774,11 @@ public partial class MatchClient : Node2D
 
 			WorldRenderer.DrawGroundShadow(this, new Vector2(p.X, p.Y + 11f), 9f, 3.5f);
 			if (tex != null)
-				// 1:1 with the source, standing on the ground line. Miner art is authored
-				// at 68px; squeezing it into a 32px rect resampled every pixel, which with
-				// filtering turned a 27-colour sprite into ~196 colours on screen. The
-				// canvas carries ~11px of empty space below the boots, so it is anchored
-				// by the feet rather than centred - the same line the shadow above uses.
+				// Exact 0.5x of the source, standing on the ground line. The old 32-from-68
+				// rect was 0.47x, a fractional ratio that resampled every pixel and, with
+				// the old Linear filter, turned a 27-colour sprite into ~196 colours on
+				// screen. The canvas carries ~11px of empty space below the boots, so it is
+				// anchored by the feet rather than centred - the line the shadow above uses.
 				WorldRenderer.DrawSpriteGrounded(this, tex, new Vector2(p.X, p.Y),
 					new Color(1, 1, 1, alpha));
 			else
