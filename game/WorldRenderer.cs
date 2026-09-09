@@ -1759,11 +1759,14 @@ public partial class WorldRenderer : Node2D
 					var snakeTex = _waterSnakeWalkTex[mo.Facing, snakeFrame] ?? _waterSnakeTex[mo.Facing];
 					if (snakeTex != null)
 					{
-						// Elongate along the movement axis so the snake reads as low and horizontal.
-						bool ew = mo.Facing == 1 || mo.Facing == 3;
-						float sw = ew ? ts * 1.9f : ts * 0.80f;
-						float sh = ew ? ts * 0.80f : ts * 1.9f;
-						DrawTextureRect(snakeTex, new Rect2(c.X - sw / 2f, c.Y - sh / 2f, sw, sh), false);
+						// Square, at half the 120px source — the same 0.5x the rest of the art
+						// is drawn at. This used to stretch 1.9x0.80 along the movement axis to
+						// read "low and horizontal", but the source is square, so that made the
+						// snake's pixels rectangular: a 2.37:1 distortion no other sprite has.
+						// The sprite is already drawn coiled and low; the shape belongs in the
+						// art, not in the draw rect.
+						float ss = ts * 1.875f;
+						DrawTextureRect(snakeTex, new Rect2(c.X - ss / 2f, c.Y - ss / 2f, ss, ss), false);
 					}
 					else
 					{
