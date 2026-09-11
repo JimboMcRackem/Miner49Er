@@ -30,8 +30,8 @@ public partial class MatchHost : Node
 	private double _accum;
 	private bool _running;
 
-	private int _livesRemaining;
-	private int _livesMax;
+	// Human lives (one shared pool) and each bot's private budget. See LifeLedger.
+	private LifeLedger _lives = LifeLedger.WithFixedPool(0);
 	private int _cumulativeGold;
 	public int CumulativeGold => _cumulativeGold;
 	private readonly Dictionary<int, (int Speed, int Vision, int Blast)> _permLevels = new();
@@ -50,13 +50,14 @@ public partial class MatchHost : Node
 	// Human miner IDs (excludes bots); used for bot-aware game-over logic.
 	private readonly HashSet<int> _humanMinerIds = new();
 
-	// True when deaths draw from the shared life pool with per-miner respawns: any
-	// Expedition run with more than one being in the party Ã¢â‚¬â€ multiple humans, or bots
-	// present. A death (human OR bot) spends one shared life and the being respawns only
-	// while lives remain. Pure solo (one human, no bots) keeps the full-wipe respawn model.
+	// True when deaths are charged per miner and the dead respawn individually: any
+	// Expedition run with more than one being in the party — multiple humans, or bots
+	// present. Who pays is LifeLedger's business: a human death spends from the shared
+	// human pool, a bot death spends that bot's own lives. Pure solo (one human, no
+	// bots) keeps the full-wipe respawn model.
 	private bool UsesPerMinerRespawn =>
 		NetworkManager.Instance.MatchMode == GameMode.Expedition
-		&& (NetworkManager.Instance.MatchPlayerCount > 1 || _botBrains.Count > 0);
+		&& (_humanMinerIds.Count > 1 || _botBrains.Count > 0);
 
 	// Co-op Expedition: floor-clear choice pending (host awaits "Continue" or "Return to Menu").
 	private bool _floorChoicePending;
@@ -78,10 +79,6 @@ public partial class MatchHost : Node
 			_humanMinerIds.Add(miner);
 		}
 		var nm       = NetworkManager.Instance;
-		_livesMax       = nm.MatchMode == GameMode.Expedition
-			? (nm.MatchPlayerCount == 1 ? 3 : 2 * nm.MatchPlayerCount)
-			: 1;
-		_livesRemaining = _livesMax;
 		_running = true;
 		_spawnByMiner.Clear();
 		foreach (var (_, mid) in peerToMiner)
@@ -100,6 +97,13 @@ public partial class MatchHost : Node
 		if (botMinerToPeer != null)
 			foreach (var kv in botMinerToPeer) _botMinerToPeer[kv.Key] = kv.Value;
 
+		// Humans share a pool sized by head count; every bot carries its own lives and
+		// neither sizes nor spends the humans' pool. MatchPlayerCount is deliberately not
+		// used here — bots join the lobby as peers, so it counts them as players.
+		_lives = nm.MatchMode == GameMode.Expedition
+			? new LifeLedger(_humanMinerIds.Count, _botBrains.Keys)
+			: LifeLedger.WithFixedPool(1);
+
 		_deadMiners.Clear();
 		_coopRespawnTimers.Clear();
 
@@ -108,7 +112,7 @@ public partial class MatchHost : Node
 		if (resume != null && _peerToMiner.Count == 1 && _botBrains.Count == 0)
 		{
 			_cumulativeGold = resume.CumulativeGold;
-			_livesRemaining = Math.Min(resume.Lives, _livesMax);
+			_lives.SetPoolRemaining(resume.Lives);
 			int mid = _peerToMiner.Values.First();
 			_sim.SetPermLevels(mid, resume.PermSpeed, resume.PermVision, resume.PermBlast);
 			_permLevels[mid] = (resume.PermSpeed, resume.PermVision, resume.PermBlast);
@@ -166,8 +170,8 @@ public partial class MatchHost : Node
 				_sim.SetPermLevels(minerId, miner.PermSpeedLevel, miner.PermVisionLevel, miner.PermBlastLevel + 1);
 				break;
 			case ShopItemKind.LifePotion:
-				if (_livesRemaining >= _livesMax) return;
-				_livesRemaining = Math.Min(_livesRemaining + 1, _livesMax);
+				if (_lives.PoolRemaining >= _lives.PoolMax) return;
+				_lives.Restore(minerId);
 				break;
 			case ShopItemKind.Stones3:
 				if (miner.StoneCount >= 9) return;
@@ -237,8 +241,8 @@ public partial class MatchHost : Node
 				case PortalUsed pu:
 					_portalUses.Add(new PortalUseSnapshot(pu.From.X, pu.From.Y, pu.To.X, pu.To.Y, pu.Kind));
 					break;
-				case LifeRestored:
-					_livesRemaining = Math.Min(_livesRemaining + 1, _livesMax);
+				case LifeRestored lr:
+					_lives.Restore(lr.MinerId);
 					break;
 				case StoneThrown st:
 				{
@@ -270,7 +274,7 @@ public partial class MatchHost : Node
 			}
 		}
 
-		var snapshot = SnapshotFactory.Capture(_sim, _tick, _livesRemaining);
+		var snapshot = SnapshotFactory.Capture(_sim, _tick, _lives.PoolRemaining);
 		if (screeCollapses.Count > 0)
 			snapshot = snapshot with { ScreeCollapses = screeCollapses };
 		if (_botWhistles.Count > 0)
@@ -302,7 +306,7 @@ public partial class MatchHost : Node
 	// re-send the HUD keeps showing the pre-death heart count (e.g. 1 when you've actually hit 0).
 	private void BroadcastLives()
 	{
-		var snapshot = SnapshotFactory.Capture(_sim, _tick, _livesRemaining);
+		var snapshot = SnapshotFactory.Capture(_sim, _tick, _lives.PoolRemaining);
 		NetworkManager.Instance.BroadcastTick(SnapshotCodec.Write(new TickUpdate(snapshot, new List<TileChange>())));
 	}
 
@@ -424,10 +428,10 @@ public partial class MatchHost : Node
 				else
 				{
 					// Pure solo (one human, no bots): spend a life and respawn all dead miners.
-					_livesRemaining--;
+					_lives.TrySpend(_humanMinerIds.FirstOrDefault());
 					BroadcastLives();   // reflect the spent life on the HUD now — the final death
 					                    // ends the match this tick with no further snapshot to carry it.
-					if (_livesRemaining > 0)
+					if (_lives.PoolRemaining > 0)
 					{
 						_respawnPending = true;
 						_respawnTimer = RespawnDelay;
@@ -464,18 +468,16 @@ public partial class MatchHost : Node
 		}
 
 		// Detect miners that just died this tick and haven't been processed yet.
-		// Every being Ã¢â‚¬â€ human or bot Ã¢â‚¬â€ draws from the shared life pool; when it is empty,
-		// the dead being stays down (no respawn timer scheduled).
+		// Each death is charged to its owner — a human to the shared pool, a bot to its own
+		// two lives. When that budget is empty the dead being stays down: no respawn timer
+		// is scheduled, and a spent bot sits out the rest of the floor.
 		foreach (var m in _sim.Miners)
 		{
 			if (!m.Alive && !_deadMiners.Contains(m.Id) && !_coopRespawnTimers.ContainsKey(m.Id))
 			{
 				_deadMiners.Add(m.Id);
-				if (_livesRemaining > 0)
-				{
-					_livesRemaining--;
+				if (_lives.TrySpend(m.Id))
 					_coopRespawnTimers[m.Id] = RespawnDelay;
-				}
 			}
 		}
 	}
@@ -507,7 +509,7 @@ public partial class MatchHost : Node
 		if (nm.MatchMode == GameMode.Expedition && _peerToMiner.Count == 1 && _botBrains.Count == 0)
 		{
 			var (spd, vis, bst) = _permLevels.TryGetValue(1, out var lvl) ? lvl : (0, 0, 0);
-			SettingsStore.SaveExpedition(nm.MatchSeed, newFloor, _cumulativeGold, _livesRemaining,
+			SettingsStore.SaveExpedition(nm.MatchSeed, newFloor, _cumulativeGold, _lives.PoolRemaining,
 				nm.MatchMapScale, nm.MatchFlooding, nm.MatchPits, nm.MatchCaveIns, nm.MatchLava,
 				spd, vis, bst);
 		}
@@ -614,6 +616,7 @@ public partial class MatchHost : Node
 		_pendingThrowDynamite.Clear();
 		_deadMiners.Clear();
 		_coopRespawnTimers.Clear();
+		_lives.RefreshBots();   // bots come back down with the party on a new floor
 
 		nm.BroadcastNewFloor(newFloor);
 	}
