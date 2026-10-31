@@ -1867,6 +1867,7 @@ public partial class WorldRenderer : Node2D
 			if (!spectating && !_client.Fog.IsVisible(mp)) continue;
 			if (mo.Kind == MonsterKind.Ghost) continue;   // ghosts drawn by GhostOverlay, above the darkness
 			var c = _client.MonsterVisualPos(mo.Id, mo.X, mo.Y);
+			c = LeanIfAboutToStrike(mo, c, ts);
 			var fwd  = FacingOffset(mo.Facing, ts * 0.12f);
 			var side = PerpendicularOffset(mo.Facing, ts * 0.10f);
 			if (mo.Kind != MonsterKind.Ghost) // ghosts float — no ground shadow
@@ -1894,10 +1895,8 @@ public partial class WorldRenderer : Node2D
 					var tex = _goatWalkTex[mo.Facing, goatFrame] ?? _goatTex[mo.Facing];
 					if (mo.Phase == GoatPhase.WindUp)
 					{
-						// Pawing the ground: rocks on the spot under a warning mark.
+						// Pawing the ground: rocks on the spot.
 						c += FacingOffset(mo.Facing, ts * 0.06f * Mathf.Sin((float)Time.GetTicksMsec() * 0.03f));
-						DrawRect(new Rect2(c.X - 1.5f, c.Y - ts * 1.05f, 3f, 8f), GoatWarningCol);
-						DrawRect(new Rect2(c.X - 1.5f, c.Y - ts * 1.05f + 10f, 3f, 3f), GoatWarningCol);
 					}
 					if (tex != null)
 					{
@@ -2177,6 +2176,41 @@ public partial class WorldRenderer : Node2D
 	/// <summary>Draws every visible ghost onto <paramref name="target"/>. Called by GhostOverlay,
 	/// which sits above the darkness overlay so ghosts stay full-bright (they emit no light and
 	/// cast no shadow). Ghosts are skipped by the in-world monster pass in <see cref="_Draw"/>.</summary>
+	private static void DrawWarningMark(CanvasItem target, Vector2 c, int ts)
+	{
+		// Beside the head, not above it, so it never lands on a miner standing just north.
+		float x = c.X + ts * 0.42f, y = c.Y - ts * 0.75f;
+		target.DrawRect(new Rect2(x - 1.5f, y, 3f, 8f), GoatWarningCol);
+		target.DrawRect(new Rect2(x - 1.5f, y + 10f, 3f, 3f), GoatWarningCol);
+	}
+
+	/// <summary>Drawn with the miners, on top of them, or a monster to the south would hide
+	/// its mark behind the miner it's warning.</summary>
+	public void DrawWarningMarks(CanvasItem target)
+	{
+		int ts = MatchClient.TileSize;
+		foreach (var mo in _client.Monsters)
+		{
+			if (!IsAboutToStrike(mo) && !(mo.Alive && mo.Kind == MonsterKind.Goat && mo.Phase == GoatPhase.WindUp))
+				continue;
+			if (!_client.Fog.IsVisible(new GridPos(mo.X, mo.Y)) && _client.FogRenderer?.SpectatorMode != true)
+				continue;
+			DrawWarningMark(target, _client.MonsterVisualPos(mo.Id, mo.X, mo.Y), ts);
+		}
+	}
+
+	private bool IsAboutToStrike(MonsterSnapshot mo) =>
+		_client.LocalMinerTile() is { } miner && MonsterTelegraph.IsAboutToStrike(mo, miner);
+
+	// A monster about to step onto the local miner leans toward them.
+	private Vector2 LeanIfAboutToStrike(MonsterSnapshot mo, Vector2 c, int ts)
+	{
+		if (!IsAboutToStrike(mo)) return c;
+		var miner = _client.LocalMinerTile()!.Value;
+		var toward = new Vector2(miner.X - mo.X, miner.Y - mo.Y);
+		return c + toward * ts * 0.07f * (1f + Mathf.Sin((float)Time.GetTicksMsec() * 0.02f));
+	}
+
 	public void DrawGhosts(CanvasItem target)
 	{
 		if (_client == null) return;
@@ -2187,6 +2221,7 @@ public partial class WorldRenderer : Node2D
 			var mp = new GridPos(mo.X, mo.Y);
 			if (!_client.Fog.IsVisible(mp) && _client.FogRenderer?.SpectatorMode != true) continue;
 			var c = _client.MonsterVisualPos(mo.Id, mo.X, mo.Y);
+			c = LeanIfAboutToStrike(mo, c, ts);
 			int ghostFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
 			var tex = _ghostWalkTex[mo.Facing, ghostFrame] ?? _ghostTex[mo.Facing];
 			if (tex != null)

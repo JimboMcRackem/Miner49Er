@@ -47,6 +47,13 @@ public partial class MatchClient : Node2D
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
 	public event System.Action<Vector2>? AmbientDripped; // world position of a visible water drop
 	private const float AmbientRumbleShake = 0.15f;
+
+	// Hit-pause lengths, and how near the camera a blow must land to cause one.
+	private const double LocalDeathPause = 0.12;
+	private const double BlastPause      = 0.07;
+	private const double MonsterHitPause = 0.05;
+	private const float  HitPauseRange   = TileSize * 6f;
+	private readonly HitPause _hitPause = new();
 	private const float MonsterGlideSeconds = 0.15f;
 	private static readonly float GoatChargeGlideSeconds = (float)new SimConfig().MonsterGoatMoveSeconds;
 	private static readonly float GoatWanderGlideSeconds = (float)new SimConfig().MonsterGoatWanderMoveSeconds;
@@ -263,6 +270,7 @@ public partial class MatchClient : Node2D
 			_world?.AddExplosionRing(c, maxR + TileSize * 0.7f);
 			Exploded?.Invoke(c);
 			ShakeFromWorld(c, 0.7f);
+			PauseIfNear(c, BlastPause);
 			_world?.EmitExplosionDebris(c);
 		}
 
@@ -339,7 +347,11 @@ public partial class MatchClient : Node2D
 		// Your own death always jolts the camera, regardless of what caused it.
 		bool localAliveNow = false;
 		foreach (var mm in _miners) if (mm.Id == LocalMinerId && mm.Alive) { localAliveNow = true; break; }
-		if (_localWasAlive && !localAliveNow) AddShake(0.6f);
+		if (_localWasAlive && !localAliveNow)
+		{
+			AddShake(0.6f);
+			_hitPause.Trigger(LocalDeathPause);
+		}
 		foreach (var mm2 in _miners)
 		{
 			bool wasAlive = _prevMinerAlive.TryGetValue(mm2.Id, out var pa) && pa;
@@ -361,14 +373,20 @@ public partial class MatchClient : Node2D
 		{
 			if (!oldMo.Alive) continue;
 			bool stillAlive = false;
+			bool justStunned = false;
 			foreach (var nmo in update.Snapshot.Monsters)
-				if (nmo.Id == oldMo.Id && nmo.Alive) { stillAlive = true; break; }
-			if (stillAlive) continue;
+				if (nmo.Id == oldMo.Id && nmo.Alive)
+				{
+					stillAlive = true;
+					justStunned = nmo.StunRemaining > oldMo.StunRemaining;
+					break;
+				}
+			if (stillAlive && !justStunned) continue;
 			var dp = new GridPos(oldMo.X, oldMo.Y);
-			if (FogRenderer?.SpectatorMode == true || Fog.IsVisible(dp))
-				_world?.EmitMonsterDeath(
-					new Vector2(oldMo.X * TileSize + TileSize / 2f, oldMo.Y * TileSize + TileSize / 2f),
-					oldMo.Kind);
+			if (FogRenderer?.SpectatorMode != true && !Fog.IsVisible(dp)) continue;
+			var mpos = new Vector2(oldMo.X * TileSize + TileSize / 2f, oldMo.Y * TileSize + TileSize / 2f);
+			PauseIfNear(mpos, MonsterHitPause);
+			if (!stillAlive) _world?.EmitMonsterDeath(mpos, oldMo.Kind);
 		}
 		_monsters = new List<MonsterSnapshot>(update.Snapshot.Monsters);
 		_carts = new List<CartSnapshot>(update.Snapshot.Carts ?? System.Array.Empty<CartSnapshot>());
@@ -554,6 +572,8 @@ public partial class MatchClient : Node2D
 			else _pendingFloodPaints[i] = pf;
 		}
 
+		float glideDelta = (float)_hitPause.Scale(delta);
+
 		// Smooth each miner visual toward its authoritative tile position.
 		double now = Time.GetTicksMsec() / 1000.0;
 		bool foundLocal = false;
@@ -577,7 +597,7 @@ public partial class MatchClient : Node2D
 			{
 				var cur = _visualPos.TryGetValue(m.Id, out var v) ? v : target;
 				float pixelsPerSec = TileSize / (float)m.MoveSeconds;
-				_visualPos[m.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
+				_visualPos[m.Id] = cur.MoveToward(target, pixelsPerSec * glideDelta);
 				if (hadLast && (last.X != m.X || last.Y != m.Y))
 					_walkUntil[m.Id] = now + m.MoveSeconds;
 			}
@@ -630,14 +650,14 @@ public partial class MatchClient : Node2D
 			if (mo.Kind == MonsterKind.Goat && cur.DistanceTo(target) <= TileSize)
 				glideSeconds = mo.Phase == GoatPhase.Charge ? GoatChargeGlideSeconds : GoatWanderGlideSeconds;
 			float pixelsPerSec = TileSize / glideSeconds;
-			_monsterVisualPos[mo.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
+			_monsterVisualPos[mo.Id] = cur.MoveToward(target, pixelsPerSec * glideDelta);
 		}
 		foreach (var ct in _carts)
 		{
 			var target = new Vector2(ct.X * TileSize + TileSize / 2f, ct.Y * TileSize + TileSize / 2f);
 			var cur = _cartVisualPos.TryGetValue(ct.Id, out var v) ? v : target;
 			float pixelsPerSec = TileSize / 0.10f;   // brisk roll so a momentum launch reads
-			_cartVisualPos[ct.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
+			_cartVisualPos[ct.Id] = cur.MoveToward(target, pixelsPerSec * glideDelta);
 		}
 
 		// Camera and fog: follow local miner when alive; reveal full map when dead.
@@ -700,6 +720,20 @@ public partial class MatchClient : Node2D
 
 	// Adds camera-shake trauma (clamped to 1). Called on explosions, cave-ins, and local death.
 	public void AddShake(float amount) => _shakeTrauma = Mathf.Min(1f, _shakeTrauma + amount);
+
+	private void PauseIfNear(Vector2 worldPos, double seconds)
+	{
+		if (_camera != null && _camera.Position.DistanceTo(worldPos) <= HitPauseRange)
+			_hitPause.Trigger(seconds);
+	}
+
+	/// <summary>The local miner's tile while they're alive.</summary>
+	public GridPos? LocalMinerTile()
+	{
+		foreach (var m in _miners)
+			if (m.Id == LocalMinerId && m.Alive) return new GridPos(m.X, m.Y);
+		return null;
+	}
 
 	public void RaiseAmbientDrip(Vector2 worldPos) => AmbientDripped?.Invoke(worldPos);
 
@@ -807,6 +841,7 @@ public partial class MatchClient : Node2D
 				DrawRect(new Rect2(p.X - 10, p.Y - 10, 20, 20), col);
 			}
 		}
+		_world?.DrawWarningMarks(this);
 	}
 
 	private static int MinerColorIndex(int minerId)
