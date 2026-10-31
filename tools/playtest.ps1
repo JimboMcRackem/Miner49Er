@@ -1,6 +1,7 @@
 # Boots a real match in a visible window, runs scripted steps, saves screenshots.
 #   .\tools\playtest.ps1 -Out C:\shots -Steps "wait 3; shot start; hold move_right 1; shot moved"
-# Steps: wait <s> | hold <action> <s> | tap <action> | shot <name> | burst <name> <count> <s>
+# Steps: wait <s> | hold <action> <s> | tap <action> | press <action> | release <action>
+#        shot <name> | burst <name> <count> <s> | timescale <factor>
 # Actions are the names in game/InputBindings.cs (move_up, pickaxe, plant_explosive, ...).
 # Options: -Options "mode=GrudgeMatch seed=7 floor=12 bots=3 time=120 lava flood pits caveins"
 param(

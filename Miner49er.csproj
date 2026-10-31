@@ -10,11 +10,17 @@
        Core comes in via the ProjectReference below. -->
   <ItemGroup>
     <Compile Remove="src/**/*.cs" />
+    <!-- Generated at build time, after this glob runs: left to the glob, a fresh clone
+         would not compile it. GenerateVersionFile adds it instead. -->
+    <Compile Remove="game/GameVersion.g.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="src/Miner49er.Core/Miner49er.Core.csproj" />
   </ItemGroup>
   <Target Name="GenerateVersionFile" BeforeTargets="BeforeBuild">
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\gen-version.ps1&quot;" />
+    <ItemGroup>
+      <Compile Include="game/GameVersion.g.cs" />
+    </ItemGroup>
   </Target>
 </Project>
