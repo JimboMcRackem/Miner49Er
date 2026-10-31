@@ -1681,9 +1681,13 @@ public sealed class Simulation
         }
     }
 
-    // Rolls chest loot but skips any perm buff the miner has already capped, so a chest
-    // always does something. Falls back to a life restore when every perm buff is maxed.
-    private ItemKind RollUsefulChestLoot(Miner m) => ChestLootTable.Roll(_rng);
+    /// <summary>Lives belong to the host, so it says whether a chest's life would land.
+    /// Unset means it would.</summary>
+    public Func<int, bool>? CanRestoreLife { get; set; }
+
+    // A chest always does something: it won't hand over a life the miner can't bank.
+    private ItemKind RollUsefulChestLoot(Miner m) =>
+        ChestLootTable.Roll(_rng, CanRestoreLife?.Invoke(m.Id) ?? true);
 
     private void PickUpItems()
     {
@@ -1864,7 +1868,10 @@ public sealed class Simulation
                     BuffTuning.BlastMagnitude, BuffTuning.BlastSeconds);
                 break;
             case ItemKind.Chest:
-                ApplyBuff(minerId, RollUsefulChestLoot(m));
+                var loot = RollUsefulChestLoot(m);
+                m.ChestsOpened++;
+                m.LastChestLoot = loot;
+                ApplyBuff(minerId, loot);
                 break;
             case ItemKind.BossChest:
                 if (!EscapeOpen && EscapeTile is not null)

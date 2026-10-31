@@ -6,7 +6,8 @@ public readonly record struct MinerSnapshot(
     int Id, int X, int Y, int Facing, bool Alive, int Gold, int Activity,
     double ActivityRemaining, double MoveSeconds, int VisionRadius, int Held,
     DeathCause Cause = DeathCause.None, float InvulRemaining = 0f, int StoneCount = 0,
-    float StunRemaining = 0f, bool Listening = false, int Kills = 0);
+    float StunRemaining = 0f, bool Listening = false, int Kills = 0,
+    int ChestsOpened = 0, int ChestLoot = -1);
 
 public readonly record struct ChargeSnapshot(int OwnerId, int X, int Y, double FuseRemaining);
 

@@ -32,6 +32,9 @@ public sealed class Miner
 
     public int StoneCount { get; internal set; }
 
+    public int ChestsOpened { get; internal set; }        // bumps per chest so clients can spot a new one
+    public ItemKind? LastChestLoot { get; internal set; }
+
     public double InvulnerableRemaining { get; internal set; }
 
     // Pickaxe stun: target is frozen; attacker is on cooldown.

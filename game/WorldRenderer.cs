@@ -1552,7 +1552,7 @@ public partial class WorldRenderer : Node2D
 
 			if (it.Placement == ItemPlacement.Toolbox)
 			{
-				// Draw container, then item sprite at half-size so player sees what's inside
+				// Draw container, then the item large enough to stand out from the crate
 				if (_toolboxTex != null)
 					DrawTextureRect(_toolboxTex, r, false);
 				else
@@ -1560,7 +1560,7 @@ public partial class WorldRenderer : Node2D
 					float bs = ts * 0.5f;
 					DrawRect(new Rect2(icenter.X - bs / 2f, icenter.Y - bs / 2f, bs, bs), ToolboxColor, false, 2f);
 				}
-				float hs = ts * 0.5f;
+				float hs = ts * 0.72f;
 				var inner = new Rect2(icenter.X - hs / 2f, icenter.Y - hs / 2f, hs, hs);
 				if (_itemTex.TryGetValue(it.Kind, out var itex2))
 					DrawTextureRect(itex2, inner, false);

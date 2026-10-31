@@ -64,6 +64,8 @@ public partial class Main : Node2D
 	private readonly HashSet<ItemKind> _tutorialShown = new();
 	private List<(int X, int Y, ItemKind Kind)> _prevAnnounceItems = new();
 	private GridPos? _prevLocalPos;
+	private int _prevChestsOpened;
+	private ItemKind? _pendingChestLoot;
 	private bool _prevEscapeOpen;
 	private bool _hadTreasureFloor;
 
@@ -585,8 +587,7 @@ public partial class Main : Node2D
 
 	private static bool IsAnnounceKind(ItemKind k) =>
 		k is ItemKind.SpeedPotion or ItemKind.BiggerBlast or ItemKind.LongerVision
-		  or ItemKind.LifePotion or ItemKind.WaterPlank or ItemKind.Lantern or ItemKind.Chest
-		  or ItemKind.Stone;
+		  or ItemKind.LifePotion or ItemKind.WaterPlank or ItemKind.Lantern or ItemKind.Stone;
 
 	private string PickupMessage(ItemKind kind, bool isBlocked) =>
 		(kind, isBlocked) switch
@@ -600,7 +601,6 @@ public partial class Main : Node2D
 			(ItemKind.LifePotion,   false) => "Life Restored!",
 			(ItemKind.WaterPlank,   false) => "Water Plank — place it across deep water.",
 			(ItemKind.Lantern,      false) => "Lantern — drop it to light the area.",
-			(ItemKind.Chest,        false) => "Opened a chest!",
 			(ItemKind.Stone,        false) => "Picked up stones — throw to distract.",
 			_ => "",
 		};
@@ -609,7 +609,14 @@ public partial class Main : Node2D
 	{
 		GridPos? localPos = null;
 		foreach (var m in _client.Miners)
-			if (m.Id == localMinerId && m.Alive) { localPos = new GridPos(m.X, m.Y); break; }
+			if (m.Id == localMinerId && m.Alive)
+			{
+				localPos = new GridPos(m.X, m.Y);
+				if (m.ChestsOpened > _prevChestsOpened && m.ChestLoot >= 0)
+					_pendingChestLoot = (ItemKind)m.ChestLoot;
+				_prevChestsOpened = m.ChestsOpened;
+				break;
+			}
 		if (localPos is not { } pos) { _prevLocalPos = null; return; }
 
 		bool movedThisTick = pos != _prevLocalPos;
@@ -631,7 +638,7 @@ public partial class Main : Node2D
 				else if (prev.Kind == ItemKind.Lantern && _tutorialShown.Add(ItemKind.Lantern))
 					SetAnnouncement(PickupMessage(ItemKind.Lantern, false));
 				else if (IsPermBuff(prev.Kind) || prev.Kind == ItemKind.LifePotion
-					  || prev.Kind == ItemKind.Chest || prev.Kind == ItemKind.Stone)
+					  || prev.Kind == ItemKind.Stone)
 					SetAnnouncement(PickupMessage(prev.Kind, false));
 			}
 		}
@@ -650,6 +657,13 @@ public partial class Main : Node2D
 						SetAnnouncement(PickupMessage(cur.Kind, true));
 				}
 			}
+		}
+
+		// Last, so what a chest gave isn't overwritten by another pickup on the same tile.
+		if (_pendingChestLoot is { } loot)
+		{
+			SetAnnouncement($"Chest: {PickupMessage(loot, false)}", 3500);
+			_pendingChestLoot = null;
 		}
 
 		_prevLocalPos      = pos;
@@ -695,6 +709,11 @@ public partial class Main : Node2D
 			if (adjacent && m.Gold < 5)
 				return $"Need {5 - m.Gold} more gold to unlock the center!";
 		}
+
+		foreach (var it in _client.Items)
+			if (it.X == localPos.X && it.Y == localPos.Y && it.Placement != ItemPlacement.Buried
+				&& CarriedName(it.Kind) is { Length: > 0 } name)
+				return $"[Space]  Take {name}";
 
 		if (heldKind != null)
 		{
@@ -1036,6 +1055,16 @@ public partial class Main : Node2D
 		DeathCause.Boned      => "Skeletonised",
 		DeathCause.Bitten     => "Bitten by a water snake",
 		_                     => cause.ToString(),
+	};
+
+	private static string CarriedName(ItemKind k) => k switch
+	{
+		ItemKind.WaterPlank   => "Water Plank",
+		ItemKind.SlowMold     => "Slow Mold",
+		ItemKind.Lantern      => "Lantern",
+		ItemKind.Detonator    => "Detonator",
+		ItemKind.CrystalShard => "Crystal Shard",
+		_ => k.IsIdol() ? IdolName(k) : "",
 	};
 
 	private static string IdolName(ItemKind k) => k switch

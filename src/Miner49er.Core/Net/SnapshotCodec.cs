@@ -23,6 +23,7 @@ public static class SnapshotCodec
             w.Write(m.Alive); w.Write(m.Gold); w.Write(m.Activity); w.Write(m.ActivityRemaining);
             w.Write(m.MoveSeconds); w.Write(m.VisionRadius); w.Write(m.Held); w.Write((byte)m.Cause);
             w.Write(m.InvulRemaining); w.Write(m.StoneCount); w.Write(m.Listening); w.Write(m.Kills);
+            w.Write(m.ChestsOpened); w.Write(m.ChestLoot);
         }
 
         w.Write(snap.Charges.Count);
@@ -151,7 +152,8 @@ public static class SnapshotCodec
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
                 r.ReadBoolean(), r.ReadInt32(), r.ReadInt32(), r.ReadDouble(), r.ReadDouble(),
                 r.ReadInt32(), r.ReadInt32(), (DeathCause)r.ReadByte(), r.ReadSingle(), r.ReadInt32());
-            miners.Add(msnap with { Listening = r.ReadBoolean(), Kills = r.ReadInt32() });
+            miners.Add(msnap with { Listening = r.ReadBoolean(), Kills = r.ReadInt32(),
+                ChestsOpened = r.ReadInt32(), ChestLoot = r.ReadInt32() });
         }
 
         int chargeCount = r.ReadInt32();
