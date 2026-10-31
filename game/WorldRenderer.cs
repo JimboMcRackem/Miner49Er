@@ -527,10 +527,14 @@ public partial class WorldRenderer : Node2D
 			if (!spectating && !_client.Fog.IsVisible(mp)) continue;
 
 			// Footstep: splash on water, dust puff on dry ground.
-			if (_lastFootTile.TryGetValue(m.Id, out var last) && (last.X != m.X || last.Y != m.Y))
+			// Keyed on the sprite, not m.X/m.Y: those jump to the next tile as a step starts,
+			// a full cell ahead of the miner on screen.
+			var vis = _client.MinerVisualPos(m.Id, m.X, m.Y);
+			var foot = new GridPos(Mathf.FloorToInt(vis.X / ts), Mathf.FloorToInt(vis.Y / ts));
+			if (_lastFootTile.TryGetValue(m.Id, out var last) && (last.X != foot.X || last.Y != foot.Y))
 			{
-				float fx = m.X * ts + ts / 2f, fy = m.Y * ts + ts * 0.8f;
-				if (grid.Get(mp).IsWater())
+				float fx = vis.X, fy = vis.Y + ts * 0.3f;
+				if (grid.Get(foot).IsWater())
 					for (int i = 0; i < 5; i++)
 						Spawn(fx + (_fxRng.NextSingle() - 0.5f) * 10f, fy - 4f,
 							  (_fxRng.NextSingle() - 0.5f) * 22f, -22f - _fxRng.NextSingle() * 18f,
@@ -543,7 +547,7 @@ public partial class WorldRenderer : Node2D
 							  40f, 0.35f + _fxRng.NextSingle() * 0.2f, 1.3f,
 							  new Color(0.62f, 0.58f, 0.5f, 0.7f));
 			}
-			_lastFootTile[m.Id] = mp;
+			_lastFootTile[m.Id] = foot;
 
 			// Mining dust while actively mining (facing the wall being dug).
 			if (emitDust && m.Activity == 1 && m.ActivityRemaining > 0)
