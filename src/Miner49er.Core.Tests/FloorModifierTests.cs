@@ -116,11 +116,13 @@ public class FloorModifierTests
             MonsterSlimeMoveSeconds = 0.5,
             MonsterGhostMoveSeconds = 1.0,
             MonsterGoatMoveSeconds  = 0.15,
+            MonsterGoatWanderMoveSeconds = 0.5,
         };
         FloorModifiers.Apply(FloorModifier.Haste, new MapConfig(), sim);
         Assert.Equal(0.12 * 0.7, sim.BaseMoveSeconds,         precision: 6);
         Assert.Equal(0.5  * 0.7, sim.MonsterSlimeMoveSeconds, precision: 6);
         Assert.Equal(1.0  * 0.7, sim.MonsterGhostMoveSeconds, precision: 6);
         Assert.Equal(0.15 * 0.7, sim.MonsterGoatMoveSeconds,  precision: 6);
+        Assert.Equal(0.5  * 0.7, sim.MonsterGoatWanderMoveSeconds, precision: 6);
     }
 }

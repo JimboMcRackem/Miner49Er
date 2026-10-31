@@ -69,6 +69,7 @@ public partial class MatchHost : Node
 		Dictionary<int, long>? botMinerToPeer = null)
 	{
 		_sim = sim;
+		_sim.CanRestoreLife = id => _lives.CanRestore(id);
 		_botBrains.Clear();
 		_botMinerToPeer.Clear();
 		_humanMinerIds.Clear();
@@ -606,6 +607,7 @@ public partial class MatchHost : Node
 		}
 
 		_sim  = newSim;
+		_sim.CanRestoreLife = id => _lives.CanRestore(id);
 		_tick = 0;
 
 		foreach (var key in _pendingDir.Keys.ToList()) _pendingDir[key] = -1;

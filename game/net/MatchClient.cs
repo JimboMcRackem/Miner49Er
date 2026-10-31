@@ -47,6 +47,9 @@ public partial class MatchClient : Node2D
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
 	public event System.Action<Vector2>? AmbientDripped; // world position of a visible water drop
 	private const float AmbientRumbleShake = 0.15f;
+	private const float MonsterGlideSeconds = 0.15f;
+	private static readonly float GoatChargeGlideSeconds = (float)new SimConfig().MonsterGoatMoveSeconds;
+	private static readonly float GoatWanderGlideSeconds = (float)new SimConfig().MonsterGoatWanderMoveSeconds;
 	public event System.Action<Vector2, int>? ScreeCollapsed; // world position + collapse radius
 	public event System.Action<Vector2>? Whistled; // world position of a bot whistle
 		public event System.Action<Vector2, PortalKind>? Portaled; // world position + kind of a teleport
@@ -620,8 +623,13 @@ public partial class MatchClient : Node2D
 			if (!mo.Alive) { _monsterVisualPos.Remove(mo.Id); continue; }
 			var target = new Vector2(mo.X * TileSize + TileSize / 2f, mo.Y * TileSize + TileSize / 2f);
 			var cur = _monsterVisualPos.TryGetValue(mo.Id, out var v) ? v : target;
-			// Goat cadence is the fastest (~0.15s/tile); match it so no monster visually lags.
-			float pixelsPerSec = TileSize / 0.15f;
+			// Monsters glide quickly so none visually lags. The goat glides at its own pace instead,
+			// or it would dart and stop on every tile; if a faster floor leaves it more than a tile
+			// behind, it catches up at the quick rate.
+			float glideSeconds = MonsterGlideSeconds;
+			if (mo.Kind == MonsterKind.Goat && cur.DistanceTo(target) <= TileSize)
+				glideSeconds = mo.Phase == GoatPhase.Charge ? GoatChargeGlideSeconds : GoatWanderGlideSeconds;
+			float pixelsPerSec = TileSize / glideSeconds;
 			_monsterVisualPos[mo.Id] = cur.MoveToward(target, pixelsPerSec * (float)delta);
 		}
 		foreach (var ct in _carts)

@@ -50,6 +50,7 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color GhostColor        = new("dfe8ff");
 	private static readonly Color GoatColor         = new("b08050");
 	private static readonly Color GoatHornColor     = new("6a4828");
+	private static readonly Color GoatWarningCol    = new(1.8f, 0.25f, 0.15f); // over-bright so it reads in the dark
 	private static readonly Color ExitColor          = new("ffe24a");
 	private static readonly Color LadderColor        = new Color(0.68f, 0.52f, 0.28f, 0.50f);
 	private static readonly Color LadderLockedColor  = new Color(0.4f, 0.4f, 0.4f, 0.40f);
@@ -1551,7 +1552,7 @@ public partial class WorldRenderer : Node2D
 
 			if (it.Placement == ItemPlacement.Toolbox)
 			{
-				// Draw container, then item sprite at half-size so player sees what's inside
+				// Draw container, then the item large enough to stand out from the crate
 				if (_toolboxTex != null)
 					DrawTextureRect(_toolboxTex, r, false);
 				else
@@ -1559,7 +1560,7 @@ public partial class WorldRenderer : Node2D
 					float bs = ts * 0.5f;
 					DrawRect(new Rect2(icenter.X - bs / 2f, icenter.Y - bs / 2f, bs, bs), ToolboxColor, false, 2f);
 				}
-				float hs = ts * 0.5f;
+				float hs = ts * 0.72f;
 				var inner = new Rect2(icenter.X - hs / 2f, icenter.Y - hs / 2f, hs, hs);
 				if (_itemTex.TryGetValue(it.Kind, out var itex2))
 					DrawTextureRect(itex2, inner, false);
@@ -1863,7 +1864,7 @@ public partial class WorldRenderer : Node2D
 		{
 			if (!mo.Alive) continue;
 			var mp = new GridPos(mo.X, mo.Y);
-			if (!_client.Fog.IsVisible(mp)) continue;
+			if (!spectating && !_client.Fog.IsVisible(mp)) continue;
 			if (mo.Kind == MonsterKind.Ghost) continue;   // ghosts drawn by GhostOverlay, above the darkness
 			var c = _client.MonsterVisualPos(mo.Id, mo.X, mo.Y);
 			var fwd  = FacingOffset(mo.Facing, ts * 0.12f);
@@ -1889,8 +1890,15 @@ public partial class WorldRenderer : Node2D
 				}
 				case MonsterKind.Goat:
 				{
-					int goatFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
+					int goatFrame = (int)(Time.GetTicksMsec() / (mo.Phase == GoatPhase.Charge ? 150u : 260u)) % 9;
 					var tex = _goatWalkTex[mo.Facing, goatFrame] ?? _goatTex[mo.Facing];
+					if (mo.Phase == GoatPhase.WindUp)
+					{
+						// Pawing the ground: rocks on the spot under a warning mark.
+						c += FacingOffset(mo.Facing, ts * 0.06f * Mathf.Sin((float)Time.GetTicksMsec() * 0.03f));
+						DrawRect(new Rect2(c.X - 1.5f, c.Y - ts * 1.05f, 3f, 8f), GoatWarningCol);
+						DrawRect(new Rect2(c.X - 1.5f, c.Y - ts * 1.05f + 10f, 3f, 3f), GoatWarningCol);
+					}
 					if (tex != null)
 					{
 						DrawSpriteGrounded(this, tex, c, null, FullScale);
@@ -2177,7 +2185,7 @@ public partial class WorldRenderer : Node2D
 		{
 			if (!mo.Alive || mo.Kind != MonsterKind.Ghost) continue;
 			var mp = new GridPos(mo.X, mo.Y);
-			if (!_client.Fog.IsVisible(mp)) continue;
+			if (!_client.Fog.IsVisible(mp) && _client.FogRenderer?.SpectatorMode != true) continue;
 			var c = _client.MonsterVisualPos(mo.Id, mo.X, mo.Y);
 			int ghostFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
 			var tex = _ghostWalkTex[mo.Facing, ghostFrame] ?? _ghostTex[mo.Facing];

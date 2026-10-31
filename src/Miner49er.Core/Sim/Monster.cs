@@ -2,6 +2,10 @@ namespace Miner49er.Core;
 
 public enum MonsterKind { Slime, Ghost, Goat, ZombieMiner, SkeletonHuman, SkeletonDino, WaterSnake }
 
+/// <summary>A goat ambles until it spots a miner or hears a noise, stops to wind up, then charges
+/// in a straight line until something stops it.</summary>
+public enum GoatPhase { Wander, WindUp, Charge }
+
 public sealed class Monster
 {
     public int Id { get; }
@@ -12,6 +16,7 @@ public sealed class Monster
     public bool Dormant { get; internal set; }
 
     public Direction ChargeDir { get; internal set; } = Direction.East;   // Goat heading
+    public GoatPhase Phase { get; internal set; }                         // Goat only
     public double MoveCooldownRemaining { get; internal set; }            // per-kind cadence gate
     public double SlowTimer { get; internal set; }                        // seconds of mold-slow remaining
     public double SlowMultiplier { get; internal set; } = 1.0;           // >1 = slower; 1.0 = normal

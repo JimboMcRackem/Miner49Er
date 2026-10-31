@@ -46,6 +46,7 @@ public static class SfxLibrary
 	public static AudioStream ZombieGroan  => Get("zombie_groan",  () => Tone(0.35f, 160f, 90f));            // low moaning shuffle
 
 	// Monster death sounds
+	public static AudioStream GoatSnort   => Get("goat_snort",   () => Noise(0.28f, 320f, decay: true));    // angry snort — about to charge
 	public static AudioStream GoatBleat   => Get("goat_bleat",   () => Tone(0.22f, 380f, 260f));            // plaintive bleat
 	public static AudioStream SlimeSplat  => Get("slime_splat",  () => Noise(0.14f, 350f, decay: true));    // wet burst
 	public static AudioStream GhostScream => Get("ghost_scream", () => Tone(0.45f, 1800f, 300f));           // piercing wail

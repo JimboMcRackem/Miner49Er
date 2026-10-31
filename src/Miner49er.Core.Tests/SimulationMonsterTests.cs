@@ -69,11 +69,62 @@ public class SimulationMonsterTests
         var sim = Sim(new TileGrid(6, 3, TileType.Floor), cfg);
         var goat = sim.AddMonster(1, new GridPos(1, 1), MonsterKind.Goat);
         goat.ChargeDir = Direction.East;
+        goat.Phase = GoatPhase.Charge;
+        goat.MoveCooldownRemaining = 0;
 
         sim.Tick(0.1);
         sim.Tick(0.1);
 
         Assert.Equal(new GridPos(3, 1), goat.Pos);   // two straight steps east
+    }
+
+    [Fact]
+    public void Default_goat_is_slower_than_a_walking_miner()
+    {
+        var cfg = new SimConfig();
+        Assert.True(cfg.MonsterGoatMoveSeconds > cfg.BaseMoveSeconds);
+    }
+
+    [Fact]
+    public void Goat_stays_put_after_killing_a_miner_so_the_killer_can_be_seen()
+    {
+        var cfg = new SimConfig { MonsterGoatMoveSeconds = 0.1, MonsterGoatWanderMoveSeconds = 0.1,
+                                  MonsterSenseRadius = 0, GoatPostHitPauseSeconds = 1.0 };
+        var sim = Sim(new TileGrid(8, 3, TileType.Floor), cfg);
+        var miner = sim.AddMiner(1, new GridPos(2, 1));
+        var goat = sim.AddMonster(1, new GridPos(1, 1), MonsterKind.Goat);
+        goat.ChargeDir = Direction.East;
+        goat.Phase = GoatPhase.Charge;
+        goat.MoveCooldownRemaining = 0;
+
+        sim.Tick(0.1);
+        Assert.False(miner.Alive);
+        Assert.Equal(DeathCause.Headbutted, miner.DeathCause);
+
+        for (int i = 0; i < 9; i++) sim.Tick(0.1);   // 0.9s on: still standing on the tile
+        Assert.Equal(new GridPos(2, 1), goat.Pos);
+
+        for (int i = 0; i < 4; i++) sim.Tick(0.1);   // past the pause: charging again
+        Assert.NotEqual(new GridPos(2, 1), goat.Pos);
+    }
+
+    [Fact]
+    public void Goat_keeps_charging_when_the_hit_did_not_kill()
+    {
+        var cfg = new SimConfig { MonsterGoatMoveSeconds = 0.1, MonsterSenseRadius = 0, GoatPostHitPauseSeconds = 1.0 };
+        var sim = Sim(new TileGrid(8, 3, TileType.Floor), cfg);
+        var miner = sim.AddMiner(1, new GridPos(2, 1));
+        miner.InvulnerableRemaining = 10;
+        var goat = sim.AddMonster(1, new GridPos(1, 1), MonsterKind.Goat);
+        goat.ChargeDir = Direction.East;
+        goat.Phase = GoatPhase.Charge;
+        goat.MoveCooldownRemaining = 0;
+
+        sim.Tick(0.1);
+        sim.Tick(0.1);
+
+        Assert.True(miner.Alive);
+        Assert.Equal(new GridPos(3, 1), goat.Pos);
     }
 
     [Fact]
@@ -88,6 +139,7 @@ public class SimulationMonsterTests
         sim.AddMiner(1, new GridPos(1, 3));           // due south of the goat
         var goat = sim.AddMonster(1, new GridPos(1, 1), MonsterKind.Goat);
         goat.ChargeDir = Direction.East;
+        goat.MoveCooldownRemaining = 0;
 
         sim.Tick(0.1);   // east is blocked: re-aims toward the miner, does not move this step
 
@@ -270,6 +322,8 @@ public class SimulationMonsterTests
         var sim = new Simulation(grid, cfg);
         sim.AddMiner(1, new GridPos(8, 1));
         var goat = sim.AddMonster(1, new GridPos(2, 1), MonsterKind.Goat);
+        goat.Phase = GoatPhase.Charge;
+        goat.MoveCooldownRemaining = 0.15;
         sim.DropMoldAt(new GridPos(3, 1));
 
         sim.Tick(0.15);   // goat steps onto (3,1), lands on mold

@@ -14,7 +14,8 @@ public static class SnapshotFactory
                 m.GoldCollected, (int)m.Activity, m.ActivitySecondsRemaining,
                 sim.EffectiveMoveSeconds(m.Id), sim.EffectiveVisionRadius(m.Id),
                 m.Held is { } h ? (int)h : -1, m.DeathCause, (float)m.InvulnerableRemaining,
-                m.StoneCount, (float)m.StunRemaining, m.Listening, m.Kills))
+                m.StoneCount, (float)m.StunRemaining, m.Listening, m.Kills,
+                m.ChestsOpened, m.LastChestLoot is { } loot ? (int)loot : -1))
             .ToList();
 
         var charges = sim.Charges
@@ -32,7 +33,7 @@ public static class SnapshotFactory
         var monsters = sim.Monsters
             .Select(mo => new MonsterSnapshot(
                 mo.Id, mo.Pos.X, mo.Pos.Y, (int)mo.Facing, mo.Kind, mo.Alive,
-                (float)mo.StunRemaining, mo.Dormant))
+                (float)mo.StunRemaining, mo.Dormant, mo.Phase))
             .ToList();
 
         OctopusSnapshot? octopus = sim.Octopus is { } oct

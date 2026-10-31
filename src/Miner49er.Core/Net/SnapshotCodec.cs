@@ -23,6 +23,7 @@ public static class SnapshotCodec
             w.Write(m.Alive); w.Write(m.Gold); w.Write(m.Activity); w.Write(m.ActivityRemaining);
             w.Write(m.MoveSeconds); w.Write(m.VisionRadius); w.Write(m.Held); w.Write((byte)m.Cause);
             w.Write(m.InvulRemaining); w.Write(m.StoneCount); w.Write(m.Listening); w.Write(m.Kills);
+            w.Write(m.ChestsOpened); w.Write(m.ChestLoot);
         }
 
         w.Write(snap.Charges.Count);
@@ -49,6 +50,7 @@ public static class SnapshotCodec
             w.Write(mo.Id); w.Write(mo.X); w.Write(mo.Y);
             w.Write(mo.Facing); w.Write((int)mo.Kind); w.Write(mo.Alive);
             w.Write(mo.Dormant);
+            w.Write((byte)mo.Phase);
         }
 
         w.Write(snap.EscapeOpen);
@@ -150,7 +152,8 @@ public static class SnapshotCodec
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
                 r.ReadBoolean(), r.ReadInt32(), r.ReadInt32(), r.ReadDouble(), r.ReadDouble(),
                 r.ReadInt32(), r.ReadInt32(), (DeathCause)r.ReadByte(), r.ReadSingle(), r.ReadInt32());
-            miners.Add(msnap with { Listening = r.ReadBoolean(), Kills = r.ReadInt32() });
+            miners.Add(msnap with { Listening = r.ReadBoolean(), Kills = r.ReadInt32(),
+                ChestsOpened = r.ReadInt32(), ChestLoot = r.ReadInt32() });
         }
 
         int chargeCount = r.ReadInt32();
@@ -174,7 +177,7 @@ public static class SnapshotCodec
             monsters.Add(new MonsterSnapshot(
                 r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
                 r.ReadInt32(), (MonsterKind)r.ReadInt32(), r.ReadBoolean(),
-                Dormant: r.ReadBoolean()));
+                Dormant: r.ReadBoolean(), Phase: (GoatPhase)r.ReadByte()));
 
         bool escapeOpen = r.ReadBoolean();
         int lives = r.ReadInt32();

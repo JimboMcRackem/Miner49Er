@@ -66,6 +66,10 @@ public sealed class LifeLedger
         PoolRemaining = Math.Min(PoolRemaining + 1, PoolMax);
     }
 
+    /// <summary>True when Restore would actually give this miner a life back.</summary>
+    public bool CanRestore(int minerId) =>
+        _botLives.TryGetValue(minerId, out int left) ? left < BotLivesPerFloor : PoolRemaining < PoolMax;
+
     /// <summary>Start-of-floor reset. Bots come back down with the party; the human pool
     /// carries over untouched.</summary>
     public void RefreshBots()

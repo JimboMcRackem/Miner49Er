@@ -23,6 +23,34 @@ public class ChestLootTests
         Assert.InRange(lifePotions, 300, 500);
     }
 
+    [Fact]
+    public void Roll_never_gives_a_LifePotion_when_a_life_would_be_wasted()
+    {
+        var rng = new System.Random(0);
+        for (int i = 0; i < 1000; i++)
+            Assert.NotEqual(ItemKind.LifePotion, ChestLootTable.Roll(rng, lifeIsUseful: false));
+    }
+
+    [Fact]
+    public void A_full_pool_cannot_restore_a_life()
+    {
+        var lives = new LifeLedger(1, new[] { 9 });
+        Assert.False(lives.CanRestore(1));
+        Assert.False(lives.CanRestore(9));
+
+        lives.TrySpend(1);
+        lives.TrySpend(9);
+
+        Assert.True(lives.CanRestore(1));
+        Assert.True(lives.CanRestore(9));
+    }
+
+    [Fact]
+    public void A_fixed_pool_outside_Expedition_cannot_restore_a_life()
+    {
+        Assert.False(LifeLedger.WithFixedPool(1).CanRestore(1));
+    }
+
     // ---- Chest pickup ----
 
     [Fact]

@@ -43,6 +43,7 @@ public static class FloorModifiers
                 sim.MonsterSlimeMoveSeconds *= 0.7;
                 sim.MonsterGhostMoveSeconds *= 0.7;
                 sim.MonsterGoatMoveSeconds  *= 0.7;
+                sim.MonsterGoatWanderMoveSeconds *= 0.7;
                 break;
         }
     }
