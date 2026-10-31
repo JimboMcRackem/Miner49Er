@@ -77,7 +77,10 @@ public sealed class SimConfig
     // Monsters (Expedition). Cadence = seconds per one-tile step; lower is faster.
     public double MonsterSlimeMoveSeconds { get; set; } = 0.5;
     public double MonsterGhostMoveSeconds { get; set; } = 1.0;
-    public double MonsterGoatMoveSeconds { get; set; } = 0.15;
+    public double MonsterGoatMoveSeconds { get; set; } = 0.22;   // charging
+    public double MonsterGoatWanderMoveSeconds { get; set; } = 0.5;
+    public double GoatWindUpSeconds { get; set; } = 0.7;   // standing warning between spotting and charging
+    public double GoatPostHitPauseSeconds { get; set; } = 1.0;   // stands on the tile after a kill, so the killer is seen
     public double MonsterZombieMoveSeconds { get; set; } = 0.6;  // slower than slime; relentless
     public double MonsterSkeletonMoveSeconds     { get; set; } = 0.7;
     public double MonsterSkeletonDinoMoveSeconds { get; set; } = 1.2;

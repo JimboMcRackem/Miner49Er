@@ -192,11 +192,13 @@ public class SimulationStoneTests
         var sim = Sim(grid, cfg);
         sim.AddMiner(1, new GridPos(0, 1));
         var goat = sim.AddMonster(1, new GridPos(5, 1), MonsterKind.Goat);
+        goat.MoveCooldownRemaining = 0;
         sim.TryMove(1, Direction.East);
         sim.AddStones(1, 1);
         sim.TryThrowStone(1);  // noise at col 12
 
         sim.Tick(0.1);
-        Assert.Equal(new GridPos(6, 1), goat.Pos);  // moved East toward noise
+        Assert.Equal(GoatPhase.WindUp, goat.Phase);
+        Assert.Equal(Direction.East, goat.ChargeDir);  // turned toward the noise, not the miner
     }
 }

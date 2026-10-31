@@ -16,7 +16,7 @@ public readonly record struct MoldSnapshot(int X, int Y, double RemainingSeconds
 
 public readonly record struct MonsterSnapshot(
     int Id, int X, int Y, int Facing, MonsterKind Kind, bool Alive,
-    float StunRemaining = 0f, bool Dormant = false);
+    float StunRemaining = 0f, bool Dormant = false, GoatPhase Phase = GoatPhase.Wander);
 
 public readonly record struct ReelChargeSnapshot(int OwnerId, int WallX, int WallY);
 

@@ -32,7 +32,7 @@ public static class SnapshotFactory
         var monsters = sim.Monsters
             .Select(mo => new MonsterSnapshot(
                 mo.Id, mo.Pos.X, mo.Pos.Y, (int)mo.Facing, mo.Kind, mo.Alive,
-                (float)mo.StunRemaining, mo.Dormant))
+                (float)mo.StunRemaining, mo.Dormant, mo.Phase))
             .ToList();
 
         OctopusSnapshot? octopus = sim.Octopus is { } oct

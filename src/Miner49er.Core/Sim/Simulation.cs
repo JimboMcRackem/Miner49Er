@@ -390,6 +390,13 @@ public sealed class Simulation
 
     private double MonsterCadenceFor(Monster mo)
     {
+        if (mo.Kind == MonsterKind.Goat)
+            return mo.Phase switch
+            {
+                GoatPhase.WindUp => Config.GoatWindUpSeconds,
+                GoatPhase.Charge => Config.MonsterGoatMoveSeconds,
+                _                => Config.MonsterGoatWanderMoveSeconds,
+            };
         if (mo.Kind != MonsterKind.WaterSnake) return MonsterCadence(mo.Kind);
         return Grid.Get(mo.Pos).IsWater()
             ? Config.MonsterWaterSnakeWaterMoveSeconds
@@ -896,7 +903,7 @@ public sealed class Simulation
         if (!mo.Alive) return;
 
         if (target is { Alive: true } && mo.Pos == target.Pos)
-            MaulMiner(target, mo.Kind);
+            MaulMiner(target, mo);
 
         if (mo.Kind == MonsterKind.SkeletonDino && mo.Alive)
             DinoBrokenFloorDrop(mo);
@@ -1008,18 +1015,54 @@ public sealed class Simulation
 
     private Direction? GoatDir(Monster mo, Miner? target)
     {
-        var noise = NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius);
-        if (noise is { } n)
-            mo.ChargeDir = TowardDir(mo.Pos, n.Pos);
+        var spotted = GoatSpotted(mo, target);
+        if (mo.Phase == GoatPhase.Wander && spotted is { } seen)
+        {
+            mo.Phase = GoatPhase.WindUp;
+            mo.ChargeDir = mo.Facing = seen;
+            return null;
+        }
+        if (mo.Phase == GoatPhase.WindUp)
+        {
+            // Aims one last time, so stepping aside during the wind-up alone doesn't dodge it.
+            mo.Phase = GoatPhase.Charge;
+            mo.ChargeDir = mo.Facing = spotted ?? mo.ChargeDir;
+        }
 
         var ahead = mo.Pos + mo.ChargeDir.ToOffset();
         if (CanMonsterEnter(mo, ahead)) return mo.ChargeDir;
 
         // Slammed into a wall — turn (toward the miner if sensed, else random) and skip this step.
+        mo.Phase = GoatPhase.Wander;
         mo.ChargeDir = target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius
             ? TowardDir(mo.Pos, target.Pos)
             : Card[_rng.Next(Card.Length)];
         return null;
+    }
+
+    // The heading to something the goat notices: a noise in range, or a miner in line of sight.
+    private Direction? GoatSpotted(Monster mo, Miner? target)
+    {
+        if (NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius) is { } noise)
+            return GoatHeadingTo(mo, noise.Pos);
+        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius
+            && Visibility.Compute(Grid, mo.Pos, Config.MonsterSenseRadius).Contains(target.Pos))
+            return GoatHeadingTo(mo, target.Pos);
+        return null;
+    }
+
+    // The direct heading, or the other axis when that's blocked. Otherwise a goat with a wall
+    // beside it would wind up, charge nowhere and wind up again for as long as it could see you.
+    private Direction GoatHeadingTo(Monster mo, GridPos to)
+    {
+        var heading = TowardDir(mo.Pos, to);
+        if (CanMonsterEnter(mo, mo.Pos + heading.ToOffset())) return heading;
+
+        int dx = to.X - mo.Pos.X, dy = to.Y - mo.Pos.Y;
+        bool horizontal = heading is Direction.East or Direction.West;
+        if (horizontal && dy != 0) return dy > 0 ? Direction.South : Direction.North;
+        if (!horizontal && dx != 0) return dx > 0 ? Direction.East : Direction.West;
+        return heading;
     }
 
     // Greedy cardinal step that most reduces Manhattan distance (horizontal preferred on a tie; vertical only when dx == 0).
@@ -1102,7 +1145,7 @@ public sealed class Simulation
 
         var killer = _monsters.FirstOrDefault(mo => mo.Alive && mo.Pos == target);
         if (m.Alive && killer != null)
-            MaulMiner(m, killer.Kind);
+            MaulMiner(m, killer);
 
         // Reach Center: must carry at least 5 gold (only enforced when the map has gold veins).
         if (Center is { } c && target == c && FirstToReachCenter < 0 && m.Alive
@@ -1178,6 +1221,7 @@ public sealed class Simulation
             {
                 if (mo.Kind != MonsterKind.Goat || !mo.Alive || mo.Pos != target) continue;
                 mo.StunRemaining = 0.8;
+                mo.Phase = GoatPhase.Wander;
                 m.StunCooldown = 2.0;
                 _events.Add(new MonsterStunned(id, mo.Id));
                 return true;
@@ -1918,13 +1962,18 @@ public sealed class Simulation
         if (_miners.TryGetValue(minerId, out var m)) m.GoldCollected = amount;
     }
 
-    private void MaulMiner(Miner m, MonsterKind kind)
+    private void MaulMiner(Miner m, Monster attacker)
     {
         if (!m.Alive || m.InvulnerableRemaining > 0) return;
         if (ShopPos is { } shop && m.Pos == shop) return;
         m.Alive = false;
         m.Activity = ActivityKind.None;
-        m.DeathCause = kind switch
+        if (attacker.Kind == MonsterKind.Goat)
+        {
+            attacker.Phase = GoatPhase.Wander;
+            attacker.MoveCooldownRemaining += Config.GoatPostHitPauseSeconds;
+        }
+        m.DeathCause = attacker.Kind switch
         {
             MonsterKind.Slime          => DeathCause.Slimed,
             MonsterKind.Ghost          => DeathCause.Terrified,

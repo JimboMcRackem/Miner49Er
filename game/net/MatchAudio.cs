@@ -23,6 +23,7 @@ public partial class MatchAudio : Node2D
 	private readonly Dictionary<int, bool> _prevAlive = new();
 	private readonly Dictionary<int, (int x, int y)> _prevMonsterPos   = new();
 	private readonly Dictionary<int, bool>            _prevMonsterAlive = new();
+	private readonly HashSet<int> _goatsWindingUp = new();
 	private readonly HashSet<(int x, int y)> _prevItems = new();
 	private readonly Dictionary<(int x, int y), ItemPlacement> _prevPlacement = new();
 	private readonly Dictionary<int, int> _prevHeld = new();
@@ -158,6 +159,12 @@ public partial class MatchAudio : Node2D
 			if (mo.Alive && _prevMonsterPos.TryGetValue(mo.Id, out var mp) && (mp.x != mo.X || mp.y != mo.Y))
 				OneShot(MonsterMoveSound(mo.Kind), WorldOf(mo.X, mo.Y));
 			_prevMonsterPos[mo.Id] = (mo.X, mo.Y);
+
+			bool windingUp = mo.Alive && mo.Phase == GoatPhase.WindUp;
+			if (windingUp && !_goatsWindingUp.Contains(mo.Id))
+				OneShot(SfxLibrary.GoatSnort, WorldOf(mo.X, mo.Y));
+			if (windingUp) _goatsWindingUp.Add(mo.Id);
+			else _goatsWindingUp.Remove(mo.Id);
 
 			bool prevMonAlive = !_prevMonsterAlive.TryGetValue(mo.Id, out var ma) || ma;
 			if (prevMonAlive && !mo.Alive)
