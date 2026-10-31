@@ -159,6 +159,9 @@ public partial class TerrainMap : Node2D
 	{
 		if (_lookup.TryGetValue((tl, tr, bl, br), out var c)) return c;
 		int m = Majority(tl, tr, bl, br);
+		// There is no water/wall edge art. WorldRenderer paints water over its own tiles but not
+		// over walls, so a solid water tile here would show raw on the wall's quarter of the cell.
+		if (m == Water && (tl == Wall || tr == Wall || bl == Wall || br == Wall)) m = Wall;
 		if (_solid.TryGetValue(m, out var s)) return s;
 		return _solid.TryGetValue(Wall, out var w) ? w : new Vector2I(0, 0);
 	}

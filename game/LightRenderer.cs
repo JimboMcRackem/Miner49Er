@@ -5,8 +5,8 @@ using Miner49er.Core;
 namespace Miner49er;
 
 /// <summary>Darkens the visible area toward a dim ambient floor, then thins that darkness
-/// wherever light reaches — a per-tile light-map composited over the world at ZIndex -8
-/// (above the world, below ghosts and fog). Every living miner carries a torch; lanterns,
+/// wherever light reaches — a per-tile light-map, smoothly shaded across tiles, composited over
+/// the world at ZIndex -8 (above the world, below ghosts and fog). Every living miner carries a torch; lanterns,
 /// crystals, and lava are added in <see cref="AddSourceLights"/>. Colour comes from the
 /// world's additive glow halos, which show through where the darkness is thinned.
 /// Client-side presentation only.</summary>
@@ -25,6 +25,14 @@ public partial class LightRenderer : Node2D
     private readonly Dictionary<GridPos, Dictionary<GridPos, float>> _terrainCache = new();
     private TileGrid? _terrainCacheGrid;
     private int _terrainCacheVersion = -1;
+
+    // Darkness mesh for the frame, rebuilt in _Draw.
+    private readonly List<Vector2> _points = new();
+    private readonly List<Color> _colors = new();
+    private readonly List<int> _indices = new();
+    private Vector2[] _pointArray = System.Array.Empty<Vector2>();
+    private Color[] _colorArray = System.Array.Empty<Color>();
+    private int[] _indexArray = System.Array.Empty<int>();
 
     /// <summary>Set true when the local miner is dead — suppresses darkness so the full map reads clearly.</summary>
     public bool SpectatorMode { get; set; }
@@ -58,16 +66,56 @@ public partial class LightRenderer : Node2D
         int vx1 = Mathf.Min(grid.Width  - 1, (int)Mathf.Floor((vw.Position.X + vw.Size.X) / ts) + 1);
         int vy1 = Mathf.Min(grid.Height - 1, (int)Mathf.Floor((vw.Position.Y + vw.Size.Y) / ts) + 1);
 
+        _points.Clear();
+        _colors.Clear();
+        _indices.Clear();
         for (int y = vy0; y <= vy1; y++)
             for (int x = vx0; x <= vx1; x++)
             {
                 var p = new GridPos(x, y);
                 if (!fog.IsVisible(p)) continue;            // fog owns non-visible darkness
-                float bright = _lights.SampleClamped(p);
-                float alpha  = AmbientDarkAlpha * (1f - bright);
-                if (alpha <= 0.01f) continue;               // fully lit → nothing to draw
-                DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), new Color(0f, 0f, 0f, alpha));
+                AddTileFan(fog, x, y, ts);
             }
+        if (_indices.Count == 0) return;
+
+        // One call for the whole mesh. The arrays are reused between frames because this runs
+        // every frame, and only reallocated when the number of visible tiles changes.
+        if (_pointArray.Length != _points.Count)
+        {
+            _pointArray = new Vector2[_points.Count];
+            _colorArray = new Color[_colors.Count];
+            _indexArray = new int[_indices.Count];
+        }
+        _points.CopyTo(_pointArray);
+        _colors.CopyTo(_colorArray);
+        _indices.CopyTo(_indexArray);
+        RenderingServer.CanvasItemAddTriangleArray(GetCanvasItem(), _indexArray, _pointArray, _colorArray);
+    }
+
+    // A tile is a fan of four triangles around its centre: the centre keeps the tile's own light
+    // and each corner blends with its neighbours. A plain two-triangle quad would crease visibly
+    // along its diagonal.
+    private void AddTileFan(FogState fog, int x, int y, int ts)
+    {
+        int centre = _points.Count;
+        float left = x * ts, top = y * ts;
+        AddVertex(left + ts / 2f, top + ts / 2f, _lights.SampleClamped(new GridPos(x, y)));
+        AddVertex(left,      top,      _lights.SampleCorner(x,     y,     fog));
+        AddVertex(left + ts, top,      _lights.SampleCorner(x + 1, y,     fog));
+        AddVertex(left + ts, top + ts, _lights.SampleCorner(x + 1, y + 1, fog));
+        AddVertex(left,      top + ts, _lights.SampleCorner(x,     y + 1, fog));
+        for (int i = 1; i <= 4; i++)
+        {
+            _indices.Add(centre);
+            _indices.Add(centre + i);
+            _indices.Add(centre + i % 4 + 1);
+        }
+    }
+
+    private void AddVertex(float x, float y, float bright)
+    {
+        _points.Add(new Vector2(x, y));
+        _colors.Add(new Color(0f, 0f, 0f, AmbientDarkAlpha * (1f - bright)));
     }
 
     private void BuildLights(TileGrid grid)

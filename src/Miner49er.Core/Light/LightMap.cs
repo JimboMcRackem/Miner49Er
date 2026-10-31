@@ -32,4 +32,22 @@ public sealed class LightMap
     /// <summary>Total light at a tile, clamped to [0,1]. Unlit tiles return 0.</summary>
     public float SampleClamped(GridPos p) =>
         _acc.TryGetValue(p, out var v) ? (v > 1f ? 1f : v) : 0f;
+
+    /// <summary>Light at the top-left corner of tile (cx, cy): the average of the visible tiles
+    /// touching it, so shading blends smoothly across tiles. Tiles under fog are left out, or
+    /// light they hold would leak into the view. A corner no visible tile touches returns 0.</summary>
+    public float SampleCorner(int cx, int cy, FogState fog)
+    {
+        float sum = 0f;
+        int n = 0;
+        for (int y = cy - 1; y <= cy; y++)
+            for (int x = cx - 1; x <= cx; x++)
+            {
+                var p = new GridPos(x, y);
+                if (!fog.IsVisible(p)) continue;
+                sum += SampleClamped(p);
+                n++;
+            }
+        return n == 0 ? 0f : sum / n;
+    }
 }

@@ -7,6 +7,27 @@ public class ParticleSystemTests
         new() { X = 0, Y = 0, Vx = vx, Vy = vy, Gravity = gravity, Life = life, MaxLife = life, Size = 1, A = 1 };
 
     [Fact]
+    public void Particle_without_fade_in_starts_at_peak_and_fades_with_life()
+    {
+        var p = P(life: 2f);
+        Assert.Equal(1f, p.Fade);
+        p.Life = 0.5f;
+        Assert.Equal(0.25f, p.Fade);
+    }
+
+    [Fact]
+    public void Particle_with_fade_in_starts_clear_then_rises()
+    {
+        var p = P(life: 4f);
+        p.FadeIn = 1f;
+        Assert.Equal(0f, p.Fade);
+        p.Life = 3.5f;
+        Assert.Equal(0.5f, p.Fade);
+        p.Life = 1f;
+        Assert.Equal(0.25f, p.Fade);
+    }
+
+    [Fact]
     public void Position_integrates_by_velocity()
     {
         var sys = new ParticleSystem(8);

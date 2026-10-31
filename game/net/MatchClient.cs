@@ -45,6 +45,8 @@ public partial class MatchClient : Node2D
 	public float SecondsRemaining { get; private set; } = -1f;
 	public int Lives { get; private set; } = 3;
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
+	public event System.Action<Vector2>? AmbientDripped; // world position of a visible water drop
+	private const float AmbientRumbleShake = 0.15f;
 	public event System.Action<Vector2, int>? ScreeCollapsed; // world position + collapse radius
 	public event System.Action<Vector2>? Whistled; // world position of a bot whistle
 		public event System.Action<Vector2, PortalKind>? Portaled; // world position + kind of a teleport
@@ -690,6 +692,15 @@ public partial class MatchClient : Node2D
 
 	// Adds camera-shake trauma (clamped to 1). Called on explosions, cave-ins, and local death.
 	public void AddShake(float amount) => _shakeTrauma = Mathf.Min(1f, _shakeTrauma + amount);
+
+	public void RaiseAmbientDrip(Vector2 worldPos) => AmbientDripped?.Invoke(worldPos);
+
+	// Cosmetic and local to this client, so players' rumbles don't line up and carry no warning.
+	public void AmbientRumble()
+	{
+		_world?.ShakeLooseGrit();
+		AddShake(AmbientRumbleShake);
+	}
 
 	// Shake scaled by how close a world-space event is to the camera focus — distant booms
 	// barely register, nearby ones jolt.
