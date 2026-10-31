@@ -14,6 +14,19 @@ public struct Particle
     public float MaxLife;     // initial life, for the fade ratio
     public float Size;        // half-extent in px
     public float R, G, B, A;  // base colour; A is the peak alpha
+    public float FadeIn;      // seconds to reach peak alpha; 0 starts at peak
+
+    /// <summary>Alpha multiplier: fades in over <see cref="FadeIn"/>, then out across its life.</summary>
+    public readonly float Fade
+    {
+        get
+        {
+            if (MaxLife <= 0f) return 0f;
+            float fade = Life / MaxLife;
+            if (FadeIn > 0f) fade = Math.Min(fade, (MaxLife - Life) / FadeIn);
+            return Math.Max(fade, 0f);
+        }
+    }
 }
 
 /// <summary>Fixed-capacity particle pool. Never allocates after construction: Emit past

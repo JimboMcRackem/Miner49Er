@@ -33,6 +33,9 @@ public partial class MatchAudio : Node2D
 	private bool _hadExplosionThisFrame;
 	private readonly System.Random _bleatRng = new();
 	private double _bleatTimer = 3.0;
+	private const float RumbleVolumeDb = -10f;
+	private readonly System.Random _rumbleRng = new();
+	private double _rumbleTimer = 25.0;
 
 	public void Begin(MatchClient client)
 	{
@@ -42,13 +45,14 @@ public partial class MatchAudio : Node2D
 		_client.Whistled += OnWhistled;
 		_client.Portaled += OnPortaled;
 		_client.StoneTossed += OnStoneTossed;
+		_client.AmbientDripped += OnAmbientDripped;
 		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed));
 		SpawnDrips();
 	}
 
 	public override void _ExitTree()
 	{
-		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; _client.Whistled -= OnWhistled; _client.Portaled -= OnPortaled; _client.StoneTossed -= OnStoneTossed; }
+		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; _client.Whistled -= OnWhistled; _client.Portaled -= OnPortaled; _client.StoneTossed -= OnStoneTossed; _client.AmbientDripped -= OnAmbientDripped; }
 		// Don't StopMusic here Ã¢â‚¬â€ the incoming scene (Lobby/MainMenu) always calls PlayMusic
 		// and StopMusic can fire after the new scene's PlayMusic in some Godot orderings.
 		if (_lavaLoop != null && IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree();
@@ -177,6 +181,14 @@ public partial class MatchAudio : Node2D
 			else _bleatTimer = 2.0; // no goats about Ã¢â‚¬â€ re-check shortly
 		}
 
+		_rumbleTimer -= delta;
+		if (_rumbleTimer <= 0)
+		{
+			PlayDistantRumble();
+			_client.AmbientRumble();
+			_rumbleTimer = 25.0 + _rumbleRng.NextDouble() * 35.0; // 25-60s between rumbles
+		}
+
 		var localTile = LocalTile();
 		foreach (var prev in _prevItems)
 		{
@@ -272,6 +284,17 @@ public partial class MatchAudio : Node2D
 	private void OnScreeCollapsed(Vector2 worldPos, int radius)
 	{
 		OneShot(SfxLibrary.Rockfall, worldPos);
+	}
+
+	private void OnAmbientDripped(Vector2 worldPos) => OneShot(SfxLibrary.Drip, worldPos);
+
+	// Not positional: it comes from somewhere deep in the rock, not from a place on the map.
+	private void PlayDistantRumble()
+	{
+		var p = new AudioStreamPlayer { Stream = SfxLibrary.DistantRumble, Bus = AudioManager.BusSfx, VolumeDb = RumbleVolumeDb };
+		AddChild(p);
+		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
+		p.Play();
 	}
 
 	private void OnWhistled(Vector2 worldPos)

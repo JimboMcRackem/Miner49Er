@@ -143,6 +143,19 @@ public partial class WorldRenderer : Node2D
 	private readonly Dictionary<int, GridPos> _lastFootTile = new();
 	private float _miningDustTimer;
 	private float _moteTimer;
+	private float _torchDustTimer;
+	private readonly List<(Vector2 pos, float age)> _ripples = new();
+	private const float TorchDustInterval = 0.07f;
+	private const int TorchDustCap = 220;
+	private const float TorchDustRadiusTiles = 3.5f;
+	private const float RipplesPerTileSecond = 0.04f;
+	private const float RippleSoundChance = 0.25f;
+	private const float RippleSeconds = 0.9f;
+	private const int MaxRipples = 12;
+	private const float GritChancePerWall = 0.25f;
+	private static readonly Color TorchDustCol = new(1.25f, 1.3f, 1.45f, 0.5f);
+	private static readonly Color RippleCol = new(0.65f, 0.85f, 1f, 0.55f);
+	private static readonly Color GritCol = new(0.5f, 0.43f, 0.34f, 0.9f);
 	private const float FuseSparkRate = 10f; // avg sparks/sec per lit fuse
 
 	// Floating pickup numbers (local player only; fed by MatchClient).
@@ -590,13 +603,84 @@ public partial class WorldRenderer : Node2D
 		}
 	}
 
-	private void Spawn(float x, float y, float vx, float vy, float gravity, float life, float size, Color c)
+	private void Spawn(float x, float y, float vx, float vy, float gravity, float life, float size, Color c, float fadeIn = 0f)
 		=> _particles.Emit(new Particle
 		{
 			X = x, Y = y, Vx = vx, Vy = vy, Gravity = gravity,
 			Life = life, MaxLife = life, Size = size,
-			R = c.R, G = c.G, B = c.B, A = c.A,
+			R = c.R, G = c.G, B = c.B, A = c.A, FadeIn = fadeIn,
 		});
+
+	// Dust hanging in the local miner's torchlight. Particles sit under the darkness layer, so
+	// these only show where the torch reaches. The over-bright colour lets the nearest catch the bloom.
+	private void EmitTorchDust(TileGrid grid, int ts, float dt)
+	{
+		_torchDustTimer += dt;
+		if (_torchDustTimer < TorchDustInterval || _particles.Count >= TorchDustCap) return;
+		_torchDustTimer = 0f;
+		foreach (var m in _client.Miners)
+		{
+			if (m.Id != _client.LocalMinerId || !m.Alive) continue;
+			var vis = _client.MinerVisualPos(m.Id, m.X, m.Y);
+			float angle = _fxRng.NextSingle() * Mathf.Tau;
+			float dist = Mathf.Sqrt(_fxRng.NextSingle()) * TorchDustRadiusTiles * ts;
+			float x = vis.X + Mathf.Cos(angle) * dist, y = vis.Y + Mathf.Sin(angle) * dist;
+			var tile = new GridPos(Mathf.FloorToInt(x / ts), Mathf.FloorToInt(y / ts));
+			if (!grid.InBounds(tile) || !grid.IsWalkable(tile) || !_client.Fog.IsVisible(tile)) return;
+			Spawn(x, y, (_fxRng.NextSingle() - 0.5f) * 7f, (_fxRng.NextSingle() - 0.5f) * 4f,
+				  0f, 3f + _fxRng.NextSingle() * 2.5f, 0.6f, TorchDustCol, fadeIn: 1.2f);
+			return;
+		}
+	}
+
+	// Drops landing on visible water: an expanding ring, and sometimes the sound of it.
+	private void EmitWaterRipple(int x, int y, int ts)
+	{
+		if (_ripples.Count >= MaxRipples) return;
+		var pos = new Vector2(x * ts + ts * (0.2f + _fxRng.NextSingle() * 0.6f), y * ts + ts * (0.2f + _fxRng.NextSingle() * 0.6f));
+		_ripples.Add((pos, 0f));
+		if (_fxRng.NextSingle() < RippleSoundChance) _client.RaiseAmbientDrip(pos);
+	}
+
+	private void UpdateRipples(float dt)
+	{
+		for (int i = _ripples.Count - 1; i >= 0; i--)
+		{
+			var r = _ripples[i];
+			r.age += dt;
+			if (r.age >= RippleSeconds) _ripples.RemoveAt(i);
+			else _ripples[i] = r;
+		}
+	}
+
+	private void DrawRipples(int ts)
+	{
+		foreach (var (pos, age) in _ripples)
+		{
+			float t = age / RippleSeconds;
+			DrawArc(pos, 1f + t * ts * 0.28f, 0f, Mathf.Tau, 16, RippleCol with { A = RippleCol.A * (1f - t) }, 1f);
+		}
+	}
+
+	/// <summary>A distant rumble shakes grit loose: it falls from the faces of visible walls.</summary>
+	public void ShakeLooseGrit()
+	{
+		var grid = _client.Grid;
+		int ts = MatchClient.TileSize;
+		var (vx0, vx1, vy0, vy1) = VisibleTileRange(grid, ts);
+		for (int y = vy0; y < vy1; y++)
+			for (int x = vx0; x <= vx1; x++)
+			{
+				if (_fxRng.NextSingle() >= GritChancePerWall) continue;
+				var wall = new GridPos(x, y);
+				if (grid.IsWalkable(wall) || !_client.Fog.IsVisible(wall)) continue;
+				if (!grid.IsWalkable(new GridPos(x, y + 1))) continue;
+				for (int i = 0; i < 4; i++)
+					Spawn(x * ts + _fxRng.NextSingle() * ts, (y + 1) * ts - _fxRng.NextSingle() * 6f,
+						  (_fxRng.NextSingle() - 0.5f) * 8f, _fxRng.NextSingle() * 6f,
+						  90f, 0.45f + _fxRng.NextSingle() * 0.35f, 0.7f, GritCol);
+			}
+	}
 
 	private void EmitParticleEffects(float dt)
 	{
@@ -657,6 +741,12 @@ public partial class WorldRenderer : Node2D
 			for (int x = vx0; x <= vx1; x++)
 			{
 				var tt = grid.Get(new GridPos(x, y));
+				if (tt.IsWater())
+				{
+					if (_fxRng.NextSingle() < dt * RipplesPerTileSecond && _client.Fog.IsVisible(new GridPos(x, y)))
+						EmitWaterRipple(x, y, ts);
+					continue;
+				}
 				if (tt != TileType.Lava && tt != TileType.LavaVent) continue;
 				if (_fxRng.NextSingle() >= dt * 1.6f) continue;   // ~1.6 embers/sec/tile
 				float ex = x * ts + ts * 0.2f + _fxRng.NextSingle() * ts * 0.6f;
@@ -678,6 +768,8 @@ public partial class WorldRenderer : Node2D
 				  0f, 3.5f + _fxRng.NextSingle() * 2.5f, 1.0f,
 				  new Color(0.82f, 0.85f, 0.9f, 0.35f));
 		}
+		EmitTorchDust(grid, ts, dt);
+		UpdateRipples(dt);
 
 		// Dynamite fuse crackle: a small spark off each lit, visible charge.
 		foreach (var ch in _client.Charges)
@@ -697,7 +789,7 @@ public partial class WorldRenderer : Node2D
 	{
 		foreach (var p in _particles.Live)
 		{
-			float fade = p.MaxLife > 0f ? p.Life / p.MaxLife : 0f;
+			float fade = p.Fade;
 			if (fade <= 0f) continue;
 			DrawRect(new Rect2(p.X - p.Size, p.Y - p.Size, p.Size * 2f, p.Size * 2f),
 				new Color(p.R, p.G, p.B, p.A * fade));
@@ -2069,6 +2161,7 @@ public partial class WorldRenderer : Node2D
 			DrawStunStars(_client.MonsterVisualPos(mo.Id, mo.X, mo.Y), stunNow, ts);
 		}
 
+		DrawRipples(ts);
 		DrawParticles();
 		DrawFloatingTexts();
 	}
