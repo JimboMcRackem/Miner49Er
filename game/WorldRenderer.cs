@@ -112,6 +112,7 @@ public partial class WorldRenderer : Node2D
 	// Cached water draw data — computed once on first draw, valid for map lifetime since water tiles never change.
 	private GridPos[]? _waterTiles;
 	private Vector2[][]? _waterPolys;
+	private Vector2[]?[]? _waterUnderlays; // parallel to _waterTiles: shallow fill under deep tiles, rounded only against dry land
 	private byte[]? _waterEdges; // parallel to _waterTiles: shoreline sides facing dry land (N=1,E=2,S=4,W=8)
 	private HashSet<GridPos>? _staticWaterSet; // pool tiles, to tell settled flood water apart from pre-placed pools
 	private readonly HashSet<GridPos> _animatingTiles = new(); // flood tiles mid-creep this frame (reused, cleared per draw)
@@ -738,6 +739,7 @@ public partial class WorldRenderer : Node2D
 			var p = _waterTiles[wi];
 			if (p.X < vx0 || p.X > vx1 || p.Y < vy0 || p.Y > vy1) continue; // off-screen: skip polygon + sparkles
 			bool deep = grid.Get(p) == TileType.DeepWater;
+			if (_waterUnderlays![wi] is { } underlay) DrawPolygon(underlay, _shallowWaterCol);
 			DrawPolygon(_waterPolys![wi], deep ? _deepWaterCol : _shallowWaterCol);
 
 			float wx0 = p.X * ts, wy0 = p.Y * ts;
@@ -2049,6 +2051,7 @@ public partial class WorldRenderer : Node2D
 		int ts = MatchClient.TileSize;
 		var tiles = new List<GridPos>();
 		var polys = new List<Vector2[]>();
+		var underlays = new List<Vector2[]?>();
 		var edges = new List<byte>();
 		foreach (var p in grid.Positions())
 		{
@@ -2061,6 +2064,11 @@ public partial class WorldRenderer : Node2D
 			bool eAdj = deep ? IsDeepWater(grid, p.X + 1, p.Y) : IsWater(grid, p.X + 1, p.Y);
 			tiles.Add(p);
 			polys.Add(WaterTilePoly(p.X * ts, p.Y * ts, ts, nAdj, sAdj, wAdj, eAdj));
+			// Deep rounds against shallow too, and those corners would expose the raw terrain tile.
+			underlays.Add(deep
+				? WaterTilePoly(p.X * ts, p.Y * ts, ts, IsWater(grid, p.X, p.Y - 1), IsWater(grid, p.X, p.Y + 1),
+					IsWater(grid, p.X - 1, p.Y), IsWater(grid, p.X + 1, p.Y))
+				: null);
 			// Shoreline = sides facing any non-water tile (dry land), for the ripple pass.
 			byte e = 0;
 			if (!IsWater(grid, p.X, p.Y - 1)) e |= 1; // N
@@ -2071,6 +2079,7 @@ public partial class WorldRenderer : Node2D
 		}
 		_waterTiles = tiles.ToArray();
 		_waterPolys = polys.ToArray();
+		_waterUnderlays = underlays.ToArray();
 		_waterEdges = edges.ToArray();
 		_staticWaterSet = new HashSet<GridPos>(tiles);
 	}
