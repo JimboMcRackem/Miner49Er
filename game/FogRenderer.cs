@@ -23,6 +23,7 @@ public partial class FogRenderer : Node2D
 	// far below the flat DimAlpha used for explored-but-not-visible tiles.
 	private const float InViewDimAlpha = 0.32f;
 	private static readonly Color Dim = new(0, 0, 0, DimAlpha);
+	private const float VoidMargin = 4096f; // world px blacked out past each map edge; well beyond any view
 
 	public void Init(MatchClient client) => _client = client;
 
@@ -59,10 +60,19 @@ public partial class FogRenderer : Node2D
 	public override void _Draw()
 	{
 		if (_client == null) return;
-		if (SpectatorMode) return;
 		var grid = _client.Grid;
 		var fog = _client.Fog;
 		int ts = MatchClient.TileSize;
+
+		// Past the map edge there are no tiles to darken, so without this the default clear
+		// colour shows there and glow sprites spill over it.
+		float mapW = grid.Width * ts, mapH = grid.Height * ts;
+		DrawRect(new Rect2(-VoidMargin, -VoidMargin, mapW + VoidMargin * 2f, VoidMargin), Colors.Black);
+		DrawRect(new Rect2(-VoidMargin, mapH, mapW + VoidMargin * 2f, VoidMargin), Colors.Black);
+		DrawRect(new Rect2(-VoidMargin, 0f, VoidMargin, mapH), Colors.Black);
+		DrawRect(new Rect2(mapW, 0f, VoidMargin, mapH), Colors.Black);
+
+		if (SpectatorMode) return;
 
 		var (centre, radius) = LocalMinerView();
 
