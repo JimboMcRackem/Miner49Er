@@ -90,6 +90,15 @@ public partial class Harness : Node
 				await Seconds(float.Parse(s[2]));
 				Input.ActionRelease(s[1]);
 				break;
+			case "press": // press <action> - stays down, so frames can be captured mid-move
+				Input.ActionPress(s[1]);
+				break;
+			case "release": // release <action>
+				Input.ActionRelease(s[1]);
+				break;
+			case "timescale": // timescale <factor> - slow motion; later wait/hold/burst times scale too
+				Engine.TimeScale = float.Parse(s[1]);
+				break;
 			case "tap": // tap <action> - pressed inside a physics tick, or IsActionJustPressed misses it
 				await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
 				Input.ActionPress(s[1]);
