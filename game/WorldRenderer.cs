@@ -885,7 +885,7 @@ public partial class WorldRenderer : Node2D
 			if (t != TileType.Floor && t != TileType.Cracked && t != TileType.Crumbling) continue;
 			float x0 = p.X * ts, y0 = p.Y * ts;
 			uint h = (uint)(p.X * 73856093 ^ p.Y * 19349663);
-			float v = 0.88f + (h & 0x3Fu) * (0.28f / 63f); // brightness 0.88..1.16
+			float v = 0.97f + (h & 0x3Fu) * (0.06f / 63f); // brightness 0.97..1.03; any wider reads as a checkerboard
 			DrawRect(new Rect2(x0, y0, ts, ts), new Color(0.27f * v, 0.25f * v, 0.23f * v));
 			for (int g = 0; g < 3; g++)
 			{
