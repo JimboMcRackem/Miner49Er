@@ -1,5 +1,9 @@
 namespace Miner49er.Core;
 
+/// <summary>A vignette over the local miner's view: centre and radius in tiles, and the
+/// opacity it reaches at that radius.</summary>
+public readonly record struct FogView(float X, float Y, float Radius, float Dim);
+
 /// <summary>Builds a soft-edged fog opacity mask for a window of tiles. Each tile's flat opacity
 /// (visible 0, explored dim, unexplored 1) is grown outward by <see cref="GrowTexels"/>, then
 /// blurred by <see cref="BlurTexels"/>. Growing by more than the blur reaches means the whole
@@ -16,7 +20,7 @@ public static class FogMask
     /// past the map; tiles out there count as unexplored. With <paramref name="ignoreVisible"/>
     /// visible tiles are fogged like explored ones, for when the local miner has no view.</summary>
     public static byte[] Build(FogState fog, int tileX, int tileY, int tilesW, int tilesH,
-        float dimAlpha, bool ignoreVisible)
+        float dimAlpha, bool ignoreVisible, FogView? view = null)
     {
         int w = tilesW * TexelsPerTile, h = tilesH * TexelsPerTile;
         var alpha = new float[w * h];
@@ -36,10 +40,27 @@ public static class FogMask
         Pass(alpha, scratch, 1, w, h, w, BlurTexels, grow: false);
         Pass(scratch, alpha, w, h, w, 1, BlurTexels, grow: false);
 
+        if (view is { } v) ApplyVignette(alpha, w, h, tileX, tileY, v);
+
         var mask = new byte[w * h];
         for (int i = 0; i < mask.Length; i++)
             mask[i] = (byte)MathF.Round(alpha[i] * 255f);
         return mask;
+    }
+
+    // Darkens toward the edge of the view, then holds that level everywhere beyond it so the
+    // vignette has no rim. Fog already darker than the vignette is left as it is.
+    private static void ApplyVignette(float[] alpha, int w, int h, int tileX, int tileY, FogView view)
+    {
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float dx = tileX + (x + 0.5f) / TexelsPerTile - view.X;
+                float dy = tileY + (y + 0.5f) / TexelsPerTile - view.Y;
+                float t = MathF.Min(1f, MathF.Sqrt(dx * dx + dy * dy) / view.Radius);
+                float a = view.Dim * t * t * t;
+                if (a > alpha[y * w + x]) alpha[y * w + x] = a;
+            }
     }
 
     // One direction of a square filter over ±radius: `step` is the index distance along a line,

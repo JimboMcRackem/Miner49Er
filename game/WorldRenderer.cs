@@ -37,6 +37,11 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color UnstableColor  = new(1.0f, 0.27f, 0.07f, 1f); // light red — certain, radius 1
 	private static readonly Color VolatileColor  = new(1.0f, 0.0f,  0.0f, 1f);  // bright red — certain, radius 2
 	private static readonly Color RockfallDustColor = new(0.55f, 0.45f, 0.35f, 1f);
+	private static readonly Color DetailCrackCol = new(0.13f, 0.11f, 0.10f, 0.60f);
+	private static readonly Color DetailShadowCol = new(0.12f, 0.10f, 0.09f, 0.70f);
+	private static readonly Color DetailLightCol = new(0.42f, 0.39f, 0.35f, 0.85f);
+	private static readonly Color DetailStainCol = new(0.10f, 0.09f, 0.08f, 0.16f);
+	private static readonly Color DetailDampCol = new(0.34f, 0.25f, 0.15f, 0.12f);
 	private static readonly Color PlankItemColor = new("c8a060");
 	private static readonly Color MoldItemColor  = new("8fae4f");
 	private static readonly Color MoldColor      = new("6f8f3a");
@@ -802,6 +807,15 @@ public partial class WorldRenderer : Node2D
 
 	// Iterate only the on-screen tile rectangle. Avoids walking the whole grid
 	// (up to ~12k tiles) every frame just to skip off-screen tiles in _Draw.
+	// Stamps spill onto neighbouring tiles, so each block checks it lands on walkable floor.
+	private static bool IsDetailFloor(TileGrid grid, int worldX, int worldY, int ts)
+	{
+		var p = new GridPos(worldX / ts, worldY / ts);
+		if (worldX < 0 || worldY < 0 || !grid.InBounds(p)) return false;
+		var t = grid.Get(p);
+		return t == TileType.Floor || t == TileType.Cracked || t == TileType.Crumbling;
+	}
+
 	private static System.Collections.Generic.IEnumerable<GridPos> VisibleTiles(int vx0, int vx1, int vy0, int vy1)
 	{
 		for (int y = vy0; y <= vy1; y++)
@@ -894,6 +908,27 @@ public partial class WorldRenderer : Node2D
 					new Rect2(x0 + (h2 & 0x1Fu) * (ts - 3) / 31f, y0 + ((h2 >> 8) & 0x1Fu) * (ts - 2) / 31f,
 							  2 + (int)((h2 >> 16) & 3u), 1 + (int)((h2 >> 20) & 2u)),
 					new Color(0.15f, 0.13f, 0.12f, 0.55f));
+			}
+		}
+
+		// Hairline cracks, pebbles and stains that cross tile edges. Only anchored on plain floor,
+		// and kept subtle, so they can't be mistaken for the Cracked and Crumbling hazard tiles.
+		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
+		{
+			if (grid.Get(p) != TileType.Floor) continue;
+			if (!FloorDetail.TryPick(p.X, p.Y, out var stamp, out int ox, out int oy)) continue;
+			int ax = p.X * ts + ox, ay = p.Y * ts + oy;
+			foreach (var px in stamp!.Pixels)
+			{
+				int dx = ax + px.X, dy = ay + px.Y;
+				if (!IsDetailFloor(grid, dx, dy, ts) || !IsDetailFloor(grid, dx + px.W - 1, dy + px.H - 1, ts)) continue;
+				DrawRect(new Rect2(dx, dy, px.W, px.H), px.Light ? DetailLightCol : stamp.Kind switch
+				{
+					FloorDetailKind.Crack => DetailCrackCol,
+					FloorDetailKind.Pebbles => DetailShadowCol,
+					FloorDetailKind.Damp => DetailDampCol,
+					_ => DetailStainCol,
+				});
 			}
 		}
 

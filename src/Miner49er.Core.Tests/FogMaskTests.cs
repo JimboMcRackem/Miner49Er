@@ -22,6 +22,33 @@ public class FogMaskTests
     private static byte At(byte[] mask, int texelX, int texelY) => mask[texelY * (10 * T) + texelX];
 
     [Fact]
+    public void View_vignette_is_clear_at_the_centre_and_flat_past_the_radius_with_no_rim()
+    {
+        var view = new FogView(0f, 2.5f, 4f, 0.32f);
+        var mask = FogMask.Build(VisibleLeftOf(10), 0, 0, 10, 5, Dim, false, view);
+
+        Assert.True(At(mask, 0, 2 * T) < 3);
+        byte previous = 0;
+        for (int x = 0; x < 8 * T; x++)
+        {
+            byte v = At(mask, x, 2 * T + T / 2);
+            Assert.True(v >= previous, $"texel {x} fell from {previous} to {v}");
+            previous = v;
+        }
+        Assert.Equal(82, At(mask, 8 * T, 2 * T)); // 0.32 * 255, still dimmed well past the radius
+    }
+
+    [Fact]
+    public void View_vignette_never_thins_hidden_tiles()
+    {
+        var view = new FogView(3f, 2.5f, 4f, 0.32f);
+        var mask = FogMask.Build(VisibleLeftOf(6), 0, 0, 10, 5, Dim, false, view);
+        for (int y = 0; y < 5 * T; y++)
+            for (int x = 6 * T; x < 10 * T; x++)
+                Assert.Equal(255, At(mask, x, y));
+    }
+
+    [Fact]
     public void Mask_is_sized_in_texels()
     {
         Assert.Equal(10 * T * 5 * T, FogMask.Build(new FogState(), 0, 0, 10, 5, Dim, false).Length);
