@@ -12,20 +12,25 @@ public partial class FogRenderer : Node2D
 {
 	private MatchClient _client = null!;
 	private ImageTexture? _fogGradientTex;
+	private ImageTexture? _maskTex;
 	private int _lastRadius = -1;
 
 	// Set true when the local miner is dead — suppresses all fog so the full map is visible.
 	public bool SpectatorMode { get; set; }
 
-	private static readonly Color Unexplored = new(0, 0, 0, 1f);
 	private const float DimAlpha = 0.78f;
 	// The visible disc is now lit by the light-map, so fog only lightly vignettes it —
 	// far below the flat DimAlpha used for explored-but-not-visible tiles.
 	private const float InViewDimAlpha = 0.32f;
-	private static readonly Color Dim = new(0, 0, 0, DimAlpha);
 	private const float VoidMargin = 4096f; // world px blacked out past each map edge; well beyond any view
+	private const int MaskMarginTiles = 2;
 
-	public void Init(MatchClient client) => _client = client;
+	public void Init(MatchClient client)
+	{
+		_client = client;
+		// The project default is nearest for pixel art, but both fog textures are soft gradients.
+		TextureFilter = TextureFilterEnum.Linear;
+	}
 
 	// Gradient: 0 at centre, smoothly darkens to DimAlpha at the LOS radius (edgeFraction),
 	// then flat DimAlpha across a 1-tile overhang, then transparent outside the circle.
@@ -84,20 +89,17 @@ public partial class FogRenderer : Node2D
 
 		// Only cover on-screen tiles; walking the whole grid (up to ~12k tiles) each
 		// fog update was O(map) regardless of zoom. FogRenderer draws in world space
-		// at ZIndex -5, so it shares the viewport's canvas transform.
+		// at ZIndex -5, so it shares the viewport's canvas transform. The window isn't
+		// clamped to the map so that map-edge tiles fade out like any others, and its
+		// margin holds until the next fog update as the camera scrolls.
 		Rect2 vw = GetViewport().CanvasTransform.AffineInverse() * GetViewportRect();
-		int vx0 = Mathf.Max(0, (int)Mathf.Floor(vw.Position.X / ts) - 1);
-		int vy0 = Mathf.Max(0, (int)Mathf.Floor(vw.Position.Y / ts) - 1);
-		int vx1 = Mathf.Min(grid.Width  - 1, (int)Mathf.Floor((vw.Position.X + vw.Size.X) / ts) + 1);
-		int vy1 = Mathf.Min(grid.Height - 1, (int)Mathf.Floor((vw.Position.Y + vw.Size.Y) / ts) + 1);
-		for (int y = vy0; y <= vy1; y++)
-			for (int x = vx0; x <= vx1; x++)
-			{
-				var p = new GridPos(x, y);
-				if (fog.IsVisible(p) && radius > 0) continue;
-				DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts),
-				         fog.IsExplored(p) ? Dim : Unexplored);
-			}
+		int vx0 = (int)Mathf.Floor(vw.Position.X / ts) - MaskMarginTiles;
+		int vy0 = (int)Mathf.Floor(vw.Position.Y / ts) - MaskMarginTiles;
+		int vx1 = (int)Mathf.Floor((vw.Position.X + vw.Size.X) / ts) + MaskMarginTiles;
+		int vy1 = (int)Mathf.Floor((vw.Position.Y + vw.Size.Y) / ts) + MaskMarginTiles;
+		int tilesW = vx1 - vx0 + 1, tilesH = vy1 - vy0 + 1;
+		UpdateMaskTexture(fog, vx0, vy0, tilesW, tilesH, ignoreVisible: radius <= 0);
+		DrawTextureRect(_maskTex!, new Rect2(vx0 * ts, vy0 * ts, tilesW * ts, tilesH * ts), false);
 
 		if (radius > 0 && _fogGradientTex != null)
 		{
@@ -106,6 +108,21 @@ public partial class FogRenderer : Node2D
 				new Rect2(centre.X - gradPx / 2f, centre.Y - gradPx / 2f, gradPx, gradPx),
 				false);
 		}
+	}
+
+	private void UpdateMaskTexture(FogState fog, int tileX, int tileY, int tilesW, int tilesH, bool ignoreVisible)
+	{
+		byte[] mask = FogMask.Build(fog, tileX, tileY, tilesW, tilesH, DimAlpha, ignoreVisible);
+		var data = new byte[mask.Length * 2];
+		for (int i = 0; i < mask.Length; i++)
+			data[i * 2 + 1] = mask[i];   // luminance stays 0: the mask is black with varying alpha
+
+		int w = tilesW * FogMask.TexelsPerTile, h = tilesH * FogMask.TexelsPerTile;
+		var img = Image.CreateFromData(w, h, false, Image.Format.La8, data);
+		if (_maskTex != null && _maskTex.GetWidth() == w && _maskTex.GetHeight() == h)
+			_maskTex.Update(img);
+		else
+			_maskTex = ImageTexture.CreateFromImage(img);
 	}
 
 	private (Vector2 centre, int radius) LocalMinerView()

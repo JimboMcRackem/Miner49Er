@@ -10,6 +10,52 @@ public class LightMapTests
         Assert.Equal(0f, map.SampleClamped(new GridPos(0, 0)));
     }
 
+    private static FogState AllVisible(int w, int h)
+    {
+        var fog = new FogState();
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                fog.Visible.Add(new GridPos(x, y));
+        return fog;
+    }
+
+    [Fact]
+    public void Corner_averages_the_four_tiles_touching_it()
+    {
+        var grid = new TileGrid(11, 11, TileType.Floor);
+        var map = new LightMap();
+        map.AddLight(grid, new GridPos(5, 5), radius: 3);
+
+        float expected = (map.SampleClamped(new GridPos(4, 4)) + map.SampleClamped(new GridPos(5, 4))
+                        + map.SampleClamped(new GridPos(4, 5)) + map.SampleClamped(new GridPos(5, 5))) / 4f;
+
+        Assert.Equal(expected, map.SampleCorner(5, 5, AllVisible(11, 11)), 5);
+    }
+
+    [Fact]
+    public void Corner_ignores_tiles_that_are_not_visible()
+    {
+        var grid = new TileGrid(11, 11, TileType.Floor);
+        var map = new LightMap();
+        map.AddLight(grid, new GridPos(5, 5), radius: 3);
+        var fog = new FogState();
+        fog.Visible.Add(new GridPos(5, 5));
+
+        // Only one tile touching this corner is visible, so a bright tile under fog
+        // can't leak in and the corner matches that tile exactly.
+        Assert.Equal(map.SampleClamped(new GridPos(5, 5)), map.SampleCorner(5, 5, fog));
+    }
+
+    [Fact]
+    public void Corner_with_no_visible_tiles_is_unlit()
+    {
+        var grid = new TileGrid(11, 11, TileType.Floor);
+        var map = new LightMap();
+        map.AddLight(grid, new GridPos(5, 5), radius: 3);
+
+        Assert.Equal(0f, map.SampleCorner(5, 5, new FogState()));
+    }
+
     [Fact]
     public void Overlapping_lights_sum_and_clamp_to_one()
     {
