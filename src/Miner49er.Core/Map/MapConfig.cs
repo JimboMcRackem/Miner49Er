@@ -1,5 +1,8 @@
 namespace Miner49er.Core;
 
+/// <summary>Where a temple floor keeps its artifact.</summary>
+public enum TempleHideSpot { Buried, Chest, Pot }
+
 public sealed class MapConfig
 {
     public int Seed { get; set; }
@@ -32,6 +35,10 @@ public sealed class MapConfig
     // Expedition treasure gate — every 4th floor hides a mythical idol that opens the exit.
     public ItemKind? ExpeditionTreasureKind    { get; set; } = null;
     public bool      ExpeditionTreasureInChest { get; set; } = false;  // false = buried in wall, true = toolbox on floor
+
+    // Temple floor — sections stamped into solid rock, with the idol hidden inside one.
+    public int            TempleSectionCount { get; set; } = 0;   // 0 = an ordinary floor
+    public TempleHideSpot TempleHide         { get; set; } = TempleHideSpot.Buried;
 
     // Flooding — when true, map generator places the escape tile (spawns[0]) in the
     // map interior so it floods last rather than at the corner where it floods first.
@@ -181,8 +188,32 @@ public sealed class MapConfig
             cfg.ExpeditionTreasureKind    = allIdols[treasureRng.Next(allIdols.Length)];
             cfg.ExpeditionTreasureInChest = treasureRng.Next(2) == 0;
         }
+        if (IsTempleFloor(floor, seed))
+        {
+            var templeRng = new System.Random(FloorHash(seed, floor, 5));
+            var allIdols  = TreasureAssignment.AllIdols();
+            cfg.TempleSectionCount     = 2 + templeRng.Next(3);
+            cfg.TempleHide             = (TempleHideSpot)templeRng.Next(3);
+            cfg.ExpeditionTreasureKind = allIdols[templeRng.Next(allIdols.Length)];
+            cfg.FloodedCave            = false;
+            cfg.PortalPairCount        = 0;
+        }
         return cfg;
     }
+
+    /// <summary>Whether this Expedition floor holds a temple: about 1 in 6 from floor 5, never on a
+    /// shop floor, the boss floor or straight after another temple.</summary>
+    public static bool IsTempleFloor(int floor, int seed)
+    {
+        if (!RollsTemple(floor, seed)) return false;
+        int run = 0;   // a floor loses out only to a temple directly below it, so walk the run back
+        while (RollsTemple(floor - run - 1, seed)) run++;
+        return run % 2 == 0;
+    }
+
+    private static bool RollsTemple(int floor, int seed) =>
+        floor is >= 5 and <= 50 && floor % 4 != 0
+        && (unchecked((uint)FloorHash(seed, floor, 4) * 2654435761u) >> 16) % 6 == 0;   // FloorHash's low bits follow the floor number
 
     /// <summary>Deterministic, process-stable hash of a per-floor decision. Unlike
     /// HashCode.Combine — which is randomised per process, so host and client would
