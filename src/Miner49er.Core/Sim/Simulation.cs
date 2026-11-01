@@ -386,6 +386,7 @@ public sealed partial class Simulation
     {
         MonsterKind.Slime          => Config.MonsterSlimeMoveSeconds,
         MonsterKind.Ghost          => Config.MonsterGhostMoveSeconds,
+        MonsterKind.PriestSpirit   => Config.MonsterGhostMoveSeconds,
         MonsterKind.Goat           => Config.MonsterGoatMoveSeconds,
         MonsterKind.ZombieMiner    => Config.MonsterZombieMoveSeconds,
         MonsterKind.SkeletonHuman  => Config.MonsterSkeletonMoveSeconds,
@@ -835,6 +836,8 @@ public sealed partial class Simulation
 
             if (mo.Dormant) continue;
 
+            if (mo.Kind == MonsterKind.PriestSpirit && AdvanceChant(mo, dt, aliveMiners)) continue;
+
             if (mo.SlowTimer > 0)
             {
                 mo.SlowTimer = Math.Max(0, mo.SlowTimer - dt);
@@ -852,7 +855,7 @@ public sealed partial class Simulation
                 : null;
             StepMonster(mo, target);
 
-            if (mo.Alive && mo.Kind != MonsterKind.Ghost && _molds.Any(mp => mp.Pos == mo.Pos))
+            if (mo.Alive && !mo.Kind.IsSpirit() && _molds.Any(mp => mp.Pos == mo.Pos))
             {
                 mo.SlowTimer = Config.MoldSlowSeconds;
                 mo.SlowMultiplier = Config.MoldSlowFactor;
@@ -864,7 +867,7 @@ public sealed partial class Simulation
         // Kill any ghost currently inside a lantern's AOE
         foreach (var mo in _monsters)
         {
-            if (!mo.Alive || mo.Kind != MonsterKind.Ghost) continue;
+            if (!mo.Alive || !mo.Kind.IsSpirit()) continue;
             if (InLanternLight(mo.Pos))
             {
                 mo.Alive = false;
@@ -873,12 +876,38 @@ public sealed partial class Simulation
         }
     }
 
+    // A priest that sees a miner stops to chant, then wakes the bones around it. True while chanting.
+    private bool AdvanceChant(Monster mo, double dt, List<Miner> miners)
+    {
+        mo.ChantCooldown = Math.Max(0, mo.ChantCooldown - dt);
+        if (mo.ChantRemaining > 0)
+        {
+            mo.ChantRemaining -= dt;
+            if (mo.ChantRemaining > 0) return true;
+            mo.Phase = GoatPhase.Wander;
+            mo.ChantCooldown = Config.PriestChantCooldownSeconds;
+            foreach (var bones in _monsters.Where(b => b.Alive && b.Dormant
+                         && b.Pos.ManhattanTo(mo.Pos) <= Config.PriestWakeRadius))
+            {
+                bones.Dormant = false;
+                _events.Add(new SkeletonAroused(bones.Id));
+            }
+            return false;
+        }
+        if (mo.ChantCooldown > 0) return false;
+        var seen = Visibility.Compute(Grid, mo.Pos, MonsterSenseRadius);
+        if (!miners.Any(m => seen.Contains(m.Pos))) return false;
+        mo.ChantRemaining = Config.PriestChantSeconds;
+        mo.Phase = GoatPhase.WindUp;
+        return true;
+    }
+
     private void StepMonster(Monster mo, Miner? target)
     {
         Direction? dir = mo.Kind switch
         {
             MonsterKind.Slime                                     => SlimeDir(mo, target),
-            MonsterKind.Ghost                                     => GhostDir(mo, target),
+            MonsterKind.Ghost or MonsterKind.PriestSpirit         => GhostDir(mo, target),
             MonsterKind.Goat                                      => GoatDir(mo, target),
             MonsterKind.ZombieMiner                               => ZombieDir(mo, target),
             MonsterKind.SkeletonHuman or MonsterKind.SkeletonDino => ZombieDir(mo, target),
@@ -895,7 +924,7 @@ public sealed partial class Simulation
         mo.Facing = d;
         _events.Add(new MonsterMoved(mo.Id, from, next));
 
-        bool immuneToTile = mo.Kind == MonsterKind.Ghost
+        bool immuneToTile = mo.Kind.IsSpirit()
                          || (mo.Kind == MonsterKind.WaterSnake && Grid.Get(mo.Pos) == TileType.DeepWater);
         if (!immuneToTile && Grid.Get(mo.Pos).IsLethal())
         {
@@ -934,7 +963,7 @@ public sealed partial class Simulation
     // Ghosts float over cracks; the dino has its own broken-floor drop (see DinoBrokenFloorDrop),
     // so neither uses the shared progressive crack-loading below.
     private static bool MonsterLoadsCracks(MonsterKind kind) =>
-        kind != MonsterKind.Ghost && kind != MonsterKind.SkeletonDino;
+        !kind.IsSpirit() && kind != MonsterKind.SkeletonDino;
 
     // A ground monster on a weak tile drops through: the tile becomes a Pit, the
     // monster dies, and any miner sharing the tile is crushed (mirrors the dino).
@@ -974,6 +1003,7 @@ public sealed partial class Simulation
         if (!Grid.InBounds(p)) return false;
         if (CartAt(p) != null) return false;   // a cart blocks the tile like a wall
         if (mo.Kind == MonsterKind.Ghost) return Grid.Get(p) != TileType.DeepWater;
+        if (mo.Kind == MonsterKind.PriestSpirit) return Grid.Get(p) == TileType.TempleFloor;
         return Grid.Get(p).IsEnterable();
     }
 
@@ -2034,6 +2064,7 @@ public sealed partial class Simulation
         {
             MonsterKind.Slime          => DeathCause.Slimed,
             MonsterKind.Ghost          => DeathCause.Terrified,
+            MonsterKind.PriestSpirit   => DeathCause.Terrified,
             MonsterKind.Goat           => DeathCause.Headbutted,
             MonsterKind.ZombieMiner    => DeathCause.Mauled,
             MonsterKind.SkeletonHuman  => DeathCause.Boned,
@@ -2152,7 +2183,7 @@ public sealed partial class Simulation
         foreach (var mo in _monsters)
         {
             if (!mo.Alive) continue;
-            bool immuneToTile = mo.Kind == MonsterKind.Ghost
+            bool immuneToTile = mo.Kind.IsSpirit()
                              || (mo.Kind == MonsterKind.WaterSnake && Grid.Get(mo.Pos) == TileType.DeepWater);
             if (!immuneToTile && Grid.Get(mo.Pos).IsLethal())
             {

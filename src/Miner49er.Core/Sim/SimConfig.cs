@@ -78,6 +78,9 @@ public sealed class SimConfig
     // Monsters (Expedition). Cadence = seconds per one-tile step; lower is faster.
     public double MonsterSlimeMoveSeconds { get; set; } = 0.5;
     public double MonsterGhostMoveSeconds { get; set; } = 1.0;
+    public double PriestChantSeconds { get; set; } = 1.0;      // the warning before skeletons wake
+    public double PriestChantCooldownSeconds { get; set; } = 10.0;
+    public int PriestWakeRadius { get; set; } = 6;
     public double MonsterGoatMoveSeconds { get; set; } = 0.22;   // charging
     public double MonsterGoatWanderMoveSeconds { get; set; } = 0.5;
     public double GoatWindUpSeconds { get; set; } = 0.7;   // standing warning between spotting and charging

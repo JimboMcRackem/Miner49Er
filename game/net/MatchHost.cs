@@ -606,7 +606,7 @@ public partial class MatchHost : Node
 		{
 			int monsterCount = (int)(MonsterRoster.CountFor(newMap.Grid.Width, newMap.Grid.Height, newFloor)
 									 * simCfg.MonsterCountMultiplier);
-			var roster = MonsterSpawner.Place(newMap.Grid, monsterRef, monsterCount, floor: newFloor);
+			var roster = MonsterSpawner.PlaceFor(newMap, monsterRef, monsterCount, newFloor, floorSeed);
 			for (int i = 0; i < roster.Count; i++)
 				newSim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
 		}
