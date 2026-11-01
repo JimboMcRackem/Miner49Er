@@ -48,6 +48,7 @@ public sealed class SimConfig
     public double BaseMoveSeconds { get; set; } = 0.12;  // Standard preset (seconds per tile)
     public double MinMoveSeconds { get; set; } = 0.05;   // clamp floor — no teleporting
     public double MaxMoveSeconds { get; set; } = 0.40;   // clamp ceiling — never frozen
+    public double MinerGiveWaySeconds { get; set; } = 1.5;   // standing idle this long, a miner can be swapped past
 
     public int VisionRadius { get; set; } = 5;   // base fog radius (migrated from MatchClient)
 

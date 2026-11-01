@@ -1102,8 +1102,19 @@ public sealed partial class Simulation
             if (CartAt(target) != null) return false;
         }
 
+        // Miners never share a tile, except the exit, where a whole party has to stand to leave.
+        if (target != EscapeTile && LivingMinerAt(target) is { } blocker)
+        {
+            if (!GivesWayTo(blocker, m)) return false;
+            blocker.Pos = m.Pos;
+            blocker.LastMovedAt = Elapsed;
+            blocker.MoveCooldownRemaining = EffectiveMoveSeconds(blocker);
+            _events.Add(new MinerMoved(blocker.Id, target, m.Pos));
+        }
+
         var from = m.Pos;
         m.Pos = target;
+        m.LastMovedAt = Elapsed;
         _events.Add(new MinerMoved(id, from, target));
 
         // Colour-coded gate: stepping onto a live portal teleports to its partner.
@@ -1111,7 +1122,8 @@ public sealed partial class Simulation
         // Sequential per-miner processing gives "lowest id wins" on an unstable gate for
         // free: the first mover collapses it, later movers find it collapsed → no-op.
         var enteredPortal = _portals.FirstOrDefault(p => p.Pos == target);
-        if (enteredPortal is not null && IsPortalActive(enteredPortal))
+        if (enteredPortal is not null && IsPortalActive(enteredPortal)
+            && LivingMinerAt(LinkOf(enteredPortal)!.Pos) is null)
         {
             var link = LinkOf(enteredPortal)!;
             enteredPortal.CooldownRemaining = Config.PortalCooldownSeconds;
@@ -1552,6 +1564,20 @@ public sealed partial class Simulation
     // A spawn tile is safe if a miner can stand on it and it is dry: no drowning in deep water,
     // no falling into a pit or lava, and not already occupied by another living miner. The miner
     // being (re)spawned is excluded — it may still sit at this very tile from before it died.
+    private Miner? LivingMinerAt(GridPos p) => _miners.Values.FirstOrDefault(o => o.Alive && o.Pos == p);
+
+    // Without this, two miners meeting in a one-wide tunnel would be stuck there for good. They
+    // trade places instead, if they're head-on or the one in the way has been left standing.
+    private bool GivesWayTo(Miner blocker, Miner mover)
+    {
+        if (blocker.Activity != ActivityKind.None) return false;
+        bool headOn = blocker.Pos + blocker.Facing.ToOffset() == mover.Pos;
+        return headOn || Elapsed - blocker.LastMovedAt >= Config.MinerGiveWaySeconds;
+    }
+
+    /// <summary>The nearest free, dry tile to a spawn point, for when miners outnumber spawns.</summary>
+    public GridPos FreeSpawnNear(GridPos desired) => SafeSpawn(desired, selfId: -1);
+
     private bool IsSafeSpawnTile(GridPos p, int selfId) =>
         Grid.InBounds(p) && Grid.Get(p).IsWalkable() && !Grid.Get(p).IsWater()
         && _miners.Values.All(m => m.Id == selfId || !m.Alive || m.Pos != p);

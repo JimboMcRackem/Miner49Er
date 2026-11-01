@@ -43,6 +43,7 @@ public class SimulationMoldTests
     {
         var sim = MoldSim(out _);
         sim.TryUseItem(1);                       // mold at (3,3)
+        sim.TryMove(1, Direction.North);         // clear of the tile: miners can't share one
         var other = sim.AddMiner(2, new GridPos(2, 3));
         sim.TryMove(2, Direction.East);          // step onto (3,3)
         var e = Assert.Single(other.Effects);

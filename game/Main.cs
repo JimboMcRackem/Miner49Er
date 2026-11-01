@@ -204,6 +204,7 @@ public partial class Main : Node2D
 				long peer   = nm.PeerOrder[i];
 				GridPos sp  = (nm.MatchMode == GameMode.Expedition && i == 0) ? soloSpawn
 							  : (i < hostMap.Spawns.Count ? hostMap.Spawns[i] : hostMap.Spawns[0]);
+				sp = sim.FreeSpawnNear(sp);
 				sim.AddMiner(minerId, sp);
 				if (nm.IsBotPeer(peer))
 				{

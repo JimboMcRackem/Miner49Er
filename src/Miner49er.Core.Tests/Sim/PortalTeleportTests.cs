@@ -50,6 +50,7 @@ public class PortalTeleportTests
         sim.AddMiner(1, new GridPos(0, 0));
         sim.TryMove(0, Direction.East);
         for (int i = 0; i < 25; i++) sim.Tick(0.1); // 2.5s > 2.0s cooldown
+        sim.TryMove(0, Direction.West);             // off the far gate, or it stays closed to miner 1
         Assert.True(sim.TryMove(1, Direction.East));
         Assert.Equal(new GridPos(4, 0), sim.GetMiner(1).Pos);
     }
