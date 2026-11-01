@@ -13,4 +13,6 @@ public sealed class GeneratedMap
     public IReadOnlyList<PortalSpec> Portals { get; init; } = System.Array.Empty<PortalSpec>();
     public IReadOnlyList<GridPos> TrackTiles { get; init; } = System.Array.Empty<GridPos>();
     public IReadOnlyList<CartSpec> Carts { get; init; } = System.Array.Empty<CartSpec>();
+    public IReadOnlyList<TempleSection> TempleSections { get; init; } = System.Array.Empty<TempleSection>();
+    public IReadOnlyList<GridPos> Sconces { get; init; } = System.Array.Empty<GridPos>();
 }

@@ -15,8 +15,14 @@ public static class MapGenerator
         RandomFill(grid, rng, config.InitialFloorChance);
         for (int i = 0; i < config.SmoothingSteps; i++) Smooth(grid);
 
+        // Stamped here so caves form around the sections. Its own Random leaves other floors untouched.
+        var (temples, sconces) = config.TempleSectionCount > 0
+            ? TempleLayout.Stamp(grid, new Random(config.Seed ^ 0x54454D50), config.TempleSectionCount)
+            : (new List<TempleSection>(), new List<GridPos>());
+
         ConnectRegions(grid);
         KeepLargestRegion(grid);
+        TempleLayout.SealDoors(grid, temples);
         PlaceWater(grid, rng, config);
         if (config.Pits)
             PlacePits(grid, rng, config.PitSiteCount + (config.PlayerCount - 1),
@@ -83,6 +89,8 @@ public static class MapGenerator
             Portals = portals,
             TrackTiles = trackTiles,
             Carts = carts,
+            TempleSections = temples,
+            Sconces = sconces,
         };
     }
 
@@ -243,18 +251,20 @@ public static class MapGenerator
         while (x != to.X)
         {
             var p = new GridPos(x, y);
-            if (!IsBorder(g, p)) g.Set(p, TileType.Floor);
+            if (CanCarve(g, p)) g.Set(p, TileType.Floor);
             x += xDir;
         }
         int yDir = Math.Sign(to.Y - y);
         while (y != to.Y)
         {
             var p = new GridPos(x, y);
-            if (!IsBorder(g, p)) g.Set(p, TileType.Floor);
+            if (CanCarve(g, p)) g.Set(p, TileType.Floor);
             y += yDir;
         }
-        if (!IsBorder(g, to)) g.Set(to, TileType.Floor);
+        if (CanCarve(g, to)) g.Set(to, TileType.Floor);
     }
+
+    private static bool CanCarve(TileGrid g, GridPos p) => !IsBorder(g, p) && !g.Get(p).IsTemple();
 
     private static void KeepLargestRegion(TileGrid g)
     {
