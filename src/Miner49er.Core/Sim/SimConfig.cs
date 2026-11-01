@@ -116,7 +116,8 @@ public sealed class SimConfig
     public ItemKind? ExpeditionTreasureKind { get; set; } = null;
     // Temple floor: the floor only ends once a miner on the exit holds that idol.
     public bool RequireArtifactAtExit { get; set; } = false;
-    public int ArtifactGoldBonus { get; set; } = 200;
+    public int ArtifactGoldBonus { get; set; } = 30;   // about two shop purchases
+    public int JarGold { get; set; } = 3;
     public bool DynamiteEnabled { get; set; } = true;
     // Detonators-Only mode: the detonator is the miner's sole, permanent mining tool,
     // so a fresh one is re-granted whenever the reel is spent (detonated or wire-snapped).

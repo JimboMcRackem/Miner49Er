@@ -986,7 +986,9 @@ public partial class Main : Node2D
 				if (m.Id == _client.LocalMinerId && m.Cause != DeathCause.None)
 					causeStr = $"\nCause: {DeathCauseLabel(m.Cause)}";
 
-			scoreText = $"Floor {nm.MatchFloor}  ·  Gold: {gold}g  ·  Score: {score}{causeStr}";
+			var artifacts = _host?.ArtifactsCarriedOut.Select(IdolName).ToList() ?? new List<string>();
+			string artifactStr = artifacts.Count > 0 ? $"\nArtifacts: {string.Join(", ", artifacts)}" : "";
+			scoreText = $"Floor {nm.MatchFloor}  ·  Gold: {gold}g  ·  Score: {score}{causeStr}{artifactStr}";
 
 			// Play Again restarts expedition with same settings.
 			if (nm.IsHost)

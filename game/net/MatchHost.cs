@@ -34,6 +34,8 @@ public partial class MatchHost : Node
 	private LifeLedger _lives = LifeLedger.WithFixedPool(0);
 	private int _cumulativeGold;
 	public int CumulativeGold => _cumulativeGold;
+	private readonly List<ItemKind> _artifacts = new();
+	public IReadOnlyList<ItemKind> ArtifactsCarriedOut => _artifacts;
 	private readonly Dictionary<int, (int Speed, int Vision, int Blast)> _permLevels = new();
 
 	private readonly Dictionary<int, GridPos>   _spawnByMiner = new();
@@ -394,6 +396,7 @@ public partial class MatchHost : Node
 
 		if (result.FloorCleared && !_floorChoicePending)
 		{
+			if (_sim.ClaimArtifact() is { } artifact) _artifacts.Add(artifact);
 			foreach (var m in _sim.Miners) _cumulativeGold += m.GoldCollected;
 			var carryGold = _sim.Miners.ToDictionary(m => m.Id, m => m.GoldCollected);
 			SavePermLevels();

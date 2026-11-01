@@ -135,6 +135,19 @@ public sealed partial class Simulation
     public bool ArtifactAtExit => Config.ExpeditionTreasureKind is { } artifact && EscapeTile is { } exit
         && _miners.Values.Any(m => m.Alive && m.Pos == exit && m.Held == artifact);
     public bool ArtifactNeeded => Config.RequireArtifactAtExit && !ArtifactAtExit;
+    private bool _artifactClaimed;
+
+    /// <summary>Pays the bonus to whoever carried the artifact out, once. Returns the artifact,
+    /// or null if there was none to claim.</summary>
+    public ItemKind? ClaimArtifact()
+    {
+        if (_artifactClaimed || !Config.RequireArtifactAtExit || !ArtifactAtExit) return null;
+        _artifactClaimed = true;
+        var artifact = Config.ExpeditionTreasureKind;
+        _miners.Values.First(m => m.Alive && m.Pos == EscapeTile && m.Held == artifact)
+            .GoldCollected += Config.ArtifactGoldBonus;
+        return artifact;
+    }
     private int _goldRemaining;
     public bool AllGoldCleared => _goldRemaining == 0;
     public int StartingGoldCount { get; private set; }
@@ -2222,7 +2235,8 @@ public sealed partial class Simulation
                 if (!blastTile.IsBlastable()) continue;
                 bool wasGold    = blastTile == TileType.GoldRock;
                 bool wasCrystal = blastTile == TileType.CrystalRock;
-                Grid.Set(p, TileType.Floor);
+                Grid.Set(p, blastTile.IsTemple() ? TileType.TempleFloor : TileType.Floor);
+                if (blastTile == TileType.Jar) SmashJar(p, _miners.GetValueOrDefault(ownerId));
                 if (wasGold)
                 {
                     if (_miners.TryGetValue(ownerId, out var owner) && owner.Alive) owner.GoldCollected++;
@@ -2290,6 +2304,21 @@ public sealed partial class Simulation
         IgniteGasNear(wallPos, r, ownerId);
     }
 
+    // Runs before the tile's buried items are uncovered: a jar hiding the artifact holds only that.
+    private void SmashJar(GridPos pos, Miner? smasher)
+    {
+        if (_items.Any(it => it.Pos == pos && it.Placement == ItemPlacement.Buried)) return;
+        switch (JarLootTable.Roll(_rng))
+        {
+            case JarLoot.Gold when smasher is { Alive: true }:
+                smasher.GoldCollected += Config.JarGold;
+                break;
+            case JarLoot.Item when smasher is { } m:
+                _items.Add(new Item(pos, RollUsefulChestLoot(m), ItemPlacement.Loose));
+                break;
+        }
+    }
+
     private void CompleteActivity(Miner m)
     {
         var kind = m.Activity;
@@ -2303,7 +2332,8 @@ public sealed partial class Simulation
             var targetTile  = Grid.Get(target);
             bool wasGold    = targetTile == TileType.GoldRock;
             bool wasCrystal = targetTile == TileType.CrystalRock;
-            Grid.Set(target, TileType.Floor);
+            Grid.Set(target, targetTile.IsTemple() ? TileType.TempleFloor : TileType.Floor);
+            if (targetTile == TileType.Jar) SmashJar(target, m);
             if (wasGold) { m.GoldCollected++; OnGoldCleared(); }
             UnburyItemsAt(target);
             ActivateVentsAround(target);
