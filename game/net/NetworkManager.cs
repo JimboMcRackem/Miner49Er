@@ -370,6 +370,7 @@ public partial class NetworkManager : Node
 	// Set before StartMatch when continuing a saved solo expedition.
 	public record ExpeditionResumeData(int CumulativeGold, int Lives, int PermSpeed, int PermVision, int PermBlast);
 	public ExpeditionResumeData? ExpeditionResume { get; set; }
+	public double? DevTremorDelay { get; set; }   // set by the playtest harness
 
 	public event System.Action<int>? NewFloor;
 	public event System.Action<int>? FloorComplete; // co-op Expedition floor cleared — host awaits choice

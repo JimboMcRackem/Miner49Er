@@ -85,6 +85,8 @@ public static class SnapshotFactory
         return new WorldSnapshot(tick, miners, charges, items, molds, monsters,
             (float)sim.SecondsRemaining, sim.EscapeOpen, octopus, lives, reelCharges,
             treasureProgress, placedChests, tripCharges, pendingFalls, PrizeEvent: prize,
-            Treasure: treasure, HoldTimes: holdTimes, Carts: carts);
+            Treasure: treasure, HoldTimes: holdTimes, Carts: carts,
+            TremorIntensity: (float)sim.TremorIntensity,
+            TremorTargets: sim.TremorTargets.Select(t => new TremorTargetSnapshot(t.X, t.Y)).ToList());
     }
 }

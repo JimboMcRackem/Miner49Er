@@ -138,6 +138,18 @@ public sealed class SimConfig
 
     // Ceiling rock falls — drops Rock tiles when gold drops to ≤ 5%.
     public bool RockFallsEnabled { get; set; } = false;
+
+    // Tremors: rare, so most stretches of play never see one.
+    public bool TremorsEnabled { get; set; } = false;
+    public double TremorSeconds { get; set; } = 15.0;
+    public double TremorRampSeconds { get; set; } = 5.0;           // each of the build-up and the drop-off
+    public double TremorGraceSeconds { get; set; } = 120.0;        // quiet at the start of a floor or match
+    public double TremorMinIntervalSeconds { get; set; } = 360.0;
+    public double TremorMaxIntervalSeconds { get; set; } = 720.0;
+    public double? TremorFirstDelaySeconds { get; set; }           // fixes the first one, for testing
+    public double TremorMaxSlow { get; set; } = 2.0;               // movement time multiplier at the peak
+    public int TremorRockfallCount { get; set; } = 5;
+    public int TremorRockfallRange { get; set; } = 12;             // tiles from a miner
     public double RockFallMinDelay { get; set; } = 2.0;
     public double RockFallMaxDelay { get; set; } = 4.0;
     public double RockFallIntervalSeconds { get; set; } = 6.0;

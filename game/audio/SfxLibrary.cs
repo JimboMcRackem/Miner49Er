@@ -32,6 +32,7 @@ public static class SfxLibrary
 	public static AudioStream Rockfall   => Get("rockfall",    () => Noise(0.55f, 110f, decay: true)); // clattering rock debris â€” scree collapse
 	public static AudioStream Sizzle     => Get("sizzle",      () => Noise(0.35f, 1200f, decay: true)); // hot hiss â€” burned alive
 	public static AudioStream DistantRumble => Get("distant_rumble", () => Noise(1.8f, 60f, decay: true)); // far-off settling rock
+	public static AudioStream Tremor => Get("tremor", () => Swell(15f, 60f, 5f)); // long rumble, shaped like the tremor itself
 	public static AudioStream CrackRumble  => Get("crack_rumble",  () => Noise(0.18f, 130f, decay: true)); // stone creak underfoot
 	public static AudioStream LavaCrackle => Get("lava_crackle",  () => Noise(1.00f, 480f));               // fire crackle loop near lava
 	public static AudioStream ZombieMoan  => Get("zombie_moan",   () => Tone(0.40f, 180f, 120f));          // low descending moan â€” plays on the miner when mauled
@@ -143,6 +144,27 @@ public static class SfxLibrary
 			prev += alpha * (white - prev);
 			float env = decay ? 1f - (float)i / n : 1f;
 			short v = (short)(Mathf.Clamp(prev * env, -1f, 1f) * 12000f);
+			data[i * 2] = (byte)(v & 0xff);
+			data[i * 2 + 1] = (byte)((v >> 8) & 0xff);
+		}
+		return Wav(data);
+	}
+
+	// Noise that swells in over the ramp, holds, and dies away over the ramp again.
+	private static AudioStreamWav Swell(float seconds, float lowpassHz, float ramp)
+	{
+		int n = Mathf.Max(1, (int)(seconds * MixRate));
+		var data = new byte[n * 2];
+		var rng = new Random(n);
+		float prev = 0f;
+		float alpha = Mathf.Clamp(lowpassHz / MixRate, 0.02f, 1f);
+		for (int i = 0; i < n; i++)
+		{
+			float white = (float)(rng.NextDouble() * 2.0 - 1.0);
+			prev += alpha * (white - prev);
+			float t = (float)i / MixRate;
+			float env = Mathf.Clamp(Mathf.Min(t, seconds - t) / ramp, 0f, 1f);
+			short v = (short)(Mathf.Clamp(prev * env * 4f, -1f, 1f) * 12000f);
 			data[i * 2] = (byte)(v & 0xff);
 			data[i * 2 + 1] = (byte)((v >> 8) & 0xff);
 		}

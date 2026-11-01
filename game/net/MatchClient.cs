@@ -39,6 +39,8 @@ public partial class MatchClient : Node2D
 		_visualPos.TryGetValue(id, out var v)
 			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f);
 	public int LocalMinerId { get; private set; }
+	public float TremorIntensity { get; private set; }
+	public IReadOnlyList<TremorTargetSnapshot> TremorTargets { get; private set; } = System.Array.Empty<TremorTargetSnapshot>();
 	public bool Listening;  // set by Main each frame; gates the buried-item shimmer
 	public float ListenTime; // seconds held this press; reset to 0 when not listening
 	public IReadOnlyList<GridPos> Decoys { get; private set; } = System.Array.Empty<GridPos>();
@@ -47,6 +49,7 @@ public partial class MatchClient : Node2D
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
 	public event System.Action<Vector2>? AmbientDripped; // world position of a visible water drop
 	private const float AmbientRumbleShake = 0.15f;
+	private const float TremorShake = 0.7f;   // trauma held at the peak of a tremor
 
 	// Hit-pause lengths, and how near the camera a blow must land to cause one.
 	private const double LocalDeathPause = 0.12;
@@ -390,6 +393,8 @@ public partial class MatchClient : Node2D
 		}
 		_monsters = new List<MonsterSnapshot>(update.Snapshot.Monsters);
 		_carts = new List<CartSnapshot>(update.Snapshot.Carts ?? System.Array.Empty<CartSnapshot>());
+		TremorIntensity = update.Snapshot.TremorIntensity;
+		TremorTargets = update.Snapshot.TremorTargets ?? System.Array.Empty<TremorTargetSnapshot>();
 		bool wasOpen = EscapeOpen;
 		EscapeOpen = update.Snapshot.EscapeOpen;
 		if (!wasOpen && EscapeOpen) ExpeditionTreasurePos = null;
@@ -656,7 +661,7 @@ public partial class MatchClient : Node2D
 		{
 			var target = new Vector2(ct.X * TileSize + TileSize / 2f, ct.Y * TileSize + TileSize / 2f);
 			var cur = _cartVisualPos.TryGetValue(ct.Id, out var v) ? v : target;
-			float pixelsPerSec = TileSize / 0.10f;   // brisk roll so a momentum launch reads
+			float pixelsPerSec = TileSize / (0.10f * (1f + TremorIntensity));   // brisk roll so a momentum launch reads
 			_cartVisualPos[ct.Id] = cur.MoveToward(target, pixelsPerSec * glideDelta);
 		}
 
@@ -702,7 +707,7 @@ public partial class MatchClient : Node2D
 		// tremors fade smoothly while big hits punch hard.
 		if (_cam != null)
 		{
-			_shakeTrauma = Mathf.Max(0f, _shakeTrauma - (float)delta * 1.6f);
+			_shakeTrauma = Mathf.Max(TremorIntensity * TremorShake, _shakeTrauma - (float)delta * 1.6f);
 			if (_shakeTrauma > 0f)
 			{
 				float s = _shakeTrauma * _shakeTrauma;

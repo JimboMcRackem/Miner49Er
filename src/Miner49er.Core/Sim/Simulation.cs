@@ -131,6 +131,12 @@ public sealed class Simulation
     public int FirstToReachCenter { get; private set; } = -1;
 
     public GridPos? EscapeTile { get; }
+
+    private double _tremorElapsed = -1;                 // below zero: no tremor under way
+    private double? _tremorDelay;
+    private readonly List<(GridPos Pos, double FallsAt)> _tremorTargets = new();
+    private Random _tremorRng => _tremorRngLazy ??= new Random(Config.Seed ^ 0x7E30B);   // apart from _rng, so tremors never reshuffle other rolls
+    private Random? _tremorRngLazy;
     public bool EscapeOpen { get; private set; }
     private int _goldRemaining;
     public bool AllGoldCleared => _goldRemaining == 0;
@@ -494,7 +500,7 @@ public sealed class Simulation
         double seconds = Config.BaseMoveSeconds * tile * mult;
         if (Config.TreasureHeistMode && m.Id == _treasureHolderId)
             seconds *= Config.TreasureCarrySlowFactor;
-        return Math.Clamp(seconds, Config.MinMoveSeconds, Config.MaxMoveSeconds);
+        return Math.Clamp(seconds, Config.MinMoveSeconds, Config.MaxMoveSeconds) * TremorSlow;
     }
 
     public int EffectiveVisionRadius(int minerId) => EffectiveVisionRadius(_miners[minerId]);
@@ -852,7 +858,7 @@ public sealed class Simulation
                 mo.SlowMultiplier = Config.MoldSlowFactor;
             }
 
-            mo.MoveCooldownRemaining += MonsterCadenceFor(mo) * mo.SlowMultiplier;
+            mo.MoveCooldownRemaining += MonsterCadenceFor(mo) * mo.SlowMultiplier * TremorSlow;
         }
 
         // Kill any ghost currently inside a lantern's AOE
@@ -1641,6 +1647,7 @@ public sealed class Simulation
     public void Tick(double dt)
     {
         Elapsed += dt;
+        AdvanceTremor(dt);
         AdvanceEffects(dt);
         AdvanceInvulnerability(dt);
         AdvanceMolds(dt);
@@ -2050,8 +2057,11 @@ public sealed class Simulation
     private void TriggerScreeCollapse(GridPos pos, TileType screeType)
     {
         if (_rng.NextDouble() >= screeType.ScreeTriggerChance()) return;
+        CollapseRockAround(pos, screeType.ScreeCollapseRadius());
+    }
 
-        int radius = screeType.ScreeCollapseRadius();
+    private void CollapseRockAround(GridPos pos, int radius)
+    {
         for (int dy = -radius; dy <= radius; dy++)
             for (int dx = -radius; dx <= radius; dx++)
             {
@@ -2065,6 +2075,82 @@ public sealed class Simulation
             if (m.Pos.ChebyshevTo(pos) <= radius)
                 CollapseKill(m);
         _events.Add(new ScreeCollapsed(pos, radius));
+    }
+
+    // --- Tremors ----------------------------------------------------------
+    // The rock that will fall is chosen as the tremor starts and sent to clients, so the
+    // build-up shows exactly where to get away from. It then falls during the peak.
+    public double TremorIntensity => _tremorElapsed < 0 ? 0
+        : TremorCurve.Intensity(_tremorElapsed, Config.TremorSeconds, Config.TremorRampSeconds);
+
+    public double TremorSlow => 1 + (Config.TremorMaxSlow - 1) * TremorIntensity;
+
+    public IReadOnlyList<GridPos> TremorTargets => _tremorTargets.Select(t => t.Pos).ToList();
+
+    private void AdvanceTremor(double dt)
+    {
+        if (!Config.TremorsEnabled) return;
+        if (_tremorElapsed < 0)
+        {
+            _tremorDelay ??= Config.TremorFirstDelaySeconds ?? Config.TremorGraceSeconds
+                + _tremorRng.NextDouble() * (Config.TremorMaxIntervalSeconds - Config.TremorGraceSeconds);
+            _tremorDelay -= dt;
+            if (_tremorDelay > 0) return;
+            _tremorElapsed = 0;
+            MarkTremorRock();
+            return;
+        }
+
+        _tremorElapsed += dt;
+        for (int i = _tremorTargets.Count - 1; i >= 0; i--)
+        {
+            var (pos, fallsAt) = _tremorTargets[i];
+            if (Grid.Get(pos).IsWalkable()) { _tremorTargets.RemoveAt(i); continue; }   // mined out
+            if (_tremorElapsed < fallsAt) continue;
+            _tremorTargets.RemoveAt(i);
+            CollapseRockAround(pos, Grid.Get(pos).TremorFallRadius());
+        }
+
+        if (_tremorElapsed >= Config.TremorSeconds)
+        {
+            _tremorElapsed = -1;
+            _tremorDelay = Config.TremorMinIntervalSeconds
+                + _tremorRng.NextDouble() * (Config.TremorMaxIntervalSeconds - Config.TremorMinIntervalSeconds);
+        }
+    }
+
+    private void MarkTremorRock()
+    {
+        var alive = _miners.Values.Where(m => m.Alive).ToList();
+        var candidates = new List<GridPos>();
+        for (int y = 0; y < Grid.Height; y++)
+            for (int x = 0; x < Grid.Width; x++)
+            {
+                var p = new GridPos(x, y);
+                var tile = Grid.Get(p);
+                if (tile != TileType.Rock && !tile.IsScree()) continue;
+                if (!Card.Any(d => Grid.InBounds(p + d.ToOffset()) && Grid.Get(p + d.ToOffset()) == TileType.Floor)) continue;
+                if (!alive.Any(m => m.Pos.ChebyshevTo(p) <= Config.TremorRockfallRange)) continue;
+                if (WouldBuryLandmark(p, tile.TremorFallRadius())) continue;
+                candidates.Add(p);
+            }
+
+        double peak = Config.TremorRampSeconds;
+        double peakLength = Config.TremorSeconds - 2 * peak;
+        foreach (var p in candidates.OrderBy(_ => _tremorRng.Next())
+                     .OrderByDescending(c => Grid.Get(c).IsScree())
+                     .Take(Config.TremorRockfallCount))
+            _tremorTargets.Add((p, peak + _tremorRng.NextDouble() * peakLength));
+    }
+
+    private bool WouldBuryLandmark(GridPos p, int radius)
+    {
+        if (new[] { EscapeTile, ShopPos, Center }.Any(l => l is { } tile && tile.ChebyshevTo(p) <= radius))
+            return true;
+        for (int dy = -radius; dy <= radius; dy++)
+            for (int dx = -radius; dx <= radius; dx++)
+                if (IsTrack(new GridPos(p.X + dx, p.Y + dy))) return true;
+        return false;
     }
 
     private void AdvanceOctopus(double dt)

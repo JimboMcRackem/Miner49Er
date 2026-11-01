@@ -154,6 +154,8 @@ public partial class Main : Node2D
 				UnstableFloorEnabled = nm.MatchMode == GameMode.LastManStanding
 					|| nm.MatchMode == GameMode.DemolitionDerby,
 				RockFallsEnabled = true,
+				TremorsEnabled   = true,
+				TremorFirstDelaySeconds = nm.DevTremorDelay,
 				BlastRockRadius = nm.MatchBlastRadius,
 				BlastKillRadius = nm.MatchBlastRadius,
 				VisionRadius    = nm.MatchVisionRadius,
