@@ -65,6 +65,7 @@ public partial class Main : Node2D
 	private List<(int X, int Y, ItemKind Kind)> _prevAnnounceItems = new();
 	private GridPos? _prevLocalPos;
 	private int _prevChestsOpened;
+	private MineEventKind _prevMineEvent = MineEventKind.None;
 	private ItemKind? _pendingChestLoot;
 	private bool _prevEscapeOpen;
 	private bool _hadTreasureFloor;
@@ -154,6 +155,8 @@ public partial class Main : Node2D
 				UnstableFloorEnabled = nm.MatchMode == GameMode.LastManStanding
 					|| nm.MatchMode == GameMode.DemolitionDerby,
 				RockFallsEnabled = true,
+				MineEventPool    = nm.MineEventPool(),
+				MineEventFirstDelaySeconds = nm.DevEventDelay,
 				BlastRockRadius = nm.MatchBlastRadius,
 				BlastKillRadius = nm.MatchBlastRadius,
 				VisionRadius    = nm.MatchVisionRadius,
@@ -201,6 +204,7 @@ public partial class Main : Node2D
 				long peer   = nm.PeerOrder[i];
 				GridPos sp  = (nm.MatchMode == GameMode.Expedition && i == 0) ? soloSpawn
 							  : (i < hostMap.Spawns.Count ? hostMap.Spawns[i] : hostMap.Spawns[0]);
+				sp = sim.FreeSpawnNear(sp);
 				sim.AddMiner(minerId, sp);
 				if (nm.IsBotPeer(peer))
 				{
@@ -366,6 +370,10 @@ public partial class Main : Node2D
 			SetAnnouncement("You found the treasure! Escape is open!", 3500);
 		_prevEscapeOpen = _client.EscapeOpen;
 
+		if (_client.MineEvent != _prevMineEvent && MineEventMessage(_client.MineEvent) is { Length: > 0 } eventMessage)
+			SetAnnouncement(eventMessage, 5000);
+		_prevMineEvent = _client.MineEvent;
+
 		// Disable input + HUD activity once the local miner is dead (spectate).
 		ProcessPickupAnnouncements(_client.LocalMinerId);
 		bool sawLocal = false;
@@ -416,7 +424,7 @@ public partial class Main : Node2D
 						else
 						{
 							int pct = _client.StartingGoldCount > 0
-								? (int)(100.0 * (_client.StartingGoldCount - _client.GoldRemaining) / _client.StartingGoldCount)
+								? Math.Max(0, (int)(100.0 * (_client.StartingGoldCount - _client.GoldRemaining) / _client.StartingGoldCount))
 								: 0;
 							objective = _client.EscapeOpen
 								? $"Floor {nm2.MatchFloor}/50  Gold: {pct}% — ESCAPE!{modTag}"
@@ -572,6 +580,17 @@ public partial class Main : Node2D
 			_scoreboard.Visible = false;
 		}
 	}
+
+	private static string MineEventMessage(MineEventKind kind) => kind switch
+	{
+		MineEventKind.Blackout   => "The air turns foul. Your torch gutters!",
+		MineEventKind.Firedamp   => "You smell gas. Keep fire away from it!",
+		MineEventKind.FlashFlood => "Water is roaring through the tunnels. Get clear!",
+		MineEventKind.Awakening  => "Something stirs in the deep...",
+		MineEventKind.GoldSeam   => "A gold seam has cracked open!",
+		MineEventKind.GhostShift => "You hear pickaxes that aren't yours...",
+		_ => "",
+	};
 
 	private void SetAnnouncement(string text, double durationMs = 2500)
 	{
@@ -975,7 +994,7 @@ public partial class Main : Node2D
 				{
 					nm.StartMatch(nm.MatchMode, nm.MatchTimeLimitSeconds, nm.MatchFlooding,
 						nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchBaseMoveSeconds,
-						nm.MatchMapScale, nm.MatchExplosive, nm.MatchStartFloor);
+						nm.MatchMapScale, nm.MatchExplosive, nm.MatchStartFloor, mineEvents: nm.MatchMineEvents);
 					GetTree().ChangeSceneToFile("res://game/Main.tscn");
 				};
 			}

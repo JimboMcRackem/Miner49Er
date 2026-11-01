@@ -45,6 +45,9 @@ public static class TileTypeExtensions
         t is TileType.ScreeRock or TileType.UnstableRock or TileType.VolatileRock;
 
     /// <summary>Chebyshev radius of the collapse fill when a scree tile gives way.</summary>
+    /// <summary>How far rock shaken loose by a tremor reaches from this tile.</summary>
+    public static int TremorFallRadius(this TileType t) => t.IsScree() ? t.ScreeCollapseRadius() : 1;
+
     public static int ScreeCollapseRadius(this TileType t) =>
         t == TileType.VolatileRock ? 2 : 1;
 

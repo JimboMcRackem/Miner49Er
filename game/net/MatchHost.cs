@@ -523,6 +523,8 @@ public partial class MatchHost : Node
 			Seed                  = floorSeed,
 			RequireChestForEscape = newFloor == 51,
 			RockFallsEnabled      = true,   // ceiling collapses at 95% gold, every floor (matches floor 1)
+			MineEventPool         = newFloor == 51 ? System.Array.Empty<MineEventKind>() : nm.MineEventPool(),   // the boss arena stays as built
+			MineEventFirstDelaySeconds = nm.DevEventDelay,
 			BlastRockRadius       = nm.MatchBlastRadius,
 			BlastKillRadius       = nm.MatchBlastRadius,
 			VisionRadius          = nm.MatchVisionRadius,
@@ -573,6 +575,7 @@ public partial class MatchHost : Node
 				if (east.X < newMap.Grid.Width && newMap.Grid.Get(east) == TileType.Floor)
 					sp = east;
 			}
+			sp = newSim.FreeSpawnNear(sp);
 			newSim.AddMiner(mid, sp, invulRemaining: 3.0);
 			if (_permLevels.TryGetValue(mid, out var lvl))
 				newSim.SetPermLevels(mid, lvl.Speed, lvl.Vision, lvl.Blast);
@@ -585,6 +588,7 @@ public partial class MatchHost : Node
 		{
 			int idx = mid - 1;
 			GridPos sp = idx < newMap.Spawns.Count ? newMap.Spawns[idx] : newMap.Spawns[0];
+			sp = newSim.FreeSpawnNear(sp);
 			newSim.AddMiner(mid, sp, invulRemaining: 3.0);
 			if (_permLevels.TryGetValue(mid, out var lvl))
 				newSim.SetPermLevels(mid, lvl.Speed, lvl.Vision, lvl.Blast);

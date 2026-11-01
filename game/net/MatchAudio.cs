@@ -35,6 +35,9 @@ public partial class MatchAudio : Node2D
 	private readonly System.Random _bleatRng = new();
 	private double _bleatTimer = 3.0;
 	private const float RumbleVolumeDb = -10f;
+	private const float TremorVolumeDb = -3f;
+	private AudioStreamPlayer? _tremorPlayer;
+	private MineEventKind _prevMineEvent = MineEventKind.None;
 	private readonly System.Random _rumbleRng = new();
 	private double _rumbleTimer = 25.0;
 
@@ -188,8 +191,15 @@ public partial class MatchAudio : Node2D
 			else _bleatTimer = 2.0; // no goats about Ã¢â‚¬â€ re-check shortly
 		}
 
+		UpdateTremorSound();
+		if (_client.MineEvent != _prevMineEvent)
+		{
+			_prevMineEvent = _client.MineEvent;
+			PlayEventSound(_prevMineEvent);
+		}
+
 		_rumbleTimer -= delta;
-		if (_rumbleTimer <= 0)
+		if (_rumbleTimer <= 0 && _client.TremorIntensity <= 0f)
 		{
 			PlayDistantRumble();
 			_client.AmbientRumble();
@@ -294,6 +304,43 @@ public partial class MatchAudio : Node2D
 	}
 
 	private void OnAmbientDripped(Vector2 worldPos) => OneShot(SfxLibrary.Drip, worldPos);
+
+	// Not positional, like the rumble: these happen to the whole mine at once.
+	private void PlayEventSound(MineEventKind kind)
+	{
+		AudioStream? stream = kind switch
+		{
+			MineEventKind.Blackout   => SfxLibrary.EventBlackout,
+			MineEventKind.Firedamp   => SfxLibrary.EventGas,
+			MineEventKind.FlashFlood => SfxLibrary.EventFlood,
+			MineEventKind.Awakening  => SfxLibrary.EventAwakening,
+			MineEventKind.GoldSeam   => SfxLibrary.EventGoldSeam,
+			MineEventKind.GhostShift => SfxLibrary.EventGhosts,
+			_ => null,
+		};
+		if (stream == null) return;
+		var p = new AudioStreamPlayer { Stream = stream, Bus = AudioManager.BusSfx, VolumeDb = TremorVolumeDb };
+		AddChild(p);
+		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
+		p.Play();
+	}
+
+	// Stops with the tremor rather than the clip, so a new floor mid-tremor cuts it off.
+	private void UpdateTremorSound()
+	{
+		bool shaking = _client.TremorIntensity > 0f;
+		if (shaking && _tremorPlayer == null)
+		{
+			_tremorPlayer = new AudioStreamPlayer { Stream = SfxLibrary.Tremor, Bus = AudioManager.BusSfx, VolumeDb = TremorVolumeDb };
+			AddChild(_tremorPlayer);
+			_tremorPlayer.Play();
+		}
+		else if (!shaking && _tremorPlayer != null)
+		{
+			_tremorPlayer.QueueFree();
+			_tremorPlayer = null;
+		}
+	}
 
 	// Not positional: it comes from somewhere deep in the rock, not from a place on the map.
 	private void PlayDistantRumble()

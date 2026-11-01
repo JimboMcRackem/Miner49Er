@@ -1,6 +1,6 @@
 namespace Miner49er.Core;
 
-public sealed class Simulation
+public sealed partial class Simulation
 {
     public TileGrid Grid { get; }
     public SimConfig Config { get; }
@@ -494,7 +494,7 @@ public sealed class Simulation
         double seconds = Config.BaseMoveSeconds * tile * mult;
         if (Config.TreasureHeistMode && m.Id == _treasureHolderId)
             seconds *= Config.TreasureCarrySlowFactor;
-        return Math.Clamp(seconds, Config.MinMoveSeconds, Config.MaxMoveSeconds);
+        return Math.Clamp(seconds, Config.MinMoveSeconds, Config.MaxMoveSeconds) * TremorSlow;
     }
 
     public int EffectiveVisionRadius(int minerId) => EffectiveVisionRadius(_miners[minerId]);
@@ -505,7 +505,7 @@ public sealed class Simulation
         foreach (var e in m.EffectsInternal)
             if (e.Channel == EffectChannel.VisionRadius) bonus += (int)e.Magnitude;
         if (m.Held == ItemKind.Lantern) bonus += Config.LanternVisionBonus;
-        return Config.VisionRadius + bonus;
+        return BlackoutVision(m, Config.VisionRadius + bonus);
     }
 
     public int EffectiveBlastBonus(int minerId) => EffectiveBlastBonus(_miners[minerId]);
@@ -852,7 +852,7 @@ public sealed class Simulation
                 mo.SlowMultiplier = Config.MoldSlowFactor;
             }
 
-            mo.MoveCooldownRemaining += MonsterCadenceFor(mo) * mo.SlowMultiplier;
+            mo.MoveCooldownRemaining += MonsterCadenceFor(mo) * mo.SlowMultiplier * TremorSlow;
         }
 
         // Kill any ghost currently inside a lantern's AOE
@@ -974,6 +974,9 @@ public sealed class Simulation
     // Zombie always tracks the nearest living miner — no sense radius, but terrain-bound.
     private Direction? ZombieDir(Monster mo, Miner? target)
     {
+        if (ActiveEvent == MineEventKind.Awakening
+            && NearestNoiseSourceInRange(mo.Pos, MonsterSenseRadius) is { } noise)
+            return TowardDir(mo.Pos, noise.Pos);
         if (target is { Alive: true }) return TowardDir(mo.Pos, target.Pos);
         return Card[_rng.Next(Card.Length)];
     }
@@ -994,16 +997,16 @@ public sealed class Simulation
 
     private Direction? SlimeDir(Monster mo, Miner? target)
     {
-        var noise = NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius);
+        var noise = NearestNoiseSourceInRange(mo.Pos, MonsterSenseRadius);
         if (noise is { } n) return TowardDir(mo.Pos, n.Pos);
-        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius)
+        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= MonsterSenseRadius)
             return TowardDir(mo.Pos, target.Pos);
         return Card[_rng.Next(Card.Length)];
     }
 
     private Direction? GhostDir(Monster mo, Miner? target)
     {
-        var noise = NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius);
+        var noise = NearestNoiseSourceInRange(mo.Pos, MonsterSenseRadius);
         if (noise == null && target is not { Alive: true }) return null;
         var dest = noise is { } n ? n.Pos
             : target!.Pos;
@@ -1034,7 +1037,7 @@ public sealed class Simulation
 
         // Slammed into a wall — turn (toward the miner if sensed, else random) and skip this step.
         mo.Phase = GoatPhase.Wander;
-        mo.ChargeDir = target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius
+        mo.ChargeDir = target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= MonsterSenseRadius
             ? TowardDir(mo.Pos, target.Pos)
             : Card[_rng.Next(Card.Length)];
         return null;
@@ -1043,10 +1046,10 @@ public sealed class Simulation
     // The heading to something the goat notices: a noise in range, or a miner in line of sight.
     private Direction? GoatSpotted(Monster mo, Miner? target)
     {
-        if (NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius) is { } noise)
+        if (NearestNoiseSourceInRange(mo.Pos, MonsterSenseRadius) is { } noise)
             return GoatHeadingTo(mo, noise.Pos);
-        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius
-            && Visibility.Compute(Grid, mo.Pos, Config.MonsterSenseRadius).Contains(target.Pos))
+        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= MonsterSenseRadius
+            && Visibility.Compute(Grid, mo.Pos, MonsterSenseRadius).Contains(target.Pos))
             return GoatHeadingTo(mo, target.Pos);
         return null;
     }
@@ -1099,8 +1102,19 @@ public sealed class Simulation
             if (CartAt(target) != null) return false;
         }
 
+        // Miners never share a tile, except the exit, where a whole party has to stand to leave.
+        if (target != EscapeTile && LivingMinerAt(target) is { } blocker)
+        {
+            if (!GivesWayTo(blocker, m)) return false;
+            blocker.Pos = m.Pos;
+            blocker.LastMovedAt = Elapsed;
+            blocker.MoveCooldownRemaining = EffectiveMoveSeconds(blocker);
+            _events.Add(new MinerMoved(blocker.Id, target, m.Pos));
+        }
+
         var from = m.Pos;
         m.Pos = target;
+        m.LastMovedAt = Elapsed;
         _events.Add(new MinerMoved(id, from, target));
 
         // Colour-coded gate: stepping onto a live portal teleports to its partner.
@@ -1108,7 +1122,8 @@ public sealed class Simulation
         // Sequential per-miner processing gives "lowest id wins" on an unstable gate for
         // free: the first mover collapses it, later movers find it collapsed → no-op.
         var enteredPortal = _portals.FirstOrDefault(p => p.Pos == target);
-        if (enteredPortal is not null && IsPortalActive(enteredPortal))
+        if (enteredPortal is not null && IsPortalActive(enteredPortal)
+            && LivingMinerAt(LinkOf(enteredPortal)!.Pos) is null)
         {
             var link = LinkOf(enteredPortal)!;
             enteredPortal.CooldownRemaining = Config.PortalCooldownSeconds;
@@ -1549,6 +1564,20 @@ public sealed class Simulation
     // A spawn tile is safe if a miner can stand on it and it is dry: no drowning in deep water,
     // no falling into a pit or lava, and not already occupied by another living miner. The miner
     // being (re)spawned is excluded — it may still sit at this very tile from before it died.
+    private Miner? LivingMinerAt(GridPos p) => _miners.Values.FirstOrDefault(o => o.Alive && o.Pos == p);
+
+    // Without this, two miners meeting in a one-wide tunnel would be stuck there for good. They
+    // trade places instead, if they're head-on or the one in the way has been left standing.
+    private bool GivesWayTo(Miner blocker, Miner mover)
+    {
+        if (blocker.Activity != ActivityKind.None) return false;
+        bool headOn = blocker.Pos + blocker.Facing.ToOffset() == mover.Pos;
+        return headOn || Elapsed - blocker.LastMovedAt >= Config.MinerGiveWaySeconds;
+    }
+
+    /// <summary>The nearest free, dry tile to a spawn point, for when miners outnumber spawns.</summary>
+    public GridPos FreeSpawnNear(GridPos desired) => SafeSpawn(desired, selfId: -1);
+
     private bool IsSafeSpawnTile(GridPos p, int selfId) =>
         Grid.InBounds(p) && Grid.Get(p).IsWalkable() && !Grid.Get(p).IsWater()
         && _miners.Values.All(m => m.Id == selfId || !m.Alive || m.Pos != p);
@@ -1641,6 +1670,7 @@ public sealed class Simulation
     public void Tick(double dt)
     {
         Elapsed += dt;
+        AdvanceMineEvents(dt);
         AdvanceEffects(dt);
         AdvanceInvulnerability(dt);
         AdvanceMolds(dt);
@@ -2050,8 +2080,11 @@ public sealed class Simulation
     private void TriggerScreeCollapse(GridPos pos, TileType screeType)
     {
         if (_rng.NextDouble() >= screeType.ScreeTriggerChance()) return;
+        CollapseRockAround(pos, screeType.ScreeCollapseRadius());
+    }
 
-        int radius = screeType.ScreeCollapseRadius();
+    private void CollapseRockAround(GridPos pos, int radius)
+    {
         for (int dy = -radius; dy <= radius; dy++)
             for (int dx = -radius; dx <= radius; dx++)
             {
@@ -2203,6 +2236,7 @@ public sealed class Simulation
 
         _noiseSources.Add(new NoiseSource { Pos = wallPos, LifetimeRemaining = 8.0, Kind = NoiseKind.Explosion });
         _events.Add(new Explosion(wallPos, destroyed));
+        IgniteGasNear(wallPos, r, ownerId);
     }
 
     private void CompleteActivity(Miner m)

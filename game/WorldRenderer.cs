@@ -153,10 +153,21 @@ public partial class WorldRenderer : Node2D
 	private const float RippleSoundChance = 0.25f;
 	private const float RippleSeconds = 0.9f;
 	private const int MaxRipples = 12;
+	private const float TremorRipplesPerTileSecond = 2.5f;   // added at the peak of a tremor
+	private const float TremorRippleSoundChance = 0.01f;     // many more rings, so far fewer sounds
+	private const int TremorExtraRipples = 100;
+	private static readonly Color SplashCol = new(0.7f, 0.88f, 1f, 0.85f);
 	private const float GritChancePerWall = 0.25f;
 	private static readonly Color TorchDustCol = new(1.25f, 1.3f, 1.45f, 0.5f);
 	private static readonly Color RippleCol = new(0.65f, 0.85f, 1f, 0.55f);
 	private static readonly Color GritCol = new(0.5f, 0.43f, 0.34f, 0.9f);
+	private static readonly Color PebbleCol = new(0.62f, 0.56f, 0.5f, 1f);
+	private static readonly Color TremorDangerCol = new(1f, 0.15f, 0.08f, 0.32f);
+	private static readonly Color GasCol = new(0.7f, 0.85f, 0.3f, 0.3f);
+	private static readonly Color FloodWarningCol = new(0.2f, 0.5f, 1f, 0.3f);
+	private static readonly Color SeamSparkCol = new(1.5f, 1.2f, 0.4f, 1f);
+	private const float TremorDebrisInterval = 0.12f;
+	private float _tremorDebrisTimer;
 	private const float FuseSparkRate = 10f; // avg sparks/sec per lit fuse
 
 	// Floating pickup numbers (local player only; fed by MatchClient).
@@ -637,10 +648,15 @@ public partial class WorldRenderer : Node2D
 	// Drops landing on visible water: an expanding ring, and sometimes the sound of it.
 	private void EmitWaterRipple(int x, int y, int ts)
 	{
-		if (_ripples.Count >= MaxRipples) return;
+		float tremor = _client.TremorIntensity;
+		if (_ripples.Count >= MaxRipples + (int)(TremorExtraRipples * tremor)) return;
 		var pos = new Vector2(x * ts + ts * (0.2f + _fxRng.NextSingle() * 0.6f), y * ts + ts * (0.2f + _fxRng.NextSingle() * 0.6f));
 		_ripples.Add((pos, 0f));
-		if (_fxRng.NextSingle() < RippleSoundChance) _client.RaiseAmbientDrip(pos);
+		if (_fxRng.NextSingle() < (tremor > 0f ? TremorRippleSoundChance : RippleSoundChance)) _client.RaiseAmbientDrip(pos);
+		if (tremor <= 0f) return;
+		for (int i = 0; i < 3; i++)   // the shaken surface throws up droplets
+			Spawn(pos.X, pos.Y, (_fxRng.NextSingle() - 0.5f) * 36f, -30f - _fxRng.NextSingle() * 40f * tremor,
+				  160f, 0.3f + _fxRng.NextSingle() * 0.2f, 1f, SplashCol);
 	}
 
 	private void UpdateRipples(float dt)
@@ -659,12 +675,13 @@ public partial class WorldRenderer : Node2D
 		foreach (var (pos, age) in _ripples)
 		{
 			float t = age / RippleSeconds;
-			DrawArc(pos, 1f + t * ts * 0.28f, 0f, Mathf.Tau, 16, RippleCol with { A = RippleCol.A * (1f - t) }, 1f);
+			float reach = ts * (0.28f + 0.04f * _client.TremorIntensity);
+			DrawArc(pos, 1f + t * reach, 0f, Mathf.Tau, 16, RippleCol with { A = RippleCol.A * (1f - t) }, 1f);
 		}
 	}
 
 	/// <summary>A distant rumble shakes grit loose: it falls from the faces of visible walls.</summary>
-	public void ShakeLooseGrit()
+	public void ShakeLooseGrit(float chancePerWall = GritChancePerWall, bool pebbles = false)
 	{
 		var grid = _client.Grid;
 		int ts = MatchClient.TileSize;
@@ -672,7 +689,7 @@ public partial class WorldRenderer : Node2D
 		for (int y = vy0; y < vy1; y++)
 			for (int x = vx0; x <= vx1; x++)
 			{
-				if (_fxRng.NextSingle() >= GritChancePerWall) continue;
+				if (_fxRng.NextSingle() >= chancePerWall) continue;
 				var wall = new GridPos(x, y);
 				if (grid.IsWalkable(wall) || !_client.Fog.IsVisible(wall)) continue;
 				if (!grid.IsWalkable(new GridPos(x, y + 1))) continue;
@@ -680,7 +697,80 @@ public partial class WorldRenderer : Node2D
 					Spawn(x * ts + _fxRng.NextSingle() * ts, (y + 1) * ts - _fxRng.NextSingle() * 6f,
 						  (_fxRng.NextSingle() - 0.5f) * 8f, _fxRng.NextSingle() * 6f,
 						  90f, 0.45f + _fxRng.NextSingle() * 0.35f, 0.7f, GritCol);
+				if (pebbles)
+					Spawn(x * ts + _fxRng.NextSingle() * ts, (y + 1) * ts - _fxRng.NextSingle() * 6f,
+						  (_fxRng.NextSingle() - 0.5f) * 14f, _fxRng.NextSingle() * 10f,
+						  220f, 0.4f, 1.5f, PebbleCol);
 			}
+	}
+
+	// Gas drifts over its tiles; a coming flood pulses blue on the floor it will cover.
+	private void DrawEventTiles(int ts)
+	{
+		bool gas = _client.MineEvent == MineEventKind.Firedamp;
+		if (!gas && _client.MineEvent != MineEventKind.FlashFlood) return;
+		float time = (float)Time.GetTicksMsec() * 0.002f;
+		var grid = _client.Grid;
+		foreach (var t in _client.EventTiles)
+		{
+			var p = new GridPos(t.X, t.Y);
+			if (!_client.Fog.IsVisible(p) || (!gas && grid.Get(p) != TileType.Floor)) continue;
+			var col = gas ? GasCol : FloodWarningCol;
+			float wave = 0.65f + 0.35f * Mathf.Sin(time + (t.X + t.Y) * 0.9f);
+			DrawRect(new Rect2(t.X * ts, t.Y * ts, ts, ts), col with { A = col.A * wave });
+		}
+	}
+
+	private void EmitSeamSparks(float dt)
+	{
+		if (_client.MineEvent != MineEventKind.GoldSeam) return;
+		int ts = MatchClient.TileSize;
+		foreach (var t in _client.EventTiles)
+			if (_fxRng.NextSingle() < dt * 8f && _client.Fog.IsVisible(new GridPos(t.X, t.Y))
+				&& _client.Grid.Get(new GridPos(t.X, t.Y)) == TileType.GoldRock)
+				Spawn(t.X * ts + _fxRng.NextSingle() * ts, t.Y * ts + _fxRng.NextSingle() * ts,
+					  0f, -18f, 0f, 0.6f, 1.2f, SeamSparkCol);
+	}
+
+	// The floor a marked rock will bury pulses red for as long as the rock is still up.
+	private void DrawTremorDanger(int ts)
+	{
+		float pulse = 0.65f + 0.35f * Mathf.Sin((float)Time.GetTicksMsec() * 0.008f);
+		var col = TremorDangerCol with { A = TremorDangerCol.A * pulse };
+		var grid = _client.Grid;
+		foreach (var t in _client.TremorTargets)
+		{
+			int radius = grid.Get(new GridPos(t.X, t.Y)).TremorFallRadius();
+			for (int dy = -radius; dy <= radius; dy++)
+				for (int dx = -radius; dx <= radius; dx++)
+				{
+					var p = new GridPos(t.X + dx, t.Y + dy);
+					if (grid.InBounds(p) && grid.Get(p) == TileType.Floor && _client.Fog.IsVisible(p))
+						DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), col);
+				}
+		}
+	}
+
+	// All visible walls shed dust; rock that's about to fall streams pebbles, which is the warning.
+	private void EmitTremorDebris(float dt)
+	{
+		float intensity = _client.TremorIntensity;
+		if (intensity <= 0f) return;
+		_tremorDebrisTimer += dt;
+		if (_tremorDebrisTimer < TremorDebrisInterval) return;
+		_tremorDebrisTimer = 0f;
+
+		ShakeLooseGrit(GritChancePerWall * intensity, pebbles: true);
+
+		int ts = MatchClient.TileSize;
+		foreach (var t in _client.TremorTargets)
+		{
+			if (!_client.Fog.IsVisible(new GridPos(t.X, t.Y))) continue;
+			for (int i = 0; i < 5; i++)
+				Spawn(t.X * ts + _fxRng.NextSingle() * ts, t.Y * ts + _fxRng.NextSingle() * ts,
+					  (_fxRng.NextSingle() - 0.5f) * 30f, _fxRng.NextSingle() * 20f,
+					  220f, 0.35f + _fxRng.NextSingle() * 0.3f, 1.5f, PebbleCol);
+		}
 	}
 
 	private void EmitParticleEffects(float dt)
@@ -744,7 +834,8 @@ public partial class WorldRenderer : Node2D
 				var tt = grid.Get(new GridPos(x, y));
 				if (tt.IsWater())
 				{
-					if (_fxRng.NextSingle() < dt * RipplesPerTileSecond && _client.Fog.IsVisible(new GridPos(x, y)))
+					float ripples = RipplesPerTileSecond + TremorRipplesPerTileSecond * _client.TremorIntensity;
+					if (_fxRng.NextSingle() < dt * ripples && _client.Fog.IsVisible(new GridPos(x, y)))
 						EmitWaterRipple(x, y, ts);
 					continue;
 				}
@@ -880,6 +971,8 @@ public partial class WorldRenderer : Node2D
 		float dt = (float)delta;
 		_particles.Update(dt);
 		EmitParticleEffects(dt);
+		EmitTremorDebris(dt);
+		EmitSeamSparks(dt);
 		UpdateFloatingTexts(dt);
 		QueueRedraw();
 	}
@@ -1859,6 +1952,9 @@ public partial class WorldRenderer : Node2D
 			var center = _client.MinerVisualPos(m.Id, m.X, m.Y);
 			DrawCircle(center, ts * 0.55f, new Color(0.45f, 0.20f, 1.0f, 0.22f));
 		}
+
+		DrawTremorDanger(ts);
+		DrawEventTiles(ts);
 
 		foreach (var mo in _client.Monsters)
 		{

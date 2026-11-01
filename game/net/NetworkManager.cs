@@ -355,6 +355,8 @@ public partial class NetworkManager : Node
 	public bool MatchPrizeEvents { get; private set; }
 	// Host-only: prize-event frequency preset (0=Rare, 1=Occasional, 2=Frequent).
 	public int MatchPrizeFrequency { get; private set; } = 1;
+	// Host-only: whether mine events (tremors, blackouts and so on) can happen this match.
+	public bool MatchMineEvents { get; private set; } = true;
 	// Host-only (host runs the sim): Treasure Heist rules.
 	public bool MatchTreasureWinByCumulative { get; private set; }
 	public bool MatchTreasureRespawn { get; private set; } = true;
@@ -370,6 +372,14 @@ public partial class NetworkManager : Node
 	// Set before StartMatch when continuing a saved solo expedition.
 	public record ExpeditionResumeData(int CumulativeGold, int Lives, int PermSpeed, int PermVision, int PermBlast);
 	public ExpeditionResumeData? ExpeditionResume { get; set; }
+	// Set by the playtest harness, to force an event without waiting for one.
+	public double? DevEventDelay { get; set; }
+	public MineEventKind? DevEventKind { get; set; }
+
+	public IReadOnlyList<MineEventKind> MineEventPool() =>
+		DevEventKind is { } kind ? new[] { kind }
+		: MatchMineEvents ? MineEvents.PoolFor(MatchMode)
+		: System.Array.Empty<MineEventKind>();
 
 	public event System.Action<int>? NewFloor;
 	public event System.Action<int>? FloorComplete; // co-op Expedition floor cleared — host awaits choice
@@ -406,12 +416,13 @@ public partial class NetworkManager : Node
 		_matchClient = client;
 	}
 
-	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1, int blastRadius = 1, int visionRadius = 5, bool prizeEvents = false, int prizeFrequency = 1, bool treasureWinByCumulative = false, bool treasureRespawn = true, int? seed = null)
+	public void StartMatch(GameMode mode, int timeLimitSeconds, bool flooding, bool pits, bool caveIns, bool lava, float baseMoveSeconds, int mapScale = 1, ExplosiveMode explosive = ExplosiveMode.Dynamite, int startFloor = 1, int blastRadius = 1, int visionRadius = 5, bool prizeEvents = false, int prizeFrequency = 1, bool treasureWinByCumulative = false, bool treasureRespawn = true, int? seed = null, bool mineEvents = true)
 	{
 		if (!IsHost) return;
 		// Host-only: the sim runs on the host, so this never needs to travel in the BeginMatch RPC.
 		MatchPrizeEvents = prizeEvents && mode != GameMode.Expedition;
 		MatchPrizeFrequency = prizeFrequency;
+		MatchMineEvents = mineEvents;
 		MatchTreasureWinByCumulative = treasureWinByCumulative;
 		MatchTreasureRespawn = treasureRespawn;
 		if (flooding && timeLimitSeconds <= 0) timeLimitSeconds = 60; // a flooded match needs a clock

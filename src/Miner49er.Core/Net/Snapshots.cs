@@ -33,6 +33,8 @@ public readonly record struct TripChargeSnapshot(int OwnerId, int X, int Y);
 public readonly record struct PendingFallSnapshot(int X, int Y, float FractionElapsed);
 public readonly record struct ScreeCollapseSnapshot(int X, int Y, int Radius);
 public readonly record struct WhistleSnapshot(int X, int Y);
+public readonly record struct TremorTargetSnapshot(int X, int Y);
+public readonly record struct TileSnapshot(int X, int Y);
 public readonly record struct PortalUseSnapshot(int X, int Y, int ToX, int ToY, PortalKind Kind);
 public readonly record struct StoneThrowSnapshot(int ThrowerId, int FromX, int FromY, int ToX, int ToY);
 public readonly record struct DynamiteThrowSnapshot(int ThrowerId, int FromX, int FromY, int ToX, int ToY);
@@ -66,6 +68,12 @@ public sealed record WorldSnapshot(
     TreasureSnapshot?                        Treasure         = null,
     IReadOnlyList<HoldTimeSnapshot>?         HoldTimes        = null,
     TreasureToastSnapshot?                   TreasureToast    = null,
-    IReadOnlyList<CartSnapshot>?             Carts            = null);
+    IReadOnlyList<CartSnapshot>?             Carts            = null,
+    float                                    TremorIntensity  = 0f,
+    IReadOnlyList<TremorTargetSnapshot>?     TremorTargets    = null,
+    MineEventKind                            MineEvent        = MineEventKind.None,
+    float                                    MineEventIntensity = 0f,
+    IReadOnlyList<TileSnapshot>?             EventTiles       = null,
+    IReadOnlyList<TileSnapshot>?             Phantoms         = null);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);

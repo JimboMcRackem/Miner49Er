@@ -31,6 +31,7 @@ public sealed class Miner
     public int PermBlastLevel  { get; internal set; }
 
     public int StoneCount { get; internal set; }
+    public double LastMovedAt { get; internal set; }
 
     public int ChestsOpened { get; internal set; }        // bumps per chest so clients can spot a new one
     public ItemKind? LastChestLoot { get; internal set; }

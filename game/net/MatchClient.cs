@@ -39,6 +39,15 @@ public partial class MatchClient : Node2D
 		_visualPos.TryGetValue(id, out var v)
 			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f);
 	public int LocalMinerId { get; private set; }
+	public float TremorIntensity { get; private set; }
+	public MineEventKind MineEvent { get; private set; }
+	public float MineEventIntensity { get; private set; }
+	public IReadOnlyList<TileSnapshot> EventTiles { get; private set; } = System.Array.Empty<TileSnapshot>();
+	private IReadOnlyList<TileSnapshot> _phantoms = System.Array.Empty<TileSnapshot>();
+	private readonly List<Vector2> _phantomVisualPos = new();
+	private static readonly Color PhantomCol = new(1f, 1f, 1f, 0.55f);
+	private readonly Dictionary<Texture2D, Texture2D> _phantomTex = new();
+	public IReadOnlyList<TremorTargetSnapshot> TremorTargets { get; private set; } = System.Array.Empty<TremorTargetSnapshot>();
 	public bool Listening;  // set by Main each frame; gates the buried-item shimmer
 	public float ListenTime; // seconds held this press; reset to 0 when not listening
 	public IReadOnlyList<GridPos> Decoys { get; private set; } = System.Array.Empty<GridPos>();
@@ -47,6 +56,7 @@ public partial class MatchClient : Node2D
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
 	public event System.Action<Vector2>? AmbientDripped; // world position of a visible water drop
 	private const float AmbientRumbleShake = 0.15f;
+	private const float TremorShake = 0.7f;   // trauma held at the peak of a tremor
 
 	// Hit-pause lengths, and how near the camera a blow must land to cause one.
 	private const double LocalDeathPause = 0.12;
@@ -390,6 +400,12 @@ public partial class MatchClient : Node2D
 		}
 		_monsters = new List<MonsterSnapshot>(update.Snapshot.Monsters);
 		_carts = new List<CartSnapshot>(update.Snapshot.Carts ?? System.Array.Empty<CartSnapshot>());
+		TremorIntensity = update.Snapshot.TremorIntensity;
+		TremorTargets = update.Snapshot.TremorTargets ?? System.Array.Empty<TremorTargetSnapshot>();
+		MineEvent = update.Snapshot.MineEvent;
+		MineEventIntensity = update.Snapshot.MineEventIntensity;
+		EventTiles = update.Snapshot.EventTiles ?? System.Array.Empty<TileSnapshot>();
+		_phantoms = update.Snapshot.Phantoms ?? System.Array.Empty<TileSnapshot>();
 		bool wasOpen = EscapeOpen;
 		EscapeOpen = update.Snapshot.EscapeOpen;
 		if (!wasOpen && EscapeOpen) ExpeditionTreasurePos = null;
@@ -652,11 +668,18 @@ public partial class MatchClient : Node2D
 			float pixelsPerSec = TileSize / glideSeconds;
 			_monsterVisualPos[mo.Id] = cur.MoveToward(target, pixelsPerSec * glideDelta);
 		}
+		while (_phantomVisualPos.Count > _phantoms.Count) _phantomVisualPos.RemoveAt(_phantomVisualPos.Count - 1);
+		for (int i = 0; i < _phantoms.Count; i++)
+		{
+			var target = new Vector2(_phantoms[i].X * TileSize + TileSize / 2f, _phantoms[i].Y * TileSize + TileSize / 2f);
+			if (i == _phantomVisualPos.Count) _phantomVisualPos.Add(target);
+			_phantomVisualPos[i] = _phantomVisualPos[i].MoveToward(target, TileSize * 2f * (float)delta);
+		}
 		foreach (var ct in _carts)
 		{
 			var target = new Vector2(ct.X * TileSize + TileSize / 2f, ct.Y * TileSize + TileSize / 2f);
 			var cur = _cartVisualPos.TryGetValue(ct.Id, out var v) ? v : target;
-			float pixelsPerSec = TileSize / 0.10f;   // brisk roll so a momentum launch reads
+			float pixelsPerSec = TileSize / (0.10f * (1f + TremorIntensity));   // brisk roll so a momentum launch reads
 			_cartVisualPos[ct.Id] = cur.MoveToward(target, pixelsPerSec * glideDelta);
 		}
 
@@ -702,7 +725,7 @@ public partial class MatchClient : Node2D
 		// tremors fade smoothly while big hits punch hard.
 		if (_cam != null)
 		{
-			_shakeTrauma = Mathf.Max(0f, _shakeTrauma - (float)delta * 1.6f);
+			_shakeTrauma = Mathf.Max(TremorIntensity * TremorShake, _shakeTrauma - (float)delta * 1.6f);
 			if (_shakeTrauma > 0f)
 			{
 				float s = _shakeTrauma * _shakeTrauma;
@@ -842,6 +865,51 @@ public partial class MatchClient : Node2D
 			}
 		}
 		_world?.DrawWarningMarks(this);
+		DrawPhantoms();
+		DrawGoldSeamArrow();
+	}
+
+	// Ghostly miners swinging at the rock, using the first miner's sprites, washed out.
+	private void DrawPhantoms()
+	{
+		int frame = (int)(Time.GetTicksMsec() / 1000.0 * 4 % 6) + 1;
+		var set = GetOrBuildSet(0, 0);
+		foreach (var pos in _phantomVisualPos)
+		{
+			var tile = new GridPos((int)(pos.X / TileSize), (int)(pos.Y / TileSize));
+			if (!Fog.IsVisible(tile) && _fogRenderer?.SpectatorMode != true) continue;
+			if (set.Mine[0, frame] is { } tex)
+				WorldRenderer.DrawSpriteGrounded(this, PhantomSprite(tex), pos, PhantomCol);
+		}
+	}
+
+	// A tint can't turn an olive sprite pale, so each frame gets a greyscale copy in blue.
+	private Texture2D PhantomSprite(Texture2D tex)
+	{
+		if (_phantomTex.TryGetValue(tex, out var pale)) return pale;
+		var image = tex.GetImage();
+		if (image.IsCompressed()) image.Decompress();
+		image.Convert(Image.Format.Rgba8);
+		for (int y = 0; y < image.GetHeight(); y++)
+			for (int x = 0; x < image.GetWidth(); x++)
+			{
+				var c = image.GetPixel(x, y);
+				float v = 0.45f + 0.55f * c.Luminance;
+				image.SetPixel(x, y, new Color(v * 0.75f, v * 0.88f, v, c.A));
+			}
+		return _phantomTex[tex] = ImageTexture.CreateFromImage(image);
+	}
+
+	// An arrow beside the miner pointing at the seam, so the dash has a direction.
+	private void DrawGoldSeamArrow()
+	{
+		if (MineEvent != MineEventKind.GoldSeam || EventTiles.Count == 0) return;
+		if (!_visualPos.TryGetValue(LocalMinerId, out var from)) return;
+		var seam = new Vector2(EventTiles[0].X * TileSize + TileSize / 2f, EventTiles[0].Y * TileSize + TileSize / 2f);
+		var dir = (seam - from).Normalized();
+		var tip = from + dir * TileSize * 1.5f;
+		var side = dir.Orthogonal() * 7f;
+		DrawColoredPolygon(new[] { tip, tip - dir * 14f + side, tip - dir * 14f - side }, new Color(1.6f, 1.25f, 0.3f, 0.95f));
 	}
 
 	private static int MinerColorIndex(int minerId)
