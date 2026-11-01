@@ -127,6 +127,11 @@ public static class SnapshotCodec
         foreach (var tt2 in snap.TremorTargets ?? System.Array.Empty<TremorTargetSnapshot>())
         { w.Write(tt2.X); w.Write(tt2.Y); }
 
+        w.Write((byte)snap.MineEvent);
+        w.Write(snap.MineEventIntensity);
+        WriteTiles(w, snap.EventTiles);
+        WriteTiles(w, snap.Phantoms);
+
         w.Write(snap.Carts?.Count ?? 0);
         foreach (var ct in snap.Carts ?? System.Array.Empty<CartSnapshot>())
         { w.Write(ct.Id); w.Write(ct.X); w.Write(ct.Y); w.Write(ct.Dir); w.Write((int)ct.Cargo); w.Write(ct.FuseRemaining); }
@@ -284,6 +289,11 @@ public static class SnapshotCodec
         for (int i = 0; i < tremorTargetCount; i++)
             tremorTargets.Add(new TremorTargetSnapshot(r.ReadInt32(), r.ReadInt32()));
 
+        var mineEvent = (MineEventKind)r.ReadByte();
+        float mineEventIntensity = r.ReadSingle();
+        var eventTiles = ReadTiles(r);
+        var phantoms = ReadTiles(r);
+
         int cartCount = r.ReadInt32();
         List<CartSnapshot>? carts = cartCount > 0 ? new List<CartSnapshot>(cartCount) : null;
         for (int i = 0; i < cartCount; i++)
@@ -303,6 +313,22 @@ public static class SnapshotCodec
             DynamiteThrows: dynamiteThrows, PrizeEvent: prizeEvent, PrizeClaim: prizeClaim,
             PendingFalls: pendingFalls, Treasure: treasure, HoldTimes: holdTimes,
             TreasureToast: treasureToast, Carts: carts,
-            TremorIntensity: tremorIntensity, TremorTargets: tremorTargets), changes);
+            TremorIntensity: tremorIntensity, TremorTargets: tremorTargets,
+            MineEvent: mineEvent, MineEventIntensity: mineEventIntensity,
+            EventTiles: eventTiles, Phantoms: phantoms), changes);
+    }
+
+    private static void WriteTiles(BinaryWriter w, IReadOnlyList<TileSnapshot>? tiles)
+    {
+        w.Write(tiles?.Count ?? 0);
+        foreach (var t in tiles ?? System.Array.Empty<TileSnapshot>()) { w.Write(t.X); w.Write(t.Y); }
+    }
+
+    private static List<TileSnapshot> ReadTiles(BinaryReader r)
+    {
+        int count = r.ReadInt32();
+        var tiles = new List<TileSnapshot>(count);
+        for (int i = 0; i < count; i++) tiles.Add(new TileSnapshot(r.ReadInt32(), r.ReadInt32()));
+        return tiles;
     }
 }

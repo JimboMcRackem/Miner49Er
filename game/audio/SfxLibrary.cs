@@ -33,6 +33,12 @@ public static class SfxLibrary
 	public static AudioStream Sizzle     => Get("sizzle",      () => Noise(0.35f, 1200f, decay: true)); // hot hiss â€” burned alive
 	public static AudioStream DistantRumble => Get("distant_rumble", () => Noise(1.8f, 60f, decay: true)); // far-off settling rock
 	public static AudioStream Tremor => Get("tremor", () => Swell(15f, 60f, 5f)); // long rumble, shaped like the tremor itself
+	public static AudioStream EventBlackout  => Get("event_blackout",  () => Tone(1.2f, 500f, 60f));          // a flame guttering out
+	public static AudioStream EventGas       => Get("event_gas",       () => Noise(1.6f, 1800f, decay: true)); // long hiss
+	public static AudioStream EventFlood     => Get("event_flood",     () => Noise(3.5f, 160f, decay: true));  // distant roar of water
+	public static AudioStream EventAwakening => Get("event_awakening", () => Tone(3.0f, 90f, 45f));            // deep groan
+	public static AudioStream EventGoldSeam  => Get("event_gold_seam", () => Tone(0.7f, 900f, 1900f));         // rising chime
+	public static AudioStream EventGhosts    => Get("event_ghosts",    () => Tone(2.0f, 1400f, 700f));         // far-off, falling wail
 	public static AudioStream CrackRumble  => Get("crack_rumble",  () => Noise(0.18f, 130f, decay: true)); // stone creak underfoot
 	public static AudioStream LavaCrackle => Get("lava_crackle",  () => Noise(1.00f, 480f));               // fire crackle loop near lava
 	public static AudioStream ZombieMoan  => Get("zombie_moan",   () => Tone(0.40f, 180f, 120f));          // low descending moan â€” plays on the miner when mauled

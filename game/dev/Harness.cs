@@ -72,8 +72,10 @@ public partial class Harness : Node
 		}
 		nm.MatchStarting += OnStarting;
 
-		if (_opts.TryGetValue("tremor", out var tremorDelay))
-			nm.DevTremorDelay = double.Parse(tremorDelay, System.Globalization.CultureInfo.InvariantCulture);
+		if (_opts.TryGetValue("eventdelay", out var eventDelay))
+			nm.DevEventDelay = double.Parse(eventDelay, System.Globalization.CultureInfo.InvariantCulture);
+		if (_opts.TryGetValue("event", out var eventKind))
+			nm.DevEventKind = Enum.Parse<Miner49er.Core.MineEventKind>(eventKind, ignoreCase: true);
 		nm.StartMatch(Enum.Parse<GameMode>(Opt("mode", "Expedition"), ignoreCase: true),
 			OptInt("time", 0), OptBool("flood"), OptBool("pits"), OptBool("caveins"), OptBool("lava"),
 			0.12f, OptInt("scale", 1), startFloor: OptInt("floor", 1), visionRadius: OptInt("vision", 5),

@@ -87,6 +87,9 @@ public static class SnapshotFactory
             treasureProgress, placedChests, tripCharges, pendingFalls, PrizeEvent: prize,
             Treasure: treasure, HoldTimes: holdTimes, Carts: carts,
             TremorIntensity: (float)sim.TremorIntensity,
-            TremorTargets: sim.TremorTargets.Select(t => new TremorTargetSnapshot(t.X, t.Y)).ToList());
+            TremorTargets: sim.TremorTargets.Select(t => new TremorTargetSnapshot(t.X, t.Y)).ToList(),
+            MineEvent: sim.ActiveEvent, MineEventIntensity: (float)sim.EventIntensity,
+            EventTiles: sim.EventTiles.Select(t => new TileSnapshot(t.X, t.Y)).ToList(),
+            Phantoms: sim.Phantoms.Select(t => new TileSnapshot(t.X, t.Y)).ToList());
     }
 }

@@ -42,6 +42,7 @@ public partial class LightRenderer : Node2D
     // +1 over the 4-tile blue torch halo (like the lantern's margin) so the interpolated
     // halo edge never slides onto a still-dark tile while the miner is moving.
     private const int   PlayerTorchRadius = 5;
+    private const int   BlackoutTorchRadius = 2;
     private const int LanternRadius = 6;
     private const int CrystalRadius = 4;
     private const int LavaRadius    = 3;
@@ -131,8 +132,16 @@ public partial class LightRenderer : Node2D
         foreach (var m in _client.Miners)
         {
             if (!m.Alive) continue;
-            _lights.AddLight(grid, new GridPos(m.X, m.Y), PlayerTorchRadius);
+            _lights.AddLight(grid, new GridPos(m.X, m.Y), TorchRadius(m));
         }
+    }
+
+    // A blackout snuffs torches; anyone carrying their own light keeps it.
+    private int TorchRadius(Miner49er.Core.Net.MinerSnapshot m)
+    {
+        if (_client.MineEvent != MineEventKind.Blackout || m.Held == (int)ItemKind.Lantern
+            || m.Held == (int)ItemKind.CrystalShard) return PlayerTorchRadius;
+        return Mathf.RoundToInt(Mathf.Lerp(PlayerTorchRadius, BlackoutTorchRadius, _client.MineEventIntensity));
     }
 
     private void AddSourceLights(TileGrid grid, double now)

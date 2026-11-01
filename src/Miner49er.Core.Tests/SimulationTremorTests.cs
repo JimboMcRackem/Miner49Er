@@ -5,10 +5,12 @@ using Xunit;
 
 public class SimulationTremorTests
 {
+    private static readonly MineEventKind[] Tremors = { MineEventKind.Tremor };
+
     private static SimConfig Cfg() => new()
     {
-        TremorsEnabled = true, TremorFirstDelaySeconds = 1, TremorSeconds = 15, TremorRampSeconds = 5,
-        TremorMinIntervalSeconds = 300, TremorMaxIntervalSeconds = 600, TremorMaxSlow = 2.0,
+        MineEventPool = Tremors, MineEventFirstDelaySeconds = 1, TremorSeconds = 15, TremorRampSeconds = 5,
+        MineEventMinIntervalSeconds = 300, MineEventMaxIntervalSeconds = 600, TremorMaxSlow = 2.0,
         TremorRockfallCount = 3, TremorRockfallRange = 12, BaseMoveSeconds = 0.2,
     };
 
@@ -29,7 +31,7 @@ public class SimulationTremorTests
     public void Tremors_are_off_unless_enabled()
     {
         var cfg = Cfg();
-        cfg.TremorsEnabled = false;
+        cfg.MineEventPool = System.Array.Empty<MineEventKind>();
         var sim = new Simulation(Walled(), cfg);
         Run(sim, 5);
         Assert.Equal(0.0, sim.TremorIntensity);
@@ -95,7 +97,7 @@ public class SimulationTremorTests
         int StepsDuringPeak(bool tremor)
         {
             var cfg = Cfg();
-            cfg.TremorsEnabled = tremor;
+            cfg.MineEventPool = tremor ? Tremors : System.Array.Empty<MineEventKind>();
             cfg.TremorRockfallCount = 0;
             cfg.MonsterZombieMoveSeconds = 0.5;
             var sim = new Simulation(new TileGrid(40, 3, TileType.Floor), cfg);

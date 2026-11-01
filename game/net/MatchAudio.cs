@@ -37,6 +37,7 @@ public partial class MatchAudio : Node2D
 	private const float RumbleVolumeDb = -10f;
 	private const float TremorVolumeDb = -3f;
 	private AudioStreamPlayer? _tremorPlayer;
+	private MineEventKind _prevMineEvent = MineEventKind.None;
 	private readonly System.Random _rumbleRng = new();
 	private double _rumbleTimer = 25.0;
 
@@ -191,6 +192,11 @@ public partial class MatchAudio : Node2D
 		}
 
 		UpdateTremorSound();
+		if (_client.MineEvent != _prevMineEvent)
+		{
+			_prevMineEvent = _client.MineEvent;
+			PlayEventSound(_prevMineEvent);
+		}
 
 		_rumbleTimer -= delta;
 		if (_rumbleTimer <= 0 && _client.TremorIntensity <= 0f)
@@ -298,6 +304,26 @@ public partial class MatchAudio : Node2D
 	}
 
 	private void OnAmbientDripped(Vector2 worldPos) => OneShot(SfxLibrary.Drip, worldPos);
+
+	// Not positional, like the rumble: these happen to the whole mine at once.
+	private void PlayEventSound(MineEventKind kind)
+	{
+		AudioStream? stream = kind switch
+		{
+			MineEventKind.Blackout   => SfxLibrary.EventBlackout,
+			MineEventKind.Firedamp   => SfxLibrary.EventGas,
+			MineEventKind.FlashFlood => SfxLibrary.EventFlood,
+			MineEventKind.Awakening  => SfxLibrary.EventAwakening,
+			MineEventKind.GoldSeam   => SfxLibrary.EventGoldSeam,
+			MineEventKind.GhostShift => SfxLibrary.EventGhosts,
+			_ => null,
+		};
+		if (stream == null) return;
+		var p = new AudioStreamPlayer { Stream = stream, Bus = AudioManager.BusSfx, VolumeDb = TremorVolumeDb };
+		AddChild(p);
+		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
+		p.Play();
+	}
 
 	// Stops with the tremor rather than the clip, so a new floor mid-tremor cuts it off.
 	private void UpdateTremorSound()

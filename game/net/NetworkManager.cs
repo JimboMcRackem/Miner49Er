@@ -370,7 +370,12 @@ public partial class NetworkManager : Node
 	// Set before StartMatch when continuing a saved solo expedition.
 	public record ExpeditionResumeData(int CumulativeGold, int Lives, int PermSpeed, int PermVision, int PermBlast);
 	public ExpeditionResumeData? ExpeditionResume { get; set; }
-	public double? DevTremorDelay { get; set; }   // set by the playtest harness
+	// Set by the playtest harness, to force an event without waiting for one.
+	public double? DevEventDelay { get; set; }
+	public MineEventKind? DevEventKind { get; set; }
+
+	public IReadOnlyList<MineEventKind> MineEventPool() =>
+		DevEventKind is { } kind ? new[] { kind } : MineEvents.PoolFor(MatchMode);
 
 	public event System.Action<int>? NewFloor;
 	public event System.Action<int>? FloorComplete; // co-op Expedition floor cleared — host awaits choice

@@ -139,17 +139,42 @@ public sealed class SimConfig
     // Ceiling rock falls — drops Rock tiles when gold drops to ≤ 5%.
     public bool RockFallsEnabled { get; set; } = false;
 
-    // Tremors: rare, so most stretches of play never see one.
-    public bool TremorsEnabled { get; set; } = false;
+    // Mine events: rare, so most stretches of play never see one, and only one at a time.
+    public IReadOnlyList<MineEventKind> MineEventPool { get; set; } = Array.Empty<MineEventKind>();
+    public double MineEventGraceSeconds { get; set; } = 90.0;      // quiet at the start of a floor or match
+    public double MineEventMinIntervalSeconds { get; set; } = 240.0;
+    public double MineEventMaxIntervalSeconds { get; set; } = 480.0;
+    public double? MineEventFirstDelaySeconds { get; set; }        // fixes the first one, for testing
+
     public double TremorSeconds { get; set; } = 15.0;
     public double TremorRampSeconds { get; set; } = 5.0;           // each of the build-up and the drop-off
-    public double TremorGraceSeconds { get; set; } = 120.0;        // quiet at the start of a floor or match
-    public double TremorMinIntervalSeconds { get; set; } = 360.0;
-    public double TremorMaxIntervalSeconds { get; set; } = 720.0;
-    public double? TremorFirstDelaySeconds { get; set; }           // fixes the first one, for testing
     public double TremorMaxSlow { get; set; } = 2.0;               // movement time multiplier at the peak
     public int TremorRockfallCount { get; set; } = 5;
     public int TremorRockfallRange { get; set; } = 12;             // tiles from a miner
+
+    public double BlackoutSeconds { get; set; } = 25.0;
+    public int BlackoutVisionRadius { get; set; } = 2;
+
+    public double FiredampSeconds { get; set; } = 45.0;
+    public double FiredampSpreadSeconds { get; set; } = 10.0;
+    public int FiredampTiles { get; set; } = 50;
+
+    public double FlashFloodWarningSeconds { get; set; } = 8.0;    // the area shows before the water comes
+    public double FlashFloodSeconds { get; set; } = 20.0;
+    public double FlashFloodTilesPerSecond { get; set; } = 12.0;
+    public int FlashFloodTiles { get; set; } = 45;
+
+    public double AwakeningSeconds { get; set; } = 30.0;
+    public int AwakeningSenseMultiplier { get; set; } = 4;
+
+    public double GoldSeamSeconds { get; set; } = 30.0;
+    public int GoldSeamTiles { get; set; } = 6;
+    public int GoldSeamMinDistance { get; set; } = 8;
+    public int GoldSeamMaxDistance { get; set; } = 22;
+
+    public double GhostShiftSeconds { get; set; } = 60.0;
+    public int GhostShiftPhantoms { get; set; } = 3;
+    public double GhostShiftStepSeconds { get; set; } = 0.7;
     public double RockFallMinDelay { get; set; } = 2.0;
     public double RockFallMaxDelay { get; set; } = 4.0;
     public double RockFallIntervalSeconds { get; set; } = 6.0;

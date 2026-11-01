@@ -163,6 +163,9 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color GritCol = new(0.5f, 0.43f, 0.34f, 0.9f);
 	private static readonly Color PebbleCol = new(0.62f, 0.56f, 0.5f, 1f);
 	private static readonly Color TremorDangerCol = new(1f, 0.15f, 0.08f, 0.32f);
+	private static readonly Color GasCol = new(0.7f, 0.85f, 0.3f, 0.3f);
+	private static readonly Color FloodWarningCol = new(0.2f, 0.5f, 1f, 0.3f);
+	private static readonly Color SeamSparkCol = new(1.5f, 1.2f, 0.4f, 1f);
 	private const float TremorDebrisInterval = 0.12f;
 	private float _tremorDebrisTimer;
 	private const float FuseSparkRate = 10f; // avg sparks/sec per lit fuse
@@ -701,6 +704,34 @@ public partial class WorldRenderer : Node2D
 			}
 	}
 
+	// Gas drifts over its tiles; a coming flood pulses blue on the floor it will cover.
+	private void DrawEventTiles(int ts)
+	{
+		bool gas = _client.MineEvent == MineEventKind.Firedamp;
+		if (!gas && _client.MineEvent != MineEventKind.FlashFlood) return;
+		float time = (float)Time.GetTicksMsec() * 0.002f;
+		var grid = _client.Grid;
+		foreach (var t in _client.EventTiles)
+		{
+			var p = new GridPos(t.X, t.Y);
+			if (!_client.Fog.IsVisible(p) || (!gas && grid.Get(p) != TileType.Floor)) continue;
+			var col = gas ? GasCol : FloodWarningCol;
+			float wave = 0.65f + 0.35f * Mathf.Sin(time + (t.X + t.Y) * 0.9f);
+			DrawRect(new Rect2(t.X * ts, t.Y * ts, ts, ts), col with { A = col.A * wave });
+		}
+	}
+
+	private void EmitSeamSparks(float dt)
+	{
+		if (_client.MineEvent != MineEventKind.GoldSeam) return;
+		int ts = MatchClient.TileSize;
+		foreach (var t in _client.EventTiles)
+			if (_fxRng.NextSingle() < dt * 8f && _client.Fog.IsVisible(new GridPos(t.X, t.Y))
+				&& _client.Grid.Get(new GridPos(t.X, t.Y)) == TileType.GoldRock)
+				Spawn(t.X * ts + _fxRng.NextSingle() * ts, t.Y * ts + _fxRng.NextSingle() * ts,
+					  0f, -18f, 0f, 0.6f, 1.2f, SeamSparkCol);
+	}
+
 	// The floor a marked rock will bury pulses red for as long as the rock is still up.
 	private void DrawTremorDanger(int ts)
 	{
@@ -941,6 +972,7 @@ public partial class WorldRenderer : Node2D
 		_particles.Update(dt);
 		EmitParticleEffects(dt);
 		EmitTremorDebris(dt);
+		EmitSeamSparks(dt);
 		UpdateFloatingTexts(dt);
 		QueueRedraw();
 	}
@@ -1922,6 +1954,7 @@ public partial class WorldRenderer : Node2D
 		}
 
 		DrawTremorDanger(ts);
+		DrawEventTiles(ts);
 
 		foreach (var mo in _client.Monsters)
 		{

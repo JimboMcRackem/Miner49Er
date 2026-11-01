@@ -1,6 +1,6 @@
 namespace Miner49er.Core;
 
-public sealed class Simulation
+public sealed partial class Simulation
 {
     public TileGrid Grid { get; }
     public SimConfig Config { get; }
@@ -131,12 +131,6 @@ public sealed class Simulation
     public int FirstToReachCenter { get; private set; } = -1;
 
     public GridPos? EscapeTile { get; }
-
-    private double _tremorElapsed = -1;                 // below zero: no tremor under way
-    private double? _tremorDelay;
-    private readonly List<(GridPos Pos, double FallsAt)> _tremorTargets = new();
-    private Random _tremorRng => _tremorRngLazy ??= new Random(Config.Seed ^ 0x7E30B);   // apart from _rng, so tremors never reshuffle other rolls
-    private Random? _tremorRngLazy;
     public bool EscapeOpen { get; private set; }
     private int _goldRemaining;
     public bool AllGoldCleared => _goldRemaining == 0;
@@ -511,7 +505,7 @@ public sealed class Simulation
         foreach (var e in m.EffectsInternal)
             if (e.Channel == EffectChannel.VisionRadius) bonus += (int)e.Magnitude;
         if (m.Held == ItemKind.Lantern) bonus += Config.LanternVisionBonus;
-        return Config.VisionRadius + bonus;
+        return BlackoutVision(m, Config.VisionRadius + bonus);
     }
 
     public int EffectiveBlastBonus(int minerId) => EffectiveBlastBonus(_miners[minerId]);
@@ -980,6 +974,9 @@ public sealed class Simulation
     // Zombie always tracks the nearest living miner — no sense radius, but terrain-bound.
     private Direction? ZombieDir(Monster mo, Miner? target)
     {
+        if (ActiveEvent == MineEventKind.Awakening
+            && NearestNoiseSourceInRange(mo.Pos, MonsterSenseRadius) is { } noise)
+            return TowardDir(mo.Pos, noise.Pos);
         if (target is { Alive: true }) return TowardDir(mo.Pos, target.Pos);
         return Card[_rng.Next(Card.Length)];
     }
@@ -1000,16 +997,16 @@ public sealed class Simulation
 
     private Direction? SlimeDir(Monster mo, Miner? target)
     {
-        var noise = NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius);
+        var noise = NearestNoiseSourceInRange(mo.Pos, MonsterSenseRadius);
         if (noise is { } n) return TowardDir(mo.Pos, n.Pos);
-        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius)
+        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= MonsterSenseRadius)
             return TowardDir(mo.Pos, target.Pos);
         return Card[_rng.Next(Card.Length)];
     }
 
     private Direction? GhostDir(Monster mo, Miner? target)
     {
-        var noise = NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius);
+        var noise = NearestNoiseSourceInRange(mo.Pos, MonsterSenseRadius);
         if (noise == null && target is not { Alive: true }) return null;
         var dest = noise is { } n ? n.Pos
             : target!.Pos;
@@ -1040,7 +1037,7 @@ public sealed class Simulation
 
         // Slammed into a wall — turn (toward the miner if sensed, else random) and skip this step.
         mo.Phase = GoatPhase.Wander;
-        mo.ChargeDir = target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius
+        mo.ChargeDir = target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= MonsterSenseRadius
             ? TowardDir(mo.Pos, target.Pos)
             : Card[_rng.Next(Card.Length)];
         return null;
@@ -1049,10 +1046,10 @@ public sealed class Simulation
     // The heading to something the goat notices: a noise in range, or a miner in line of sight.
     private Direction? GoatSpotted(Monster mo, Miner? target)
     {
-        if (NearestNoiseSourceInRange(mo.Pos, Config.MonsterSenseRadius) is { } noise)
+        if (NearestNoiseSourceInRange(mo.Pos, MonsterSenseRadius) is { } noise)
             return GoatHeadingTo(mo, noise.Pos);
-        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= Config.MonsterSenseRadius
-            && Visibility.Compute(Grid, mo.Pos, Config.MonsterSenseRadius).Contains(target.Pos))
+        if (target is { Alive: true } && mo.Pos.ManhattanTo(target.Pos) <= MonsterSenseRadius
+            && Visibility.Compute(Grid, mo.Pos, MonsterSenseRadius).Contains(target.Pos))
             return GoatHeadingTo(mo, target.Pos);
         return null;
     }
@@ -1647,7 +1644,7 @@ public sealed class Simulation
     public void Tick(double dt)
     {
         Elapsed += dt;
-        AdvanceTremor(dt);
+        AdvanceMineEvents(dt);
         AdvanceEffects(dt);
         AdvanceInvulnerability(dt);
         AdvanceMolds(dt);
@@ -2077,82 +2074,6 @@ public sealed class Simulation
         _events.Add(new ScreeCollapsed(pos, radius));
     }
 
-    // --- Tremors ----------------------------------------------------------
-    // The rock that will fall is chosen as the tremor starts and sent to clients, so the
-    // build-up shows exactly where to get away from. It then falls during the peak.
-    public double TremorIntensity => _tremorElapsed < 0 ? 0
-        : TremorCurve.Intensity(_tremorElapsed, Config.TremorSeconds, Config.TremorRampSeconds);
-
-    public double TremorSlow => 1 + (Config.TremorMaxSlow - 1) * TremorIntensity;
-
-    public IReadOnlyList<GridPos> TremorTargets => _tremorTargets.Select(t => t.Pos).ToList();
-
-    private void AdvanceTremor(double dt)
-    {
-        if (!Config.TremorsEnabled) return;
-        if (_tremorElapsed < 0)
-        {
-            _tremorDelay ??= Config.TremorFirstDelaySeconds ?? Config.TremorGraceSeconds
-                + _tremorRng.NextDouble() * (Config.TremorMaxIntervalSeconds - Config.TremorGraceSeconds);
-            _tremorDelay -= dt;
-            if (_tremorDelay > 0) return;
-            _tremorElapsed = 0;
-            MarkTremorRock();
-            return;
-        }
-
-        _tremorElapsed += dt;
-        for (int i = _tremorTargets.Count - 1; i >= 0; i--)
-        {
-            var (pos, fallsAt) = _tremorTargets[i];
-            if (Grid.Get(pos).IsWalkable()) { _tremorTargets.RemoveAt(i); continue; }   // mined out
-            if (_tremorElapsed < fallsAt) continue;
-            _tremorTargets.RemoveAt(i);
-            CollapseRockAround(pos, Grid.Get(pos).TremorFallRadius());
-        }
-
-        if (_tremorElapsed >= Config.TremorSeconds)
-        {
-            _tremorElapsed = -1;
-            _tremorDelay = Config.TremorMinIntervalSeconds
-                + _tremorRng.NextDouble() * (Config.TremorMaxIntervalSeconds - Config.TremorMinIntervalSeconds);
-        }
-    }
-
-    private void MarkTremorRock()
-    {
-        var alive = _miners.Values.Where(m => m.Alive).ToList();
-        var candidates = new List<GridPos>();
-        for (int y = 0; y < Grid.Height; y++)
-            for (int x = 0; x < Grid.Width; x++)
-            {
-                var p = new GridPos(x, y);
-                var tile = Grid.Get(p);
-                if (tile != TileType.Rock && !tile.IsScree()) continue;
-                if (!Card.Any(d => Grid.InBounds(p + d.ToOffset()) && Grid.Get(p + d.ToOffset()) == TileType.Floor)) continue;
-                if (!alive.Any(m => m.Pos.ChebyshevTo(p) <= Config.TremorRockfallRange)) continue;
-                if (WouldBuryLandmark(p, tile.TremorFallRadius())) continue;
-                candidates.Add(p);
-            }
-
-        double peak = Config.TremorRampSeconds;
-        double peakLength = Config.TremorSeconds - 2 * peak;
-        foreach (var p in candidates.OrderBy(_ => _tremorRng.Next())
-                     .OrderByDescending(c => Grid.Get(c).IsScree())
-                     .Take(Config.TremorRockfallCount))
-            _tremorTargets.Add((p, peak + _tremorRng.NextDouble() * peakLength));
-    }
-
-    private bool WouldBuryLandmark(GridPos p, int radius)
-    {
-        if (new[] { EscapeTile, ShopPos, Center }.Any(l => l is { } tile && tile.ChebyshevTo(p) <= radius))
-            return true;
-        for (int dy = -radius; dy <= radius; dy++)
-            for (int dx = -radius; dx <= radius; dx++)
-                if (IsTrack(new GridPos(p.X + dx, p.Y + dy))) return true;
-        return false;
-    }
-
     private void AdvanceOctopus(double dt)
     {
         if (_octopus is null) return;
@@ -2289,6 +2210,7 @@ public sealed class Simulation
 
         _noiseSources.Add(new NoiseSource { Pos = wallPos, LifetimeRemaining = 8.0, Kind = NoiseKind.Explosion });
         _events.Add(new Explosion(wallPos, destroyed));
+        IgniteGasNear(wallPos, r, ownerId);
     }
 
     private void CompleteActivity(Miner m)
