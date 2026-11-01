@@ -55,6 +55,20 @@ public static class Flicker
         return (float)m;
     }
 
+    /// <summary>A lantern's brightness: the flame never holds still, and it gutters too.</summary>
+    public static float Flame(int seed, double t) =>
+        Multiplier(seed, t, Fire) * Wobble(seed, t, 0.18);
+
+    // Three sines at unrelated speeds never quite repeat, which reads as flame rather than pulse.
+    private static float Wobble(int seed, double t, double depth)
+    {
+        double phase = Hash01(seed, 0, 0x27D4EB2Fu) * Math.Tau;
+        double n = 0.5 * Math.Sin(t * 7.3 + phase)
+                 + 0.3 * Math.Sin(t * 13.1 + phase * 2.0)
+                 + 0.2 * Math.Sin(t * 23.7 + phase * 3.0);
+        return (float)(1.0 - depth * (0.5 + 0.5 * n));
+    }
+
     // Deterministic (seed, window) -> [0,1). `salt` yields independent draws from one window.
     private static double Hash01(int seed, long window, uint salt)
     {

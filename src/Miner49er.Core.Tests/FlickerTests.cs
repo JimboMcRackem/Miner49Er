@@ -63,6 +63,38 @@ public class FlickerTests
     }
 
     [Fact]
+    public void A_flame_never_holds_still()
+    {
+        for (double t = 0; t < 20; t += 0.25)
+            Assert.NotEqual(Flicker.Flame(3, t), Flicker.Flame(3, t + 0.05));
+    }
+
+    [Fact]
+    public void A_flame_stays_bright_enough_to_see_by()
+    {
+        for (int seed = 0; seed < 10; seed++)
+            for (double t = 0; t < 60; t += 0.01)
+            {
+                Assert.InRange((double)Flicker.Flame(seed, t), 0.4, 1.0);
+            }
+    }
+
+    [Fact]
+    public void Two_flames_move_differently()
+    {
+        Assert.NotEqual(Flicker.Flame(1, 5.0), Flicker.Flame(2, 5.0));
+    }
+
+    [Fact]
+    public void A_flame_moves_smoothly_between_frames()
+    {
+        const double step = 1.0 / 120.0;
+        for (int seed = 0; seed < 10; seed++)
+            for (double t = 0; t < 60; t += step)
+                Assert.True(Math.Abs(Flicker.Flame(seed, t) - Flicker.Flame(seed, t + step)) < 0.1f);
+    }
+
+    [Fact]
     public void No_sudden_jumps_between_adjacent_frames()
     {
         const double step = 1.0 / 120.0;

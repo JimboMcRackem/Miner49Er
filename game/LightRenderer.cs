@@ -152,8 +152,7 @@ public partial class LightRenderer : Node2D
         {
             if (!m.Alive) continue;
             if (m.Held == (int)ItemKind.Lantern)
-                _lights.AddLight(grid, new GridPos(m.X, m.Y), LanternRadius,
-                    Flicker.Multiplier(HeldSeed(m.Id), now, Flicker.Fire));
+                _lights.AddLight(grid, new GridPos(m.X, m.Y), LanternRadius, Flicker.Flame(HeldSeed(m.Id), now));
             else if (m.Held == (int)ItemKind.CrystalShard)
                 _lights.AddLight(grid, new GridPos(m.X, m.Y), CrystalRadius,
                     Flicker.Multiplier(HeldSeed(m.Id), now, Flicker.Crystal));
@@ -164,8 +163,7 @@ public partial class LightRenderer : Node2D
         {
             if (it.Placement != ItemPlacement.Loose) continue;
             if (it.Kind == ItemKind.Lantern)
-                _lights.AddLight(grid, new GridPos(it.X, it.Y), LanternRadius,
-                    Flicker.Multiplier(TileSeed(it.X, it.Y), now, Flicker.Fire));
+                _lights.AddLight(grid, new GridPos(it.X, it.Y), LanternRadius, Flicker.Flame(TileSeed(it.X, it.Y), now));
             else if (it.Kind == ItemKind.CrystalShard)
                 _lights.AddLight(grid, new GridPos(it.X, it.Y), CrystalRadius,
                     Flicker.Multiplier(TileSeed(it.X, it.Y), now, Flicker.Crystal));
@@ -178,7 +176,7 @@ public partial class LightRenderer : Node2D
             {
                 var vp = _client.CartVisualPos(ct.Id, ct.X, ct.Y);
                 var tile = new GridPos((int)(vp.X / MatchClient.TileSize), (int)(vp.Y / MatchClient.TileSize));
-                _lights.AddLight(grid, tile, LanternRadius, Flicker.Multiplier(HeldSeed(ct.Id), now, Flicker.Fire));
+                _lights.AddLight(grid, tile, LanternRadius, Flicker.Flame(HeldSeed(ct.Id), now));
             }
 
         // Lava, vents, and crystal-rock walls glow. These are STATIC sources — their light field
@@ -225,6 +223,6 @@ public partial class LightRenderer : Node2D
 
     // Stable per-source flicker seeds. Tile-based for stationary sources; miner-based
     // for held sources so their phase stays continuous while walking.
-    private static int TileSeed(int x, int y) => (x * 73856093) ^ (y * 19349663);
-    private static int HeldSeed(int minerId) => (minerId * 83492791) ^ unchecked((int)0x9E3779B1);
+    internal static int TileSeed(int x, int y) => (x * 73856093) ^ (y * 19349663);
+    internal static int HeldSeed(int minerId) => (minerId * 83492791) ^ unchecked((int)0x9E3779B1);
 }

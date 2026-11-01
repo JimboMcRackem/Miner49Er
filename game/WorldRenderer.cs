@@ -1511,7 +1511,7 @@ public partial class WorldRenderer : Node2D
 			{
 				float g = ts * 2.2f;
 				DrawTextureRect(_lanternGlowTex, new Rect2(center - new Vector2(g, g) / 2f, new Vector2(g, g)),
-				                false, LanternGlowBoost with { A = 0.85f });
+				                false, LanternGlowBoost with { A = 0.85f * Flicker.Flame(LightRenderer.HeldSeed(ct.Id), Time.GetTicksMsec() / 1000.0) });
 			}
 			else if (ct.Cargo == CartCargo.Charge)
 			{
@@ -1926,6 +1926,7 @@ public partial class WorldRenderer : Node2D
 
 		// Lantern light: radial amber glow centered on each active lantern source
 		int glowPx = 5 * ts * 2;
+		double flameNow = Time.GetTicksMsec() / 1000.0;   // the glow moves with the light under it
 		foreach (var m in _client.Miners)
 		{
 			if (!m.Alive || m.Held != (int)ItemKind.Lantern) continue;
@@ -1933,7 +1934,7 @@ public partial class WorldRenderer : Node2D
 			var center = new Vector2(m.X * ts + ts / 2f, m.Y * ts + ts / 2f);
 			DrawTextureRect(_lanternGlowTex,
 				new Rect2(center.X - glowPx / 2f, center.Y - glowPx / 2f, glowPx, glowPx),
-				false, LanternGlowBoost);
+				false, LanternGlowBoost with { A = Flicker.Flame(LightRenderer.HeldSeed(m.Id), flameNow) });
 		}
 		foreach (var it in _client.Items)
 		{
@@ -1941,7 +1942,7 @@ public partial class WorldRenderer : Node2D
 			var center = new Vector2(it.X * ts + ts / 2f, it.Y * ts + ts / 2f);
 			DrawTextureRect(_lanternGlowTex,
 				new Rect2(center.X - glowPx / 2f, center.Y - glowPx / 2f, glowPx, glowPx),
-				false, LanternGlowBoost);
+				false, LanternGlowBoost with { A = Flicker.Flame(LightRenderer.TileSeed(it.X, it.Y), flameNow) });
 		}
 
 		// Crystal shard halo: soft cyan ring around any miner holding a shard
