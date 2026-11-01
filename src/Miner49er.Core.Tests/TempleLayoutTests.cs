@@ -176,7 +176,7 @@ public class TempleLayoutTests
     private static readonly List<(int Floor, int Seed)> Sample = TempleFloors().Take(30).ToList();
 
     private static List<GeneratedMap> TempleMaps() =>
-        Sample.Select(t => MapGenerator.Generate(MapConfig.FloorConfig(t.Floor, t.Seed))).ToList();
+        Sample.Select(t => MapGenerator.Generate(MapConfig.FloorConfig(t.Floor, MapConfig.FloorSeed(t.Seed, t.Floor)))).ToList();
 
     private static IEnumerable<GridPos> Area(TempleSection s)
     {

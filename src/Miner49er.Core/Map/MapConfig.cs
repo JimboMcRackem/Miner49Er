@@ -188,7 +188,7 @@ public sealed class MapConfig
             cfg.ExpeditionTreasureKind    = allIdols[treasureRng.Next(allIdols.Length)];
             cfg.ExpeditionTreasureInChest = treasureRng.Next(2) == 0;
         }
-        if (IsTempleFloor(floor, seed))
+        if (IsTempleFloor(floor, seed - FloorSeedStep * floor))
         {
             var templeRng = new System.Random(FloorHash(seed, floor, 5));
             var allIdols  = TreasureAssignment.AllIdols();
@@ -201,13 +201,19 @@ public sealed class MapConfig
         return cfg;
     }
 
+    // The game seeds each floor as run seed + this x floor, so a floor can recover its run.
+    private const int FloorSeedStep = 1000;
+
+    /// <summary>The seed the game gives FloorConfig for this floor of a run.</summary>
+    public static int FloorSeed(int runSeed, int floor) => runSeed + FloorSeedStep * floor;
+
     /// <summary>Whether this Expedition floor holds a temple: about 1 in 6 from floor 5, never on a
     /// shop floor, the boss floor or straight after another temple.</summary>
-    public static bool IsTempleFloor(int floor, int seed)
+    public static bool IsTempleFloor(int floor, int runSeed)
     {
-        if (!RollsTemple(floor, seed)) return false;
+        if (!RollsTemple(floor, runSeed)) return false;
         int run = 0;   // a floor loses out only to a temple directly below it, so walk the run back
-        while (RollsTemple(floor - run - 1, seed)) run++;
+        while (RollsTemple(floor - run - 1, runSeed)) run++;
         return run % 2 == 0;
     }
 

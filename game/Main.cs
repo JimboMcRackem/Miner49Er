@@ -174,6 +174,7 @@ public partial class Main : Node2D
 			}
 			FloorModifiers.Apply(floorModifier, hostMapCfg, f1SimCfg);
 			f1SimCfg.ExpeditionTreasureKind = hostMapCfg.ExpeditionTreasureKind;
+			f1SimCfg.RequireArtifactAtExit  = hostMapCfg.TempleSectionCount > 0;
 			var hostMap = MapGenerator.Generate(hostMapCfg);
 			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.EscapeTile : null;
 			var sim = new Simulation(
@@ -701,7 +702,7 @@ public partial class Main : Node2D
 				var aliveMiners = _client.Miners.Where(x => x.Alive).ToList();
 				var atExit      = aliveMiners.Where(x => new GridPos(x.X, x.Y) == exitTile).ToList();
 				if (atExit.Count >= aliveMiners.Count)
-					return "[Space]  ESCAPE!";
+					return _client.ArtifactNeeded ? "Bring the artifact to the exit" : "[Space]  ESCAPE!";
 				var missing = aliveMiners.First(x => new GridPos(x.X, x.Y) != exitTile);
 				int dx = missing.X - exitTile.X, dy = missing.Y - exitTile.Y;
 				string dir = (dx, dy) switch

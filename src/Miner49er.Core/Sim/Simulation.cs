@@ -132,6 +132,9 @@ public sealed partial class Simulation
 
     public GridPos? EscapeTile { get; }
     public bool EscapeOpen { get; private set; }
+    public bool ArtifactAtExit => Config.ExpeditionTreasureKind is { } artifact && EscapeTile is { } exit
+        && _miners.Values.Any(m => m.Alive && m.Pos == exit && m.Held == artifact);
+    public bool ArtifactNeeded => Config.RequireArtifactAtExit && !ArtifactAtExit;
     private int _goldRemaining;
     public bool AllGoldCleared => _goldRemaining == 0;
     public int StartingGoldCount { get; private set; }
@@ -332,6 +335,9 @@ public sealed partial class Simulation
         if (Grid.Get(beyond).IsLethal()) KillByTile(m);
         return true;
     }
+
+    /// <summary>Test-only: set off a blast with no owner at a tile.</summary>
+    internal void DetonateForTest(GridPos p) => DetonateAt(p, 0, -1);
 
     /// <summary>Test-only: force a portal tile to Floor to simulate mining it out.</summary>
     internal void RevealTileForTest(GridPos p) => Grid.Set(p, TileType.Floor);
@@ -1609,6 +1615,19 @@ public sealed partial class Simulation
         return desired; // whole region is unsafe (degenerate) — nothing better to offer
     }
 
+    // The floor can't be left without the artifact, so it must outlive whoever carried it,
+    // including a miner lost to lava or a player who disconnects.
+    private void DropArtifactFromTheDead()
+    {
+        if (!Config.RequireArtifactAtExit) return;
+        foreach (var m in _miners.Values)
+            if (!m.Alive && m.Held is { } held && held == Config.ExpeditionTreasureKind)
+            {
+                _items.Add(new Item(SafeSpawn(m.Pos, selfId: -1), held, ItemPlacement.Loose));
+                m.Held = null;
+            }
+    }
+
     private void DropHeldItem(Miner m, ItemKind kind)
     {
         // Prefer an adjacent free floor tile so the miner does not instantly re-grab it on wake.
@@ -1678,6 +1697,7 @@ public sealed partial class Simulation
         AdvanceCooldowns(dt);
         AdvancePrizeEvent(dt);
         AdvanceTreasureHeist(dt);
+        DropArtifactFromTheDead();
         if (Config.Mode == GameMode.GrudgeMatch) AdvanceRespawns(dt); // infinite lives deathmatch
         AdvancePortals(dt);
         AdvanceCracks(dt);

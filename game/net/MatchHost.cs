@@ -540,6 +540,7 @@ public partial class MatchHost : Node
 			var mapCfg = MapConfig.FloorConfig(newFloor, floorSeed, nm.MatchPlayerCount);
 			FloorModifiers.Apply(modifier, mapCfg, simCfg);
 			simCfg.ExpeditionTreasureKind = mapCfg.ExpeditionTreasureKind;
+			simCfg.RequireArtifactAtExit  = mapCfg.TempleSectionCount > 0;
 			newMap = MapGenerator.Generate(mapCfg);
 		}
 

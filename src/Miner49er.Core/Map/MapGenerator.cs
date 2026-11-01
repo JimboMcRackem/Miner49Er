@@ -46,8 +46,9 @@ public static class MapGenerator
             items.AddRange(PlaceBuriedIdols(grid, rng, idolKinds, region, items));
         GridPos? expeditionTreasurePos = null;
         if (config.ExpeditionTreasureKind is { } ek)
-            expeditionTreasurePos = PlaceExpeditionTreasure(grid, rng, ek,
-                config.ExpeditionTreasureInChest, region, items);
+            expeditionTreasurePos = temples.Count > 0
+                ? PlaceTempleArtifact(grid, rng, ek, config.TempleHide, temples, items)
+                : PlaceExpeditionTreasure(grid, rng, ek, config.ExpeditionTreasureInChest, region, items);
         var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
         var portals = config.PortalPairCount > 0
             ? PlacePortals(grid, rng, config.PortalPairCount, region, spawns,
@@ -779,6 +780,23 @@ public static class MapGenerator
         for (int i = 0; i < idolKinds.Length && i < rockCands.Count; i++)
             result.Add(new Item(rockCands[i], idolKinds[i], ItemPlacement.Buried));
         return result;
+    }
+
+    // Buried in a panel, in a pot (a jar like any other) or in a chest on the floor.
+    private static GridPos PlaceTempleArtifact(TileGrid g, Random rng, ItemKind kind, TempleHideSpot hide,
+        List<TempleSection> temples, List<Item> items)
+    {
+        var section = temples[rng.Next(temples.Count)];
+        var spots = hide switch
+        {
+            TempleHideSpot.Buried => section.Panels.ToList(),
+            TempleHideSpot.Pot    => section.Jars.ToList(),
+            _ => section.Floor.Where(p => g.Get(p) == TileType.TempleFloor).ToList(),
+        };
+        var pos = spots[rng.Next(spots.Count)];
+        var placement = hide == TempleHideSpot.Chest ? ItemPlacement.Toolbox : ItemPlacement.Buried;
+        items.Add(new Item(pos, kind, placement));
+        return pos;
     }
 
     private static GridPos? PlaceExpeditionTreasure(TileGrid g, Random rng, ItemKind kind,

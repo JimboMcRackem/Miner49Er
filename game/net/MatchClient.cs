@@ -22,6 +22,7 @@ public partial class MatchClient : Node2D
 	public IReadOnlyList<MonsterSnapshot> Monsters => _monsters;
 	public IReadOnlyList<ReelChargeSnapshot> ReelCharges => _reelChargeSnaps;
 	public bool EscapeOpen { get; private set; }
+	public bool ArtifactNeeded { get; private set; }
 	public GridPos? EscapeTile { get; private set; }
 	public GridPos? ShopPos { get; private set; }
 	public GridPos? CenterTile { get; private set; }
@@ -408,6 +409,7 @@ public partial class MatchClient : Node2D
 		_phantoms = update.Snapshot.Phantoms ?? System.Array.Empty<TileSnapshot>();
 		bool wasOpen = EscapeOpen;
 		EscapeOpen = update.Snapshot.EscapeOpen;
+		ArtifactNeeded = update.Snapshot.ArtifactNeeded;
 		if (!wasOpen && EscapeOpen) ExpeditionTreasurePos = null;
 		GoldRemaining = CountGold(Grid);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;

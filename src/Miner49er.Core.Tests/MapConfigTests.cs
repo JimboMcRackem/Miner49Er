@@ -77,7 +77,7 @@ public class MapConfigTests
     public void FloorConfig_non_4th_floor_has_no_expedition_treasure(int floor)
     {
         int seed = Enumerable.Range(1, 100).First(s => !MapConfig.IsTempleFloor(floor, s));
-        var cfg = MapConfig.FloorConfig(floor, seed, playerCount: 1);
+        var cfg = MapConfig.FloorConfig(floor, MapConfig.FloorSeed(seed, floor), playerCount: 1);
         Assert.Null(cfg.ExpeditionTreasureKind);
     }
 

@@ -38,6 +38,19 @@ public class TempleRollTests
     }
 
     [Fact]
+    public void A_real_run_never_gets_two_temples_in_a_row()
+    {
+        // The game hands FloorConfig a different seed on each floor.
+        for (int run = 0; run <= 300; run++)
+            for (int floor = 5; floor < 50; floor++)
+            {
+                bool here = MapConfig.FloorConfig(floor, run + floor * 1000).TempleSectionCount > 0;
+                bool next = MapConfig.FloorConfig(floor + 1, run + (floor + 1) * 1000).TempleSectionCount > 0;
+                Assert.False(here && next, $"run {run} floor {floor}");
+            }
+    }
+
+    [Fact]
     public void A_run_mixes_odd_and_even_temple_floors()
     {
         int runs = 0, mixed = 0;
@@ -63,7 +76,7 @@ public class TempleRollTests
     public void A_temple_floor_is_set_up_for_the_artifact()
     {
         var (floor, seed) = FirstTemple();
-        var cfg = MapConfig.FloorConfig(floor, seed);
+        var cfg = MapConfig.FloorConfig(floor, MapConfig.FloorSeed(seed, floor));
 
         Assert.InRange(cfg.TempleSectionCount, 2, 4);
         Assert.NotNull(cfg.ExpeditionTreasureKind);
@@ -76,7 +89,7 @@ public class TempleRollTests
             for (int floor = 10; floor <= 50; floor++)
             {
                 if (!MapConfig.IsTempleFloor(floor, seed)) continue;
-                var cfg = MapConfig.FloorConfig(floor, seed);
+                var cfg = MapConfig.FloorConfig(floor, MapConfig.FloorSeed(seed, floor));
                 Assert.False(cfg.FloodedCave);
                 Assert.Equal(0, cfg.PortalPairCount);
             }
@@ -89,7 +102,7 @@ public class TempleRollTests
         for (int seed = 0; seed <= 200; seed++)
             for (int floor = 5; floor <= 50; floor++)
                 if (MapConfig.IsTempleFloor(floor, seed))
-                    seen.Add(MapConfig.FloorConfig(floor, seed).TempleHide);
+                    seen.Add(MapConfig.FloorConfig(floor, MapConfig.FloorSeed(seed, floor)).TempleHide);
         Assert.Equal(3, seen.Count);
     }
 

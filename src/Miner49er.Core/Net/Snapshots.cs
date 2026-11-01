@@ -74,6 +74,7 @@ public sealed record WorldSnapshot(
     MineEventKind                            MineEvent        = MineEventKind.None,
     float                                    MineEventIntensity = 0f,
     IReadOnlyList<TileSnapshot>?             EventTiles       = null,
-    IReadOnlyList<TileSnapshot>?             Phantoms         = null);
+    IReadOnlyList<TileSnapshot>?             Phantoms         = null,
+    bool                                     ArtifactNeeded   = false);
 
 public sealed record TickUpdate(WorldSnapshot Snapshot, IReadOnlyList<TileChange> TileChanges);
