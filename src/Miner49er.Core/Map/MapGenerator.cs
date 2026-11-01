@@ -20,7 +20,7 @@ public static class MapGenerator
             ? TempleLayout.Stamp(grid, new Random(config.Seed ^ 0x54454D50), config.TempleSectionCount)
             : (new List<TempleSection>(), new List<GridPos>());
 
-        ConnectRegions(grid);
+        ConnectRegions(grid, temples.Count > 0);
         KeepLargestRegion(grid);
         TempleLayout.SealDoors(grid, temples);
         PlaceWater(grid, rng, config);
@@ -214,7 +214,7 @@ public static class MapGenerator
     // Joins every secondary floor island ≥10 tiles to the main (largest) region
     // with an L-shaped 1-tile corridor, maximising usable floor coverage.
     // Runs before KeepLargestRegion so the connected graph is kept as one piece.
-    private static void ConnectRegions(TileGrid g)
+    private static void ConnectRegions(TileGrid g, bool hasTemples)
     {
         var visited = new HashSet<GridPos>();
         var regions = new List<List<GridPos>>();
@@ -240,8 +240,41 @@ public static class MapGenerator
                     long d = dx * dx + dy * dy;
                     if (d < bestDist) { bestDist = d; fromPt = a; toPt = b; }
                 }
-            CarveL(g, fromPt, toPt);
+            if (hasTemples) CarveAroundTemples(g, fromPt, toPt);
+            else CarveL(g, fromPt, toPt);
         }
+    }
+
+    // Shortest corridor that keeps out of a temple's rock skin. A region no route reaches stays
+    // unconnected, and KeepLargestRegion fills it in.
+    private static void CarveAroundTemples(TileGrid g, GridPos from, GridPos to)
+    {
+        var cameFrom = new Dictionary<GridPos, GridPos> { [from] = from };
+        var frontier = new Queue<GridPos>(new[] { from });
+        while (frontier.Count > 0 && !cameFrom.ContainsKey(to))
+        {
+            var p = frontier.Dequeue();
+            foreach (var d in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                var n = new GridPos(p.X + d.Item1, p.Y + d.Item2);
+                if (!g.InBounds(n) || cameFrom.ContainsKey(n) || !CanCarve(g, n) || TouchesTemple(g, n)) continue;
+                cameFrom[n] = p;
+                frontier.Enqueue(n);
+            }
+        }
+        if (!cameFrom.ContainsKey(to)) return;
+        for (var p = to; p != from; p = cameFrom[p]) g.Set(p, TileType.Floor);
+    }
+
+    private static bool TouchesTemple(TileGrid g, GridPos p)
+    {
+        for (int dx = -1; dx <= 1; dx++)
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                var n = new GridPos(p.X + dx, p.Y + dy);
+                if (g.InBounds(n) && g.Get(n).IsTemple()) return true;
+            }
+        return false;
     }
 
     // L-shaped corridor: horizontal leg then vertical leg. Skips ImpermeableRock borders.
@@ -428,7 +461,8 @@ public static class MapGenerator
         var blocked = new HashSet<GridPos>(items.Select(it => it.Pos));
         foreach (var d in decoys) blocked.Add(d);
         var cands = g.Positions()
-            .Where(p => g.Get(p) == TileType.Rock && !blocked.Contains(p) && HasRegionNeighbor(g, p, region))
+            .Where(p => g.Get(p) == TileType.Rock && !blocked.Contains(p) && HasRegionNeighbor(g, p, region)
+                        && !TouchesTemple(g, p))
             .ToList();
         Shuffle(cands, rng);
         foreach (var p in cands.Take(Math.Min(count, cands.Count)))

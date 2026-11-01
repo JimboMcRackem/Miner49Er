@@ -375,6 +375,7 @@ public partial class NetworkManager : Node
 	// Set by the playtest harness, to force an event without waiting for one.
 	public double? DevEventDelay { get; set; }
 	public MineEventKind? DevEventKind { get; set; }
+	public GridPos? DevSpawn { get; set; }
 
 	public IReadOnlyList<MineEventKind> MineEventPool() =>
 		DevEventKind is { } kind ? new[] { kind }

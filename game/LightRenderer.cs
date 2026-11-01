@@ -46,6 +46,7 @@ public partial class LightRenderer : Node2D
     private const int LanternRadius = 6;
     private const int CrystalRadius = 4;
     private const int LavaRadius    = 3;
+    private const int SconceRadius  = 4;
 
     public void Init(MatchClient client) => _client = client;
 
@@ -188,6 +189,13 @@ public partial class LightRenderer : Node2D
             _terrainCacheGrid = grid;
             _terrainCacheVersion = grid.Version;
         }
+
+        // Sconces sit in walls, which block light, so each shines from the floor in front of it.
+        foreach (var sconce in _client.Sconces.Lit)
+            if (SconceFloor(grid, sconce) is { } lit)
+                _lights.AddField(TerrainField(grid, lit, SconceRadius),
+                    Flicker.Flame(TileSeed(sconce.X, sconce.Y), now));
+
         int ts = MatchClient.TileSize;
         Rect2 vw = GetViewport().CanvasTransform.AffineInverse() * GetViewportRect();
         int vx0 = Mathf.Max(0, (int)Mathf.Floor(vw.Position.X / ts) - 1);
@@ -206,6 +214,16 @@ public partial class LightRenderer : Node2D
                     _lights.AddField(TerrainField(grid, p, CrystalRadius),
                         Flicker.Multiplier(TileSeed(x, y), now, Flicker.Crystal));
             }
+    }
+
+    private static GridPos? SconceFloor(TileGrid grid, GridPos sconce)
+    {
+        foreach (var off in new[] { new GridPos(1, 0), new GridPos(-1, 0), new GridPos(0, 1), new GridPos(0, -1) })
+        {
+            var p = new GridPos(sconce.X + off.X, sconce.Y + off.Y);
+            if (grid.InBounds(p) && grid.Get(p).IsWalkable()) return p;
+        }
+        return null;
     }
 
     // Cached shadowcast field for a static terrain source. Within one grid Version the tile at

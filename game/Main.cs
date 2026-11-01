@@ -121,7 +121,7 @@ public partial class Main : Node2D
 			_deathFeed?.PushMessage(msg);
 		};
 		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos, clientCenter,
-			expeditionTreasurePos: map.ExpeditionTreasurePos, trackTiles: map.TrackTiles);
+			expeditionTreasurePos: map.ExpeditionTreasurePos, trackTiles: map.TrackTiles, sconces: map.Sconces);
 
 		_audio = new MatchAudio { Name = "MatchAudio" };
 		AddChild(_audio);
@@ -207,7 +207,7 @@ public partial class Main : Node2D
 				GridPos sp  = (nm.MatchMode == GameMode.Expedition && i == 0) ? soloSpawn
 							  : (i < hostMap.Spawns.Count ? hostMap.Spawns[i] : hostMap.Spawns[0]);
 				sp = sim.FreeSpawnNear(sp);
-				sim.AddMiner(minerId, sp);
+				sim.AddMiner(minerId, nm.DevSpawn ?? sp);
 				if (nm.IsBotPeer(peer))
 				{
 					botConfigs.Add((minerId, nm.GetBotSkill(peer)));

@@ -40,6 +40,19 @@ public class TempleLayoutTests
     }
 
     [Fact]
+    public void Solid_rock_hides_the_marble_from_the_caves()
+    {
+        foreach (var map in TempleMaps())
+            foreach (var p in map.Grid.Positions().Where(p => map.Grid.Get(p) is TileType.MarbleWall or TileType.MarblePanel))
+                for (int dx = -1; dx <= 1; dx++)
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        var tile = map.Grid.Get(new GridPos(p.X + dx, p.Y + dy));
+                        Assert.True(tile.IsTemple() || tile.IsMinable(), $"{tile} beside marble at {p}");
+                    }
+    }
+
+    [Fact]
     public void Each_doorway_is_rock_that_can_be_mined()
     {
         foreach (var map in TempleMaps())

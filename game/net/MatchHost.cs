@@ -208,11 +208,11 @@ public partial class MatchHost : Node
 			switch (e)
 			{
 				case RockMined rm:
-					changes.Add(new TileChange(rm.Pos.X, rm.Pos.Y, false, TileType.Floor));
+					changes.Add(new TileChange(rm.Pos.X, rm.Pos.Y, false, _sim.Grid.Get(rm.Pos)));
 					break;
 				case Explosion ex:
 					foreach (var d in ex.DestroyedRock)
-						changes.Add(new TileChange(d.X, d.Y, true, TileType.Floor));
+						changes.Add(new TileChange(d.X, d.Y, true, _sim.Grid.Get(d)));
 					break;
 				case TileFlooded tf:
 					changes.Add(new TileChange(tf.Pos.X, tf.Pos.Y, false, tf.Type));
