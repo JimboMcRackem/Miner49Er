@@ -994,7 +994,7 @@ public partial class Main : Node2D
 				{
 					nm.StartMatch(nm.MatchMode, nm.MatchTimeLimitSeconds, nm.MatchFlooding,
 						nm.MatchPits, nm.MatchCaveIns, nm.MatchLava, nm.MatchBaseMoveSeconds,
-						nm.MatchMapScale, nm.MatchExplosive, nm.MatchStartFloor);
+						nm.MatchMapScale, nm.MatchExplosive, nm.MatchStartFloor, mineEvents: nm.MatchMineEvents);
 					GetTree().ChangeSceneToFile("res://game/Main.tscn");
 				};
 			}

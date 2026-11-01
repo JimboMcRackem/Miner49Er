@@ -19,6 +19,7 @@ public partial class Lobby : Control
 	private CheckBox _caveInCheck = null!;
 	private CheckBox _lavaCheck = null!;
 	private CheckBox _prizeCheck = null!;
+	private CheckBox _mineEventsCheck = null!;
 	private OptionButton _prizeFreqPicker = null!;
 	private OptionButton _heistWinByPicker = null!;
 	private OptionButton _heistRespawnPicker = null!;
@@ -53,7 +54,7 @@ public partial class Lobby : Control
 		leftCol.AddThemeConstantOverride("separation", 14);
 		columns.AddChild(leftCol);
 
-		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor, savedBlast, savedVision, savedPrize, savedPrizeFreq, savedAdvanced, savedHeistWinBy, savedHeistRespawn) = SettingsStore.LoadLobby();
+		var (savedMode, savedTime, savedFlood, savedPits, savedCaveIn, savedLava, savedSpeed, savedMapScale, savedExplosive, savedStartFloor, savedBlast, savedVision, savedPrize, savedPrizeFreq, savedAdvanced, savedHeistWinBy, savedHeistRespawn, savedMineEvents) = SettingsStore.LoadLobby();
 
 		_modePicker = new OptionButton();
 		// Listed alphabetically by display name; item ids stay the GameMode enum value,
@@ -139,6 +140,10 @@ public partial class Lobby : Control
 		_lavaCheck = new CheckBox { Text = "Lava", ButtonPressed = savedLava };
 		_lavaCheck.Visible = NetworkManager.Instance.IsHost;
 		_advancedBox.AddChild(_lavaCheck);
+
+		_mineEventsCheck = new CheckBox { Text = "Mine Events", ButtonPressed = savedMineEvents };
+		_mineEventsCheck.Visible = NetworkManager.Instance.IsHost;
+		_advancedBox.AddChild(_mineEventsCheck);
 
 		_prizeCheck = new CheckBox { Text = "Prize Events", ButtonPressed = savedPrize };
 		_prizeCheck.Visible = NetworkManager.Instance.IsHost;
@@ -280,7 +285,7 @@ public partial class Lobby : Control
 				_floodCheck.ButtonPressed, _pitsCheck.ButtonPressed, _caveInCheck.ButtonPressed,
 				_lavaCheck.ButtonPressed, _speedPicker.Selected, mapScale, explosive, startFloor, blastRadius, visionRadius,
 				_prizeCheck.ButtonPressed, _prizeFreqPicker.GetSelectedId(), _advancedToggle.ButtonPressed,
-				_heistWinByPicker.GetSelectedId() == 1, _heistRespawnPicker.GetSelectedId() == 1);
+				_heistWinByPicker.GetSelectedId() == 1, _heistRespawnPicker.GetSelectedId() == 1, _mineEventsCheck.ButtonPressed);
 			NetworkManager.Instance.StartMatch(
 				(GameMode)_modePicker.GetSelectedId(),
 				timeLimit,
@@ -297,7 +302,8 @@ public partial class Lobby : Control
 				_prizeCheck.ButtonPressed,
 				_prizeFreqPicker.GetSelectedId(),
 				treasureWinByCumulative: _heistWinByPicker.GetSelectedId() == 1,
-				treasureRespawn: _heistRespawnPicker.GetSelectedId() == 1);
+				treasureRespawn: _heistRespawnPicker.GetSelectedId() == 1,
+				mineEvents: _mineEventsCheck.ButtonPressed);
 		};
 		_startBtn.Visible = NetworkManager.Instance.IsHost;
 		rightCol.AddChild(_startBtn);

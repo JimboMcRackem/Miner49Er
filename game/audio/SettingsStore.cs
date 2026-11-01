@@ -185,11 +185,11 @@ public static class SettingsStore
 
 	private const string LobbySection = "lobby";
 
-	public static (int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor, int blast, int vision, bool prizeEvents, int prizeFreq, bool advanced, bool heistWinByCumulative, bool heistRespawn) LoadLobby()
+	public static (int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor, int blast, int vision, bool prizeEvents, int prizeFreq, bool advanced, bool heistWinByCumulative, bool heistRespawn, bool mineEvents) LoadLobby()
 	{
 		var cfg = new ConfigFile();
 		if (cfg.Load(Path) != Error.Ok)
-			return (0, 60, false, false, false, false, 1, 1, 0, 1, 1, 5, true, 1, false, false, true);
+			return (0, 60, false, false, false, false, 1, 1, 0, 1, 1, 5, true, 1, false, false, true, true);
 		int  mode       = (int)(long)cfg.GetValue(LobbySection, "game_mode",    0L);
 		int  time       = (int)(long)cfg.GetValue(LobbySection, "time_limit",   60L);
 		bool flood      = (bool)cfg.GetValue(LobbySection, "flood",   false);
@@ -207,15 +207,16 @@ public static class SettingsStore
 		bool advanced   = (bool)cfg.GetValue(LobbySection, "advanced", false);
 		bool heistWinBy   = (bool)cfg.GetValue(LobbySection, "heist_winby",   false);
 		bool heistRespawn = (bool)cfg.GetValue(LobbySection, "heist_respawn", true);
+		bool mineEvents   = (bool)cfg.GetValue(LobbySection, "mine_events",   true);
 		// Upper bound must track the highest GameMode value (TreasureHeist=6) or saved modes above
 		// Expedition(3) get silently clamped away on load, defeating persistence.
 		return (Mathf.Clamp(mode, 0, (int)GameMode.GrudgeMatch), time, flood, pits, caveIns, lava,
 		        Mathf.Clamp(speed, 0, 2), Mathf.Clamp(scale, 1, 4), Mathf.Clamp(explosive, 0, 2),
 		        Mathf.Clamp(startFloor, 1, 20), Mathf.Clamp(blast, 1, 3), Mathf.Clamp(vision, 3, 8), prize,
-		        Mathf.Clamp(prizeFreq, 0, 2), advanced, heistWinBy, heistRespawn);
+		        Mathf.Clamp(prizeFreq, 0, 2), advanced, heistWinBy, heistRespawn, mineEvents);
 	}
 
-	public static void SaveLobby(int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor = 1, int blast = 1, int vision = 5, bool prizeEvents = true, int prizeFreq = 1, bool advanced = false, bool heistWinByCumulative = false, bool heistRespawn = true)
+	public static void SaveLobby(int gameMode, int timeLimit, bool flood, bool pits, bool caveIns, bool lava, int speed, int mapScale, int explosive, int startFloor = 1, int blast = 1, int vision = 5, bool prizeEvents = true, int prizeFreq = 1, bool advanced = false, bool heistWinByCumulative = false, bool heistRespawn = true, bool mineEvents = true)
 	{
 		var cfg = new ConfigFile();
 		cfg.Load(Path);
@@ -236,6 +237,7 @@ public static class SettingsStore
 		cfg.SetValue(LobbySection, "advanced",     advanced);
 		cfg.SetValue(LobbySection, "heist_winby",   heistWinByCumulative);
 		cfg.SetValue(LobbySection, "heist_respawn", heistRespawn);
+		cfg.SetValue(LobbySection, "mine_events",   mineEvents);
 		cfg.Save(Path);
 	}
 
