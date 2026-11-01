@@ -21,6 +21,9 @@ public partial class AudioManager : Node
 	private const float SfxLiftOffsetDb = 4f;
 	private const float SilentDb = -80f;     // finite stand-in for -inf at 0%
 	private const float VolumeEpsilon = 0.0005f;
+	// Stand-in for a temple track: the normal music, slowed and muffled.
+	private const float TemplePitch = 0.75f;
+	private const float TempleCutoffHz = 900f;
 
 	// Defaults preserve today's mix: music 50% = -6 dB, sfx 100% = 0 dB.
 	private float _musicVolume = 0.5f;
@@ -48,6 +51,9 @@ public partial class AudioManager : Node
 		EnsureBus(BusMusic);
 		EnsureBus(BusSfx);
 		EnsureBus(BusUi);
+		int musicBus = AudioServer.GetBusIndex(BusMusic);
+		AudioServer.AddBusEffect(musicBus, new AudioEffectLowPassFilter { CutoffHz = TempleCutoffHz }, 0);
+		AudioServer.SetBusEffectEnabled(musicBus, 0, false);
 
 		(_musicVolume, _sfxVolume, _musicEnabled) =
 			SettingsStore.LoadAudio(_musicVolume, _sfxVolume, _musicEnabled);
@@ -124,11 +130,18 @@ public partial class AudioManager : Node
 		_listenTween?.Kill();
 		_listenTween = null;
 		ApplyBuses();
+		SetTempleMood(false);
 		_music.Stream = stream;
 		_music.Play();
 	}
 
 	public void StopMusic() => _music.Stop();
+
+	public void SetTempleMood(bool on)
+	{
+		_music.PitchScale = on ? TemplePitch : 1f;
+		AudioServer.SetBusEffectEnabled(AudioServer.GetBusIndex(BusMusic), 0, on);
+	}
 
 	public void SetListening(bool listening)
 	{

@@ -132,6 +132,7 @@ public static class SnapshotCodec
         WriteTiles(w, snap.EventTiles);
         WriteTiles(w, snap.Phantoms);
         w.Write(snap.ArtifactNeeded);
+        w.Write(snap.TempleEntered);
 
         w.Write(snap.Carts?.Count ?? 0);
         foreach (var ct in snap.Carts ?? System.Array.Empty<CartSnapshot>())
@@ -295,6 +296,7 @@ public static class SnapshotCodec
         var eventTiles = ReadTiles(r);
         var phantoms = ReadTiles(r);
         bool artifactNeeded = r.ReadBoolean();
+        bool templeEntered = r.ReadBoolean();
 
         int cartCount = r.ReadInt32();
         List<CartSnapshot>? carts = cartCount > 0 ? new List<CartSnapshot>(cartCount) : null;
@@ -317,7 +319,7 @@ public static class SnapshotCodec
             TreasureToast: treasureToast, Carts: carts,
             TremorIntensity: tremorIntensity, TremorTargets: tremorTargets,
             MineEvent: mineEvent, MineEventIntensity: mineEventIntensity,
-            EventTiles: eventTiles, Phantoms: phantoms, ArtifactNeeded: artifactNeeded), changes);
+            EventTiles: eventTiles, Phantoms: phantoms, ArtifactNeeded: artifactNeeded, TempleEntered: templeEntered), changes);
     }
 
     private static void WriteTiles(BinaryWriter w, IReadOnlyList<TileSnapshot>? tiles)

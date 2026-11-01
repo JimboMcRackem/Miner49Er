@@ -23,6 +23,7 @@ public partial class MatchClient : Node2D
 	public IReadOnlyList<ReelChargeSnapshot> ReelCharges => _reelChargeSnaps;
 	public bool EscapeOpen { get; private set; }
 	public bool ArtifactNeeded { get; private set; }
+	public bool TempleEntered { get; private set; }
 	public GridPos? EscapeTile { get; private set; }
 	public GridPos? ShopPos { get; private set; }
 	public GridPos? CenterTile { get; private set; }
@@ -410,6 +411,7 @@ public partial class MatchClient : Node2D
 		bool wasOpen = EscapeOpen;
 		EscapeOpen = update.Snapshot.EscapeOpen;
 		ArtifactNeeded = update.Snapshot.ArtifactNeeded;
+		TempleEntered = update.Snapshot.TempleEntered;
 		if (!wasOpen && EscapeOpen) ExpeditionTreasurePos = null;
 		GoldRemaining = CountGold(Grid);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;

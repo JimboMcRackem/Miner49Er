@@ -91,6 +91,6 @@ public static class SnapshotFactory
             MineEvent: sim.ActiveEvent, MineEventIntensity: (float)sim.EventIntensity,
             EventTiles: sim.EventTiles.Select(t => new TileSnapshot(t.X, t.Y)).ToList(),
             Phantoms: sim.Phantoms.Select(t => new TileSnapshot(t.X, t.Y)).ToList(),
-            ArtifactNeeded: sim.ArtifactNeeded);
+            ArtifactNeeded: sim.ArtifactNeeded, TempleEntered: sim.TempleEntered);
     }
 }

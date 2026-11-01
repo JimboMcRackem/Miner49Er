@@ -135,6 +135,7 @@ public sealed partial class Simulation
     public bool ArtifactAtExit => Config.ExpeditionTreasureKind is { } artifact && EscapeTile is { } exit
         && _miners.Values.Any(m => m.Alive && m.Pos == exit && m.Held == artifact);
     public bool ArtifactNeeded => Config.RequireArtifactAtExit && !ArtifactAtExit;
+    public bool TempleEntered { get; private set; }
     private bool _artifactClaimed;
 
     /// <summary>Pays the bonus to whoever carried the artifact out, once. Returns the artifact,
@@ -1741,6 +1742,7 @@ public sealed partial class Simulation
         AdvancePrizeEvent(dt);
         AdvanceTreasureHeist(dt);
         DropArtifactFromTheDead();
+        TempleEntered |= _miners.Values.Any(m => m.Alive && Grid.Get(m.Pos) == TileType.TempleFloor);
         if (Config.Mode == GameMode.GrudgeMatch) AdvanceRespawns(dt); // infinite lives deathmatch
         AdvancePortals(dt);
         AdvanceCracks(dt);

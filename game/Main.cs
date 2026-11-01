@@ -68,6 +68,7 @@ public partial class Main : Node2D
 	private MineEventKind _prevMineEvent = MineEventKind.None;
 	private ItemKind? _pendingChestLoot;
 	private bool _prevEscapeOpen;
+	private bool _prevTempleEntered;
 	private bool _hadTreasureFloor;
 
 	public override void _Ready()
@@ -323,6 +324,7 @@ public partial class Main : Node2D
 		nm.MatchEnded -= OnMatchEnded;
 		nm.NewFloor -= OnNewFloor;
 		nm.FloorComplete -= OnFloorComplete;
+		AudioManager.Instance.SetTempleMood(false);
 		nm.ReturnToLobbyRequested -= OnReturnToLobby;
 		nm.Disconnected -= OnDisconnected;
 		nm.RegisterMatch(null, null);
@@ -370,6 +372,13 @@ public partial class Main : Node2D
 		if (_client.EscapeOpen && !_prevEscapeOpen && _hadTreasureFloor)
 			SetAnnouncement("You found the treasure! Escape is open!", 3500);
 		_prevEscapeOpen = _client.EscapeOpen;
+
+		if (_client.TempleEntered && !_prevTempleEntered)
+		{
+			SetAnnouncement("You have uncovered an ancient temple!", 3500);
+			AudioManager.Instance.SetTempleMood(true);
+		}
+		_prevTempleEntered = _client.TempleEntered;
 
 		if (_client.MineEvent != _prevMineEvent && MineEventMessage(_client.MineEvent) is { Length: > 0 } eventMessage)
 			SetAnnouncement(eventMessage, 5000);
@@ -843,6 +852,7 @@ public partial class Main : Node2D
 	private void OnNewFloor(int floor)
 	{
 		_prevEscapeOpen   = false;
+		_prevTempleEntered = false;
 		_hadTreasureFloor = false;
 		_client.ResetFloor(floor);
 		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed ^ floor));
