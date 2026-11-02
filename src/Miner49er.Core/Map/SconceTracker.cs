@@ -11,6 +11,7 @@ public sealed class SconceTracker
     public SconceTracker(IEnumerable<GridPos> sconces) => _dark = sconces.ToList();
 
     public IReadOnlyList<GridPos> Lit => _lit;
+    public IReadOnlyList<GridPos> Dark => _dark;
 
     public bool IsLit(GridPos sconce) => _lit.Contains(sconce);
 

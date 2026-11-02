@@ -96,13 +96,6 @@ public partial class WorldRenderer : Node2D
 	// alpha/falloff is preserved; only the bright core pushes past the 1.0 glow threshold.
 	private static readonly Color LanternGlowBoost = new(0.86f, 0.72f, 0.44f);
 	private static readonly Color SconceFlame  = new(0.75f, 0.35f, 1.5f);
-	private static readonly Color PriestTint   = new(0.85f, 0.6f, 1.2f);
-	private static readonly Color MarbleCol    = new(0.72f, 0.70f, 0.74f);
-	private static readonly Color PanelCol     = new(0.60f, 0.56f, 0.64f);
-	private static readonly Color TempleFloorCol = new(0.46f, 0.44f, 0.50f);
-	private static readonly Color ColumnCol    = new(0.82f, 0.80f, 0.84f);
-	private static readonly Color AltarCol     = new(0.34f, 0.22f, 0.40f);
-	private static readonly Color JarCol       = new(0.58f, 0.36f, 0.22f);
 	private static readonly Color CrystalGlowCore  = new(1.60f, 1.40f, 2.30f);
 	private static readonly Color LavaGlowBoost    = new(1.55f, 1.10f, 0.65f);
 	// Cool blue-white — only the bright core blooms; dimmer/cooler than the lantern.
@@ -220,6 +213,11 @@ public partial class WorldRenderer : Node2D
 
 	// PixelLab monster sprites — [dir] order: 0=N 1=E 2=S 3=W
 	private Texture2D?[] _ghostTex = new Texture2D?[4];
+	private Texture2D?[] _priestTex = new Texture2D?[4];
+	private Texture2D?[,] _priestWalkTex = new Texture2D?[4, 9];
+	private Texture2D[] _marbleTex = null!, _panelTex = null!, _templeFloorTex = null!, _fallenColumnTex = null!;
+	private Texture2D _columnTex = null!, _altarTex = null!, _jarTex = null!, _jarSmashedTex = null!;
+	private Texture2D _sconceUnlitTex = null!, _sconceLitTex = null!;
 	private Texture2D?[] _slimeTex = new Texture2D?[4];
 	private Texture2D?[] _goatTex  = new Texture2D?[4];
 	private Texture2D?[,] _ghostWalkTex = new Texture2D?[4, 9]; // [dir, frame 0-8]
@@ -290,6 +288,18 @@ public partial class WorldRenderer : Node2D
 		LoadItemTex(ItemKind.IdolCrown,       "res://assets/objects/idol_crown.png");
 		LoadItemTex(ItemKind.IdolSkull,       "res://assets/objects/idol_skull.png");
 		LoadMonsterTex(_ghostTex, "ghost");
+		LoadMonsterTex(_priestTex, "priest_spirit");
+		_marbleTex       = LoadTemple("marble_0", "marble_1", "marble_2");
+		_panelTex        = LoadTemple("panel_0", "panel_1");
+		_templeFloorTex  = LoadTemple("floor_0", "floor_1", "floor_2", "floor_0", "floor_1", "floor_2",
+			"floor_0", "floor_1", "floor_2", "floor_3");   // the rune is the rare one
+		_fallenColumnTex = LoadTemple("fallen_column_a", "fallen_column_b");
+		_columnTex       = LoadTemple("column")[0];
+		_altarTex        = LoadTemple("altar")[0];
+		_jarTex          = LoadTemple("jar")[0];
+		_jarSmashedTex   = LoadTemple("jar_smashed")[0];
+		_sconceUnlitTex  = LoadTemple("sconce_unlit")[0];
+		_sconceLitTex    = LoadTemple("sconce_lit")[0];
 		LoadMonsterTex(_slimeTex, "slime");
 		LoadMonsterTex(_goatTex,  "goat");
 		BuildZombieTextures();
@@ -457,6 +467,9 @@ public partial class WorldRenderer : Node2D
 				string path = $"res://assets/monsters/ghost/walk/{dirName[d]}_{f}.png";
 				if (ResourceLoader.Exists(path))
 					_ghostWalkTex[d, f] = GD.Load<Texture2D>(path);
+				string priestPath = $"res://assets/monsters/priest_spirit/walk/{dirName[d]}_{f}.png";
+				if (ResourceLoader.Exists(priestPath))
+					_priestWalkTex[d, f] = GD.Load<Texture2D>(priestPath);
 			}
 	}
 
@@ -1197,7 +1210,7 @@ public partial class WorldRenderer : Node2D
 				case TileType.FallenColumn:
 				case TileType.Altar:
 				case TileType.Jar:
-					DrawTempleTile(grid.Get(p), r, ts);
+					DrawTempleTile(grid.Get(p), p, r);
 					break;
 				case TileType.GoldRock:
 					// Draw plain rock base then overlay prominent gold ore veins.
@@ -2327,35 +2340,36 @@ public partial class WorldRenderer : Node2D
 	}
 
 	// Temple tiles sit on the temple floor, except the marble itself.
-	private void DrawTempleTile(TileType tile, Rect2 r, int ts)
+	private void DrawTempleTile(TileType tile, GridPos p, Rect2 r)
 	{
+		int pick = LightRenderer.TileSeed(p.X, p.Y) & int.MaxValue;
 		if (tile is TileType.MarbleWall or TileType.MarblePanel)
 		{
-			DrawRect(r, tile == TileType.MarbleWall ? MarbleCol : PanelCol);
+			var wall = tile == TileType.MarbleWall ? _marbleTex : _panelTex;
+			DrawTextureRect(wall[pick % wall.Length], r, false);
 			return;
 		}
-		DrawRect(r, TempleFloorCol);
-		var c = r.GetCenter();
-		switch (tile)
+		DrawTextureRect(_templeFloorTex[pick % _templeFloorTex.Length], r, false);
+		var prop = tile switch
 		{
-			case TileType.Column:
-				DrawCircle(c, ts * 0.38f, ColumnCol);
-				break;
-			case TileType.FallenColumn:
-				DrawRect(new Rect2(c.X - ts * 0.42f, c.Y - ts * 0.16f, ts * 0.84f, ts * 0.32f), ColumnCol);
-				break;
-			case TileType.Altar:
-				DrawRect(new Rect2(c.X - ts * 0.40f, c.Y - ts * 0.30f, ts * 0.80f, ts * 0.60f), AltarCol);
-				break;
-			case TileType.Jar:
-				DrawCircle(c, ts * 0.26f, JarCol);
-				break;
-		}
+			TileType.Column => _columnTex,
+			TileType.FallenColumn => _fallenColumnTex[pick % _fallenColumnTex.Length],
+			TileType.Altar => _altarTex,
+			TileType.Jar => _jarTex,
+			_ => _client.SmashedJars.Contains(p) ? _jarSmashedTex : null,
+		};
+		if (prop != null) DrawTextureRect(prop, r, false);
 	}
+
+	private Texture2D[] LoadTemple(params string[] names) =>
+		names.Select(n => GD.Load<Texture2D>($"res://assets/temple/{n}.png")).ToArray();
 
 	private void DrawSconces(int ts, double now)
 	{
 		float glowPx = ts * 3f;
+		foreach (var s in _client.Sconces.Dark)
+			if (_client.Fog.IsVisible(s) || _client.FogRenderer?.SpectatorMode == true)
+				DrawTextureRect(_sconceUnlitTex, new Rect2(s.X * ts, s.Y * ts, ts, ts), false);
 		foreach (var s in _client.Sconces.Lit)
 		{
 			if (!_client.Fog.IsVisible(s) && _client.FogRenderer?.SpectatorMode != true) continue;
@@ -2363,7 +2377,7 @@ public partial class WorldRenderer : Node2D
 			var c = new Vector2(s.X * ts + ts / 2f, s.Y * ts + ts / 2f);
 			DrawTextureRect(_lanternGlowTex, new Rect2(c.X - glowPx / 2f, c.Y - glowPx / 2f, glowPx, glowPx),
 				false, SconceFlame with { A = flame });
-			DrawCircle(c, ts * 0.14f, SconceFlame with { A = flame });
+			DrawTextureRect(_sconceLitTex, new Rect2(s.X * ts, s.Y * ts, ts, ts), false);
 		}
 	}
 
@@ -2379,15 +2393,16 @@ public partial class WorldRenderer : Node2D
 			var c = _client.MonsterVisualPos(mo.Id, mo.X, mo.Y);
 			c = LeanIfAboutToStrike(mo, c, ts);
 			int ghostFrame = (int)(Time.GetTicksMsec() / 150u) % 9;
-			var tex = _ghostWalkTex[mo.Facing, ghostFrame] ?? _ghostTex[mo.Facing];
+			var tex = mo.Kind == MonsterKind.PriestSpirit
+				? _priestWalkTex[mo.Facing, ghostFrame] ?? _priestTex[mo.Facing]
+				: _ghostWalkTex[mo.Facing, ghostFrame] ?? _ghostTex[mo.Facing];
 			if (tex != null)
 			{
 				// Same exact ratio as everything else, but centred rather than grounded —
 				// a ghost hovers, which is also why it is the one monster drawn without a
 				// shadow.
 				var gs = tex.GetSize() * FullScale;
-				target.DrawTextureRect(tex, new Rect2(c - gs / 2f, gs), false,
-					mo.Kind == MonsterKind.PriestSpirit ? PriestTint : Colors.White);
+				target.DrawTextureRect(tex, new Rect2(c - gs / 2f, gs), false);
 			}
 			else
 			{

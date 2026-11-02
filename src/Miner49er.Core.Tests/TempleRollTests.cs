@@ -96,6 +96,15 @@ public class TempleRollTests
     }
 
     [Fact]
+    public void Temple_floors_never_roll_the_flooded_modifier()
+    {
+        for (int seed = 0; seed <= 200; seed++)
+            for (int floor = 5; floor <= 50; floor++)
+                if (MapConfig.IsTempleFloor(floor, seed))
+                    Assert.NotEqual(FloorModifier.Flooded, FloorModifiers.Pick(seed, floor));
+    }
+
+    [Fact]
     public void The_artifact_can_hide_in_all_three_places()
     {
         var seen = new HashSet<TempleHideSpot>();

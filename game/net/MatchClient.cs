@@ -83,6 +83,7 @@ public partial class MatchClient : Node2D
 		// only the transient teleport event rides the wire. Track collapsed ends locally.
 		public IReadOnlyList<PortalSpec> Portals { get; private set; } = System.Array.Empty<PortalSpec>();
 		public SconceTracker Sconces { get; private set; } = new(System.Array.Empty<GridPos>());
+		public HashSet<GridPos> SmashedJars { get; } = new();
 		private readonly HashSet<int> _collapsedPortals = new();
 		public bool IsPortalCollapsed(int id) => _collapsedPortals.Contains(id);
 
@@ -251,6 +252,7 @@ public partial class MatchClient : Node2D
 				if (!oldType.IsWater() && t.NewType.IsWater())
 					(floodAdvances ??= new()).Add(p);
 				Grid.Set(p, t.NewType);
+				if (oldType == TileType.Jar) SmashedJars.Add(p);
 				if (t.NewType == TileType.Floor && _crystalPositions != null)
 				{
 					if (_crystalPositions.Remove(p))
@@ -524,6 +526,7 @@ public partial class MatchClient : Node2D
 		Decoys            = newMap.Decoys;
 		Portals           = newMap.Portals;
 		Sconces           = new SconceTracker(newMap.Sconces);
+		SmashedJars.Clear();
 		ArtifactNeeded    = false;
 		TempleEntered     = false;
 		TrackTiles        = newMap.TrackTiles;
