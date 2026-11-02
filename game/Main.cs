@@ -427,7 +427,9 @@ public partial class Main : Node2D
 							bool isTreasureFloor = _client.ExpeditionTreasurePos != null || (_hadTreasureFloor && _client.EscapeOpen);
 						if (isTreasureFloor)
 						{
-							objective = _client.EscapeOpen
+							objective = _client.LooseArtifact != null
+								? $"Floor {nm2.MatchFloor}/50  Artifact dropped — recover it!{modTag}"
+								: _client.EscapeOpen
 								? $"Floor {nm2.MatchFloor}/50  Treasure found — ESCAPE!{modTag}"
 								: $"Floor {nm2.MatchFloor}/50  Find the hidden treasure!{modTag}";
 						}

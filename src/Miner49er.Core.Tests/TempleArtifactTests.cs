@@ -28,6 +28,39 @@ public class TempleArtifactTests
         Assert.Equal(Artifact, sim.GetMiner(id).Held);
     }
 
+    [Theory]
+    [InlineData(TileType.Lava)]
+    [InlineData(TileType.Pit)]
+    [InlineData(TileType.DeepWater)]
+    [InlineData(TileType.Cracked)]
+    [InlineData(TileType.Crumbling)]
+    [InlineData(TileType.Rock)]
+    public void A_loose_artifact_moves_off_a_tile_that_turns_bad(TileType bad)
+    {
+        var where = new GridPos(5, 2);
+        var sim = Sim(null, new Item(where, Artifact, ItemPlacement.Loose));
+        sim.Grid.Set(where, bad);
+
+        sim.Tick(0.1);
+
+        var artifact = Assert.Single(sim.Items, it => it.Kind == Artifact);
+        Assert.Equal(ItemPlacement.Loose, artifact.Placement);
+        Assert.Equal(1, artifact.Pos.ManhattanTo(where));
+        Assert.Equal(TileType.Floor, sim.Grid.Get(artifact.Pos));
+    }
+
+    [Fact]
+    public void A_buried_artifact_stays_put()
+    {
+        var where = new GridPos(5, 2);
+        var sim = Sim(null, new Item(where, Artifact, ItemPlacement.Buried));
+        sim.Grid.Set(where, TileType.Rock);
+
+        sim.Tick(0.1);
+
+        Assert.Equal(where, Assert.Single(sim.Items, it => it.Kind == Artifact).Pos);
+    }
+
     [Fact]
     public void Standing_on_the_exit_without_the_artifact_does_not_end_the_floor()
     {

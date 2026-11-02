@@ -1672,6 +1672,35 @@ public sealed partial class Simulation
             }
     }
 
+    // Lava, cave-ins and rockfalls can all reach a dropped artifact long after it landed. Moving it
+    // aside here covers every one of them, so none can leave the floor impossible to finish.
+    private void KeepArtifactReachable()
+    {
+        if (!Config.RequireArtifactAtExit) return;
+        int i = _items.FindIndex(it => it.Kind == Config.ExpeditionTreasureKind && it.Placement == ItemPlacement.Loose);
+        if (i < 0 || IsFirmGround(_items[i].Pos)) return;
+
+        var seen = new HashSet<GridPos> { _items[i].Pos };
+        var queue = new Queue<GridPos>(seen);
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            foreach (var off in Neighbours4)
+            {
+                var p = new GridPos(cur.X + off.X, cur.Y + off.Y);
+                if (!Grid.InBounds(p) || !seen.Add(p)) continue;
+                if (IsFirmGround(p)) { _items[i] = _items[i] with { Pos = p }; return; }
+                queue.Enqueue(p);
+            }
+        }
+    }
+
+    private bool IsFirmGround(GridPos p)
+    {
+        var t = Grid.Get(p);
+        return t.IsWalkable() && !t.IsWater() && t is not (TileType.Cracked or TileType.Crumbling);
+    }
+
     private void DropHeldItem(Miner m, ItemKind kind)
     {
         // Prefer an adjacent free floor tile so the miner does not instantly re-grab it on wake.
@@ -1742,6 +1771,7 @@ public sealed partial class Simulation
         AdvancePrizeEvent(dt);
         AdvanceTreasureHeist(dt);
         DropArtifactFromTheDead();
+        KeepArtifactReachable();
         TempleEntered |= _miners.Values.Any(m => m.Alive && Grid.Get(m.Pos) == TileType.TempleFloor);
         if (Config.Mode == GameMode.GrudgeMatch) AdvanceRespawns(dt); // infinite lives deathmatch
         AdvancePortals(dt);

@@ -24,6 +24,17 @@ public partial class MatchClient : Node2D
 	public bool EscapeOpen { get; private set; }
 	public bool ArtifactNeeded { get; private set; }
 	public bool TempleEntered { get; private set; }
+	/// <summary>Where a found artifact is lying, once someone has lifted it and it has been dropped.</summary>
+	public GridPos? LooseArtifact
+	{
+		get
+		{
+			if (!ArtifactNeeded || !EscapeOpen) return null;
+			foreach (var it in Items)
+				if (it.Placement == ItemPlacement.Loose && it.Kind.IsIdol()) return new GridPos(it.X, it.Y);
+			return null;
+		}
+	}
 	public GridPos? EscapeTile { get; private set; }
 	public GridPos? ShopPos { get; private set; }
 	public GridPos? CenterTile { get; private set; }
