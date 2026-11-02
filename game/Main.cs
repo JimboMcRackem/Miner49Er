@@ -68,6 +68,7 @@ public partial class Main : Node2D
 	private MineEventKind _prevMineEvent = MineEventKind.None;
 	private ItemKind? _pendingChestLoot;
 	private bool _prevEscapeOpen;
+	private bool _prevTempleEntered;
 	private bool _hadTreasureFloor;
 
 	public override void _Ready()
@@ -120,7 +121,7 @@ public partial class Main : Node2D
 			_deathFeed?.PushMessage(msg);
 		};
 		_client.Begin(map.Grid, map.Decoys, localMinerId, this, clientEscape, map.ShopPos, clientCenter,
-			expeditionTreasurePos: map.ExpeditionTreasurePos, trackTiles: map.TrackTiles);
+			expeditionTreasurePos: map.ExpeditionTreasurePos, trackTiles: map.TrackTiles, sconces: map.Sconces);
 
 		_audio = new MatchAudio { Name = "MatchAudio" };
 		AddChild(_audio);
@@ -174,6 +175,7 @@ public partial class Main : Node2D
 			}
 			FloorModifiers.Apply(floorModifier, hostMapCfg, f1SimCfg);
 			f1SimCfg.ExpeditionTreasureKind = hostMapCfg.ExpeditionTreasureKind;
+			f1SimCfg.RequireArtifactAtExit  = hostMapCfg.TempleSectionCount > 0;
 			var hostMap = MapGenerator.Generate(hostMapCfg);
 			GridPos? escapeTile = nm.MatchMode == GameMode.Expedition ? hostMap.EscapeTile : null;
 			var sim = new Simulation(
@@ -205,7 +207,7 @@ public partial class Main : Node2D
 				GridPos sp  = (nm.MatchMode == GameMode.Expedition && i == 0) ? soloSpawn
 							  : (i < hostMap.Spawns.Count ? hostMap.Spawns[i] : hostMap.Spawns[0]);
 				sp = sim.FreeSpawnNear(sp);
-				sim.AddMiner(minerId, sp);
+				sim.AddMiner(minerId, nm.DevSpawn ?? sp);
 				if (nm.IsBotPeer(peer))
 				{
 					botConfigs.Add((minerId, nm.GetBotSkill(peer)));
@@ -226,7 +228,7 @@ public partial class Main : Node2D
 			if (nm.MatchMode == GameMode.Expedition)
 			{
 				int monsterCount = MonsterRoster.CountFor(hostMap.Grid.Width, hostMap.Grid.Height, startFloor);
-				var roster = MonsterSpawner.Place(hostMap.Grid, soloSpawn, monsterCount, floor: startFloor);
+				var roster = MonsterSpawner.PlaceFor(hostMap, soloSpawn, monsterCount, startFloor, hostMapCfg.Seed);
 				for (int i = 0; i < roster.Count; i++)
 					sim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
 			}
@@ -322,6 +324,7 @@ public partial class Main : Node2D
 		nm.MatchEnded -= OnMatchEnded;
 		nm.NewFloor -= OnNewFloor;
 		nm.FloorComplete -= OnFloorComplete;
+		AudioManager.Instance.SetTempleMood(false);
 		nm.ReturnToLobbyRequested -= OnReturnToLobby;
 		nm.Disconnected -= OnDisconnected;
 		nm.RegisterMatch(null, null);
@@ -370,6 +373,13 @@ public partial class Main : Node2D
 			SetAnnouncement("You found the treasure! Escape is open!", 3500);
 		_prevEscapeOpen = _client.EscapeOpen;
 
+		if (_client.TempleEntered && !_prevTempleEntered)
+		{
+			SetAnnouncement("You have uncovered an ancient temple!", 3500);
+			AudioManager.Instance.SetTempleMood(true);
+		}
+		_prevTempleEntered = _client.TempleEntered;
+
 		if (_client.MineEvent != _prevMineEvent && MineEventMessage(_client.MineEvent) is { Length: > 0 } eventMessage)
 			SetAnnouncement(eventMessage, 5000);
 		_prevMineEvent = _client.MineEvent;
@@ -417,7 +427,9 @@ public partial class Main : Node2D
 							bool isTreasureFloor = _client.ExpeditionTreasurePos != null || (_hadTreasureFloor && _client.EscapeOpen);
 						if (isTreasureFloor)
 						{
-							objective = _client.EscapeOpen
+							objective = _client.LooseArtifact != null
+								? $"Floor {nm2.MatchFloor}/50  Artifact dropped — recover it!{modTag}"
+								: _client.EscapeOpen
 								? $"Floor {nm2.MatchFloor}/50  Treasure found — ESCAPE!{modTag}"
 								: $"Floor {nm2.MatchFloor}/50  Find the hidden treasure!{modTag}";
 						}
@@ -701,7 +713,7 @@ public partial class Main : Node2D
 				var aliveMiners = _client.Miners.Where(x => x.Alive).ToList();
 				var atExit      = aliveMiners.Where(x => new GridPos(x.X, x.Y) == exitTile).ToList();
 				if (atExit.Count >= aliveMiners.Count)
-					return "[Space]  ESCAPE!";
+					return _client.ArtifactNeeded ? "Bring the artifact to the exit" : "[Space]  ESCAPE!";
 				var missing = aliveMiners.First(x => new GridPos(x.X, x.Y) != exitTile);
 				int dx = missing.X - exitTile.X, dy = missing.Y - exitTile.Y;
 				string dir = (dx, dy) switch
@@ -842,6 +854,7 @@ public partial class Main : Node2D
 	private void OnNewFloor(int floor)
 	{
 		_prevEscapeOpen   = false;
+		_prevTempleEntered = false;
 		_hadTreasureFloor = false;
 		_client.ResetFloor(floor);
 		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed ^ floor));
@@ -985,7 +998,9 @@ public partial class Main : Node2D
 				if (m.Id == _client.LocalMinerId && m.Cause != DeathCause.None)
 					causeStr = $"\nCause: {DeathCauseLabel(m.Cause)}";
 
-			scoreText = $"Floor {nm.MatchFloor}  ·  Gold: {gold}g  ·  Score: {score}{causeStr}";
+			var artifacts = _host?.ArtifactsCarriedOut.Select(IdolName).ToList() ?? new List<string>();
+			string artifactStr = artifacts.Count > 0 ? $"\nArtifacts: {string.Join(", ", artifacts)}" : "";
+			scoreText = $"Floor {nm.MatchFloor}  ·  Gold: {gold}g  ·  Score: {score}{causeStr}{artifactStr}";
 
 			// Play Again restarts expedition with same settings.
 			if (nm.IsHost)

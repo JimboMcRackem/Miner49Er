@@ -22,6 +22,19 @@ public partial class MatchClient : Node2D
 	public IReadOnlyList<MonsterSnapshot> Monsters => _monsters;
 	public IReadOnlyList<ReelChargeSnapshot> ReelCharges => _reelChargeSnaps;
 	public bool EscapeOpen { get; private set; }
+	public bool ArtifactNeeded { get; private set; }
+	public bool TempleEntered { get; private set; }
+	/// <summary>Where a found artifact is lying, once someone has lifted it and it has been dropped.</summary>
+	public GridPos? LooseArtifact
+	{
+		get
+		{
+			if (!ArtifactNeeded || !EscapeOpen) return null;
+			foreach (var it in Items)
+				if (it.Placement == ItemPlacement.Loose && it.Kind.IsIdol()) return new GridPos(it.X, it.Y);
+			return null;
+		}
+	}
 	public GridPos? EscapeTile { get; private set; }
 	public GridPos? ShopPos { get; private set; }
 	public GridPos? CenterTile { get; private set; }
@@ -80,6 +93,8 @@ public partial class MatchClient : Node2D
 		// Portals are client-derived from the deterministic map gen (never networked);
 		// only the transient teleport event rides the wire. Track collapsed ends locally.
 		public IReadOnlyList<PortalSpec> Portals { get; private set; } = System.Array.Empty<PortalSpec>();
+		public SconceTracker Sconces { get; private set; } = new(System.Array.Empty<GridPos>());
+		public HashSet<GridPos> SmashedJars { get; } = new();
 		private readonly HashSet<int> _collapsedPortals = new();
 		public bool IsPortalCollapsed(int id) => _collapsedPortals.Contains(id);
 
@@ -152,7 +167,7 @@ public partial class MatchClient : Node2D
 	private int   _currentIdleIdx = -1;
 	private readonly System.Random _idleRng = new();
 
-	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null, GridPos? shopPos = null, GridPos? centerTile = null, GridPos? expeditionTreasurePos = null, IReadOnlyList<GridPos>? trackTiles = null)
+	public void Begin(TileGrid grid, IReadOnlyList<GridPos> decoys, int localMinerId, Node2D sceneRoot, GridPos? escapeTile = null, GridPos? shopPos = null, GridPos? centerTile = null, GridPos? expeditionTreasurePos = null, IReadOnlyList<GridPos>? trackTiles = null, IReadOnlyList<GridPos>? sconces = null)
 	{
 		_sceneRoot = sceneRoot;
 		Grid = grid;
@@ -163,6 +178,7 @@ public partial class MatchClient : Node2D
 		ShopPos = shopPos;
 		CenterTile = centerTile;
 		ExpeditionTreasurePos = expeditionTreasurePos;
+		Sconces = new SconceTracker(sconces ?? System.Array.Empty<GridPos>());
 		GoldRemaining = CountGold(grid);
 		StartingGoldCount = GoldRemaining;
 
@@ -247,6 +263,7 @@ public partial class MatchClient : Node2D
 				if (!oldType.IsWater() && t.NewType.IsWater())
 					(floodAdvances ??= new()).Add(p);
 				Grid.Set(p, t.NewType);
+				if (oldType == TileType.Jar) SmashedJars.Add(p);
 				if (t.NewType == TileType.Floor && _crystalPositions != null)
 				{
 					if (_crystalPositions.Remove(p))
@@ -408,6 +425,9 @@ public partial class MatchClient : Node2D
 		_phantoms = update.Snapshot.Phantoms ?? System.Array.Empty<TileSnapshot>();
 		bool wasOpen = EscapeOpen;
 		EscapeOpen = update.Snapshot.EscapeOpen;
+		ArtifactNeeded = update.Snapshot.ArtifactNeeded;
+		TempleEntered = update.Snapshot.TempleEntered;
+		if (TempleEntered && LocalMinerTile() is { } sconceLighter) Sconces.Update(sconceLighter);
 		if (!wasOpen && EscapeOpen) ExpeditionTreasurePos = null;
 		GoldRemaining = CountGold(Grid);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;
@@ -516,6 +536,10 @@ public partial class MatchClient : Node2D
 		Grid              = newMap.Grid;
 		Decoys            = newMap.Decoys;
 		Portals           = newMap.Portals;
+		Sconces           = new SconceTracker(newMap.Sconces);
+		SmashedJars.Clear();
+		ArtifactNeeded    = false;
+		TempleEntered     = false;
 		TrackTiles        = newMap.TrackTiles;
 		_collapsedPortals.Clear();
 		GoldRemaining     = CountGold(newMap.Grid);

@@ -196,6 +196,7 @@ public partial class TerrainMap : Node2D
 	{
 		TileType.Rock or TileType.GoldRock or TileType.ImpermeableRock => Wall,
 		TileType.Floor or TileType.Cracked or TileType.Crumbling or TileType.Plank => Floor,
+		TileType.TempleFloor or TileType.Column or TileType.FallenColumn or TileType.Altar or TileType.Jar => Floor,
 		TileType.Lava => Lava,
 		TileType.ShallowWater => Water,
 		TileType.DeepWater    => Water, // same terrain as shallow — avoids missing edge tiles at the border

@@ -132,6 +132,23 @@ public sealed partial class Simulation
 
     public GridPos? EscapeTile { get; }
     public bool EscapeOpen { get; private set; }
+    public bool ArtifactAtExit => Config.ExpeditionTreasureKind is { } artifact && EscapeTile is { } exit
+        && _miners.Values.Any(m => m.Alive && m.Pos == exit && m.Held == artifact);
+    public bool ArtifactNeeded => Config.RequireArtifactAtExit && !ArtifactAtExit;
+    public bool TempleEntered { get; private set; }
+    private bool _artifactClaimed;
+
+    /// <summary>Pays the bonus to whoever carried the artifact out, once. Returns the artifact,
+    /// or null if there was none to claim.</summary>
+    public ItemKind? ClaimArtifact()
+    {
+        if (_artifactClaimed || !Config.RequireArtifactAtExit || !ArtifactAtExit) return null;
+        _artifactClaimed = true;
+        var artifact = Config.ExpeditionTreasureKind;
+        _miners.Values.First(m => m.Alive && m.Pos == EscapeTile && m.Held == artifact)
+            .GoldCollected += Config.ArtifactGoldBonus;
+        return artifact;
+    }
     private int _goldRemaining;
     public bool AllGoldCleared => _goldRemaining == 0;
     public int StartingGoldCount { get; private set; }
@@ -333,6 +350,9 @@ public sealed partial class Simulation
         return true;
     }
 
+    /// <summary>Test-only: set off a blast with no owner at a tile.</summary>
+    internal void DetonateForTest(GridPos p) => DetonateAt(p, 0, -1);
+
     /// <summary>Test-only: force a portal tile to Floor to simulate mining it out.</summary>
     internal void RevealTileForTest(GridPos p) => Grid.Set(p, TileType.Floor);
 
@@ -380,6 +400,7 @@ public sealed partial class Simulation
     {
         MonsterKind.Slime          => Config.MonsterSlimeMoveSeconds,
         MonsterKind.Ghost          => Config.MonsterGhostMoveSeconds,
+        MonsterKind.PriestSpirit   => Config.MonsterGhostMoveSeconds,
         MonsterKind.Goat           => Config.MonsterGoatMoveSeconds,
         MonsterKind.ZombieMiner    => Config.MonsterZombieMoveSeconds,
         MonsterKind.SkeletonHuman  => Config.MonsterSkeletonMoveSeconds,
@@ -829,6 +850,8 @@ public sealed partial class Simulation
 
             if (mo.Dormant) continue;
 
+            if (mo.Kind == MonsterKind.PriestSpirit && AdvanceChant(mo, dt, aliveMiners)) continue;
+
             if (mo.SlowTimer > 0)
             {
                 mo.SlowTimer = Math.Max(0, mo.SlowTimer - dt);
@@ -846,7 +869,7 @@ public sealed partial class Simulation
                 : null;
             StepMonster(mo, target);
 
-            if (mo.Alive && mo.Kind != MonsterKind.Ghost && _molds.Any(mp => mp.Pos == mo.Pos))
+            if (mo.Alive && !mo.Kind.IsSpirit() && _molds.Any(mp => mp.Pos == mo.Pos))
             {
                 mo.SlowTimer = Config.MoldSlowSeconds;
                 mo.SlowMultiplier = Config.MoldSlowFactor;
@@ -858,7 +881,7 @@ public sealed partial class Simulation
         // Kill any ghost currently inside a lantern's AOE
         foreach (var mo in _monsters)
         {
-            if (!mo.Alive || mo.Kind != MonsterKind.Ghost) continue;
+            if (!mo.Alive || !mo.Kind.IsSpirit()) continue;
             if (InLanternLight(mo.Pos))
             {
                 mo.Alive = false;
@@ -867,12 +890,38 @@ public sealed partial class Simulation
         }
     }
 
+    // A priest that sees a miner stops to chant, then wakes the bones around it. True while chanting.
+    private bool AdvanceChant(Monster mo, double dt, List<Miner> miners)
+    {
+        mo.ChantCooldown = Math.Max(0, mo.ChantCooldown - dt);
+        if (mo.ChantRemaining > 0)
+        {
+            mo.ChantRemaining -= dt;
+            if (mo.ChantRemaining > 0) return true;
+            mo.Phase = GoatPhase.Wander;
+            mo.ChantCooldown = Config.PriestChantCooldownSeconds;
+            foreach (var bones in _monsters.Where(b => b.Alive && b.Dormant
+                         && b.Pos.ManhattanTo(mo.Pos) <= Config.PriestWakeRadius))
+            {
+                bones.Dormant = false;
+                _events.Add(new SkeletonAroused(bones.Id));
+            }
+            return false;
+        }
+        if (mo.ChantCooldown > 0) return false;
+        var seen = Visibility.Compute(Grid, mo.Pos, MonsterSenseRadius);
+        if (!miners.Any(m => seen.Contains(m.Pos))) return false;
+        mo.ChantRemaining = Config.PriestChantSeconds;
+        mo.Phase = GoatPhase.WindUp;
+        return true;
+    }
+
     private void StepMonster(Monster mo, Miner? target)
     {
         Direction? dir = mo.Kind switch
         {
             MonsterKind.Slime                                     => SlimeDir(mo, target),
-            MonsterKind.Ghost                                     => GhostDir(mo, target),
+            MonsterKind.Ghost or MonsterKind.PriestSpirit         => GhostDir(mo, target),
             MonsterKind.Goat                                      => GoatDir(mo, target),
             MonsterKind.ZombieMiner                               => ZombieDir(mo, target),
             MonsterKind.SkeletonHuman or MonsterKind.SkeletonDino => ZombieDir(mo, target),
@@ -889,7 +938,7 @@ public sealed partial class Simulation
         mo.Facing = d;
         _events.Add(new MonsterMoved(mo.Id, from, next));
 
-        bool immuneToTile = mo.Kind == MonsterKind.Ghost
+        bool immuneToTile = mo.Kind.IsSpirit()
                          || (mo.Kind == MonsterKind.WaterSnake && Grid.Get(mo.Pos) == TileType.DeepWater);
         if (!immuneToTile && Grid.Get(mo.Pos).IsLethal())
         {
@@ -928,7 +977,7 @@ public sealed partial class Simulation
     // Ghosts float over cracks; the dino has its own broken-floor drop (see DinoBrokenFloorDrop),
     // so neither uses the shared progressive crack-loading below.
     private static bool MonsterLoadsCracks(MonsterKind kind) =>
-        kind != MonsterKind.Ghost && kind != MonsterKind.SkeletonDino;
+        !kind.IsSpirit() && kind != MonsterKind.SkeletonDino;
 
     // A ground monster on a weak tile drops through: the tile becomes a Pit, the
     // monster dies, and any miner sharing the tile is crushed (mirrors the dino).
@@ -968,6 +1017,7 @@ public sealed partial class Simulation
         if (!Grid.InBounds(p)) return false;
         if (CartAt(p) != null) return false;   // a cart blocks the tile like a wall
         if (mo.Kind == MonsterKind.Ghost) return Grid.Get(p) != TileType.DeepWater;
+        if (mo.Kind == MonsterKind.PriestSpirit) return Grid.Get(p) == TileType.TempleFloor;
         return Grid.Get(p).IsEnterable();
     }
 
@@ -1609,6 +1659,48 @@ public sealed partial class Simulation
         return desired; // whole region is unsafe (degenerate) — nothing better to offer
     }
 
+    // The floor can't be left without the artifact, so it must outlive whoever carried it,
+    // including a miner lost to lava or a player who disconnects.
+    private void DropArtifactFromTheDead()
+    {
+        if (!Config.RequireArtifactAtExit) return;
+        foreach (var m in _miners.Values)
+            if (!m.Alive && m.Held is { } held && held == Config.ExpeditionTreasureKind)
+            {
+                _items.Add(new Item(SafeSpawn(m.Pos, selfId: -1), held, ItemPlacement.Loose));
+                m.Held = null;
+            }
+    }
+
+    // Lava, cave-ins and rockfalls can all reach a dropped artifact long after it landed. Moving it
+    // aside here covers every one of them, so none can leave the floor impossible to finish.
+    private void KeepArtifactReachable()
+    {
+        if (!Config.RequireArtifactAtExit) return;
+        int i = _items.FindIndex(it => it.Kind == Config.ExpeditionTreasureKind && it.Placement == ItemPlacement.Loose);
+        if (i < 0 || IsFirmGround(_items[i].Pos)) return;
+
+        var seen = new HashSet<GridPos> { _items[i].Pos };
+        var queue = new Queue<GridPos>(seen);
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            foreach (var off in Neighbours4)
+            {
+                var p = new GridPos(cur.X + off.X, cur.Y + off.Y);
+                if (!Grid.InBounds(p) || !seen.Add(p)) continue;
+                if (IsFirmGround(p)) { _items[i] = _items[i] with { Pos = p }; return; }
+                queue.Enqueue(p);
+            }
+        }
+    }
+
+    private bool IsFirmGround(GridPos p)
+    {
+        var t = Grid.Get(p);
+        return t.IsWalkable() && !t.IsWater() && t is not (TileType.Cracked or TileType.Crumbling);
+    }
+
     private void DropHeldItem(Miner m, ItemKind kind)
     {
         // Prefer an adjacent free floor tile so the miner does not instantly re-grab it on wake.
@@ -1678,6 +1770,9 @@ public sealed partial class Simulation
         AdvanceCooldowns(dt);
         AdvancePrizeEvent(dt);
         AdvanceTreasureHeist(dt);
+        DropArtifactFromTheDead();
+        KeepArtifactReachable();
+        TempleEntered |= _miners.Values.Any(m => m.Alive && Grid.Get(m.Pos) == TileType.TempleFloor);
         if (Config.Mode == GameMode.GrudgeMatch) AdvanceRespawns(dt); // infinite lives deathmatch
         AdvancePortals(dt);
         AdvanceCracks(dt);
@@ -2014,6 +2109,7 @@ public sealed partial class Simulation
         {
             MonsterKind.Slime          => DeathCause.Slimed,
             MonsterKind.Ghost          => DeathCause.Terrified,
+            MonsterKind.PriestSpirit   => DeathCause.Terrified,
             MonsterKind.Goat           => DeathCause.Headbutted,
             MonsterKind.ZombieMiner    => DeathCause.Mauled,
             MonsterKind.SkeletonHuman  => DeathCause.Boned,
@@ -2132,7 +2228,7 @@ public sealed partial class Simulation
         foreach (var mo in _monsters)
         {
             if (!mo.Alive) continue;
-            bool immuneToTile = mo.Kind == MonsterKind.Ghost
+            bool immuneToTile = mo.Kind.IsSpirit()
                              || (mo.Kind == MonsterKind.WaterSnake && Grid.Get(mo.Pos) == TileType.DeepWater);
             if (!immuneToTile && Grid.Get(mo.Pos).IsLethal())
             {
@@ -2171,7 +2267,8 @@ public sealed partial class Simulation
                 if (!blastTile.IsBlastable()) continue;
                 bool wasGold    = blastTile == TileType.GoldRock;
                 bool wasCrystal = blastTile == TileType.CrystalRock;
-                Grid.Set(p, TileType.Floor);
+                Grid.Set(p, blastTile.IsTemple() ? TileType.TempleFloor : TileType.Floor);
+                if (blastTile == TileType.Jar) SmashJar(p, _miners.GetValueOrDefault(ownerId));
                 if (wasGold)
                 {
                     if (_miners.TryGetValue(ownerId, out var owner) && owner.Alive) owner.GoldCollected++;
@@ -2239,6 +2336,21 @@ public sealed partial class Simulation
         IgniteGasNear(wallPos, r, ownerId);
     }
 
+    // Runs before the tile's buried items are uncovered: a jar hiding the artifact holds only that.
+    private void SmashJar(GridPos pos, Miner? smasher)
+    {
+        if (_items.Any(it => it.Pos == pos && it.Placement == ItemPlacement.Buried)) return;
+        switch (JarLootTable.Roll(_rng))
+        {
+            case JarLoot.Gold when smasher is { Alive: true }:
+                smasher.GoldCollected += Config.JarGold;
+                break;
+            case JarLoot.Item when smasher is { } m:
+                _items.Add(new Item(pos, RollUsefulChestLoot(m), ItemPlacement.Loose));
+                break;
+        }
+    }
+
     private void CompleteActivity(Miner m)
     {
         var kind = m.Activity;
@@ -2252,7 +2364,8 @@ public sealed partial class Simulation
             var targetTile  = Grid.Get(target);
             bool wasGold    = targetTile == TileType.GoldRock;
             bool wasCrystal = targetTile == TileType.CrystalRock;
-            Grid.Set(target, TileType.Floor);
+            Grid.Set(target, targetTile.IsTemple() ? TileType.TempleFloor : TileType.Floor);
+            if (targetTile == TileType.Jar) SmashJar(target, m);
             if (wasGold) { m.GoldCollected++; OnGoldCleared(); }
             UnburyItemsAt(target);
             ActivateVentsAround(target);

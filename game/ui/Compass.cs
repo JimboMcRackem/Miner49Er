@@ -97,7 +97,7 @@ public partial class Compass : CanvasLayer
 		{
 			// On treasure floors the compass points to the hidden idol until it's found,
 			// then pivots to the exit once EscapeOpen (ExpeditionTreasurePos cleared on that transition).
-			target = _client.ExpeditionTreasurePos
+			target = _client.ExpeditionTreasurePos ?? _client.LooseArtifact
 				// In ReachCenter the goal is the centre tile, not an escape ladder.
 				?? (mode == GameMode.ReachCenter ? _client.CenterTile : _client.EscapeTile);
 		}

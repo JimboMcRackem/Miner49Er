@@ -39,7 +39,7 @@ public static class RoundResolver
             if (alive.Count == 0) return RoundResult.Loss();
             if (sim.EscapeOpen && sim.EscapeTile is { } exit)
             {
-                if (alive.All(m => m.Pos == exit))
+                if (alive.All(m => m.Pos == exit) && !sim.ArtifactNeeded)
                     return RoundResult.NextFloor(alive[0].Id);
             }
             return RoundResult.Ongoing();

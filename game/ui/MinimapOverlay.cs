@@ -75,7 +75,8 @@ public partial class MinimapOverlay : CanvasLayer
 
 				Color col;
 				if (tile == TileType.Floor || tile == TileType.ShallowWater || tile == TileType.DeepWater
-			        || tile == TileType.Cracked || tile == TileType.Crumbling || tile == TileType.Plank)
+			        || tile == TileType.Cracked || tile == TileType.Crumbling || tile == TileType.Plank
+			        || tile == TileType.TempleFloor)
 					col = vis ? new Color(0.55f, 0.55f, 0.55f) : new Color(0.28f, 0.28f, 0.28f);
 				else if (tile == TileType.Lava)
 					col = vis ? new Color(0.9f, 0.4f, 0.1f) : new Color(0.5f, 0.2f, 0.05f);

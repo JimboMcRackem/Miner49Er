@@ -78,6 +78,9 @@ public sealed class SimConfig
     // Monsters (Expedition). Cadence = seconds per one-tile step; lower is faster.
     public double MonsterSlimeMoveSeconds { get; set; } = 0.5;
     public double MonsterGhostMoveSeconds { get; set; } = 1.0;
+    public double PriestChantSeconds { get; set; } = 1.0;      // the warning before skeletons wake
+    public double PriestChantCooldownSeconds { get; set; } = 10.0;
+    public int PriestWakeRadius { get; set; } = 6;
     public double MonsterGoatMoveSeconds { get; set; } = 0.22;   // charging
     public double MonsterGoatWanderMoveSeconds { get; set; } = 0.5;
     public double GoatWindUpSeconds { get; set; } = 0.7;   // standing warning between spotting and charging
@@ -111,6 +114,10 @@ public sealed class SimConfig
 
     // When set, the escape opens when this idol is picked up (not on 50% gold).
     public ItemKind? ExpeditionTreasureKind { get; set; } = null;
+    // Temple floor: the floor only ends once a miner on the exit holds that idol.
+    public bool RequireArtifactAtExit { get; set; } = false;
+    public int ArtifactGoldBonus { get; set; } = 30;   // about two shop purchases
+    public int JarGold { get; set; } = 3;
     public bool DynamiteEnabled { get; set; } = true;
     // Detonators-Only mode: the detonator is the miner's sole, permanent mining tool,
     // so a fresh one is re-granted whenever the reel is spent (detonated or wire-snapped).

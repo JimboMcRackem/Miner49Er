@@ -17,7 +17,8 @@ public static class FloorModifiers
     {
         if (floor >= 51 || floor % 4 == 0) return FloorModifier.None;
         var rng = new System.Random(matchSeed ^ (floor * 7919));
-        return Pool[rng.Next(Pool.Length)];
+        var picked = Pool[rng.Next(Pool.Length)];
+        return picked == FloorModifier.Flooded && MapConfig.IsTempleFloor(floor, matchSeed) ? FloorModifier.DarkMine : picked;
     }
 
     public static void Apply(FloorModifier mod, MapConfig map, SimConfig sim)

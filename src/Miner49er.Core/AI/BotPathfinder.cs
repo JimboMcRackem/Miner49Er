@@ -84,7 +84,7 @@ public static class BotPathfinder
     {
         if (blocked != null && blocked.Contains(p)) return false;   // e.g. a cart occupies the tile
         var t = grid.Get(p);
-        bool basePassable = t.IsWalkable() || (passRock && t.IsMinable());
+        bool basePassable = t.IsWalkable() || (passRock && t.IsMinable() && t != TileType.Jar);
         if (!basePassable) return false;
         if (avoidHazards && IsHazard(grid, p, t)) return false;
         return true;

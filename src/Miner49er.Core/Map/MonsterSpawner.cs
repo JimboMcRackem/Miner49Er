@@ -23,6 +23,43 @@ public static class MonsterSpawner
         return new[] { MonsterKind.Slime, MonsterKind.Ghost, MonsterKind.Goat, MonsterKind.ZombieMiner };
     }
 
+    private const int TempleMonstersPerSection = 5;
+
+    /// <summary>A floor's whole roster. A temple floor thins the caves and fills its sections.</summary>
+    public static List<(GridPos Pos, MonsterKind Kind)> PlaceFor(GeneratedMap map, GridPos start, int count, int floor, int seed)
+    {
+        if (map.TempleSections.Count == 0) return Place(map.Grid, start, count, floor);
+        var roster = Place(map.Grid, start, count / 2, floor);
+        roster.AddRange(PlaceTemple(map.TempleSections, map.Grid, TempleMonstersPerSection, seed));
+        return roster;
+    }
+
+    /// <summary>Monsters for each section, led by a priest: then 40% skeletons, 30% ghosts,
+    /// 20% priests and a sprinkling of the rest.</summary>
+    public static List<(GridPos Pos, MonsterKind Kind)> PlaceTemple(
+        IReadOnlyList<TempleSection> sections, TileGrid grid, int perSection, int seed)
+    {
+        var rng = new System.Random(seed);
+        var result = new List<(GridPos, MonsterKind)>();
+        foreach (var section in sections)
+        {
+            var spots = section.Floor.Where(p => grid.Get(p) == TileType.TempleFloor)
+                .OrderBy(_ => rng.Next()).Take(perSection).ToList();
+            for (int i = 0; i < spots.Count; i++)
+                result.Add((spots[i], i == 0 ? MonsterKind.PriestSpirit : TempleKind(rng)));
+        }
+        return result;
+    }
+
+    private static MonsterKind TempleKind(System.Random rng) => rng.Next(100) switch
+    {
+        < 40 => MonsterKind.SkeletonHuman,
+        < 70 => MonsterKind.Ghost,
+        < 90 => MonsterKind.PriestSpirit,
+        < 95 => MonsterKind.Slime,
+        _    => MonsterKind.ZombieMiner,
+    };
+
     public static List<(GridPos Pos, MonsterKind Kind)> Place(TileGrid grid, GridPos start, int count, int floor = 0)
     {
         var result = new List<(GridPos, MonsterKind)>();

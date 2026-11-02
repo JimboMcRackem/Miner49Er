@@ -76,6 +76,8 @@ public partial class Harness : Node
 			nm.DevEventDelay = double.Parse(eventDelay, System.Globalization.CultureInfo.InvariantCulture);
 		if (_opts.TryGetValue("event", out var eventKind))
 			nm.DevEventKind = Enum.Parse<Miner49er.Core.MineEventKind>(eventKind, ignoreCase: true);
+		if (_opts.TryGetValue("spawn", out var spawn)) // spawn=<x>,<y>
+			nm.DevSpawn = new Miner49er.Core.GridPos(int.Parse(spawn.Split(',')[0]), int.Parse(spawn.Split(',')[1]));
 		nm.StartMatch(Enum.Parse<GameMode>(Opt("mode", "Expedition"), ignoreCase: true),
 			OptInt("time", 0), OptBool("flood"), OptBool("pits"), OptBool("caveins"), OptBool("lava"),
 			0.12f, OptInt("scale", 1), startFloor: OptInt("floor", 1), visionRadius: OptInt("vision", 5),

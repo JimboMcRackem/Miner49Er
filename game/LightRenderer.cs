@@ -46,6 +46,7 @@ public partial class LightRenderer : Node2D
     private const int LanternRadius = 6;
     private const int CrystalRadius = 4;
     private const int LavaRadius    = 3;
+    private const int SconceRadius  = 4;
 
     public void Init(MatchClient client) => _client = client;
 
@@ -152,8 +153,7 @@ public partial class LightRenderer : Node2D
         {
             if (!m.Alive) continue;
             if (m.Held == (int)ItemKind.Lantern)
-                _lights.AddLight(grid, new GridPos(m.X, m.Y), LanternRadius,
-                    Flicker.Multiplier(HeldSeed(m.Id), now, Flicker.Fire));
+                _lights.AddLight(grid, new GridPos(m.X, m.Y), LanternRadius, Flicker.Flame(HeldSeed(m.Id), now));
             else if (m.Held == (int)ItemKind.CrystalShard)
                 _lights.AddLight(grid, new GridPos(m.X, m.Y), CrystalRadius,
                     Flicker.Multiplier(HeldSeed(m.Id), now, Flicker.Crystal));
@@ -164,8 +164,7 @@ public partial class LightRenderer : Node2D
         {
             if (it.Placement != ItemPlacement.Loose) continue;
             if (it.Kind == ItemKind.Lantern)
-                _lights.AddLight(grid, new GridPos(it.X, it.Y), LanternRadius,
-                    Flicker.Multiplier(TileSeed(it.X, it.Y), now, Flicker.Fire));
+                _lights.AddLight(grid, new GridPos(it.X, it.Y), LanternRadius, Flicker.Flame(TileSeed(it.X, it.Y), now));
             else if (it.Kind == ItemKind.CrystalShard)
                 _lights.AddLight(grid, new GridPos(it.X, it.Y), CrystalRadius,
                     Flicker.Multiplier(TileSeed(it.X, it.Y), now, Flicker.Crystal));
@@ -178,7 +177,7 @@ public partial class LightRenderer : Node2D
             {
                 var vp = _client.CartVisualPos(ct.Id, ct.X, ct.Y);
                 var tile = new GridPos((int)(vp.X / MatchClient.TileSize), (int)(vp.Y / MatchClient.TileSize));
-                _lights.AddLight(grid, tile, LanternRadius, Flicker.Multiplier(HeldSeed(ct.Id), now, Flicker.Fire));
+                _lights.AddLight(grid, tile, LanternRadius, Flicker.Flame(HeldSeed(ct.Id), now));
             }
 
         // Lava, vents, and crystal-rock walls glow. These are STATIC sources — their light field
@@ -190,6 +189,13 @@ public partial class LightRenderer : Node2D
             _terrainCacheGrid = grid;
             _terrainCacheVersion = grid.Version;
         }
+
+        // Sconces sit in walls, which block light, so each shines from the floor in front of it.
+        foreach (var sconce in _client.Sconces.Lit)
+            if (SconceFloor(grid, sconce) is { } lit)
+                _lights.AddField(TerrainField(grid, lit, SconceRadius),
+                    Flicker.Flame(TileSeed(sconce.X, sconce.Y), now));
+
         int ts = MatchClient.TileSize;
         Rect2 vw = GetViewport().CanvasTransform.AffineInverse() * GetViewportRect();
         int vx0 = Mathf.Max(0, (int)Mathf.Floor(vw.Position.X / ts) - 1);
@@ -210,6 +216,16 @@ public partial class LightRenderer : Node2D
             }
     }
 
+    private static GridPos? SconceFloor(TileGrid grid, GridPos sconce)
+    {
+        foreach (var off in new[] { new GridPos(1, 0), new GridPos(-1, 0), new GridPos(0, 1), new GridPos(0, -1) })
+        {
+            var p = new GridPos(sconce.X + off.X, sconce.Y + off.Y);
+            if (grid.InBounds(p) && grid.Get(p).IsWalkable()) return p;
+        }
+        return null;
+    }
+
     // Cached shadowcast field for a static terrain source. Within one grid Version the tile at
     // this origin keeps its type (and therefore its radius), so a field cached by origin is valid
     // until the next Version bump clears the whole cache.
@@ -225,6 +241,6 @@ public partial class LightRenderer : Node2D
 
     // Stable per-source flicker seeds. Tile-based for stationary sources; miner-based
     // for held sources so their phase stays continuous while walking.
-    private static int TileSeed(int x, int y) => (x * 73856093) ^ (y * 19349663);
-    private static int HeldSeed(int minerId) => (minerId * 83492791) ^ unchecked((int)0x9E3779B1);
+    internal static int TileSeed(int x, int y) => (x * 73856093) ^ (y * 19349663);
+    internal static int HeldSeed(int minerId) => (minerId * 83492791) ^ unchecked((int)0x9E3779B1);
 }

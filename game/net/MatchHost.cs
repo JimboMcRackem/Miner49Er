@@ -34,6 +34,8 @@ public partial class MatchHost : Node
 	private LifeLedger _lives = LifeLedger.WithFixedPool(0);
 	private int _cumulativeGold;
 	public int CumulativeGold => _cumulativeGold;
+	private readonly List<ItemKind> _artifacts = new();
+	public IReadOnlyList<ItemKind> ArtifactsCarriedOut => _artifacts;
 	private readonly Dictionary<int, (int Speed, int Vision, int Blast)> _permLevels = new();
 
 	private readonly Dictionary<int, GridPos>   _spawnByMiner = new();
@@ -206,11 +208,11 @@ public partial class MatchHost : Node
 			switch (e)
 			{
 				case RockMined rm:
-					changes.Add(new TileChange(rm.Pos.X, rm.Pos.Y, false, TileType.Floor));
+					changes.Add(new TileChange(rm.Pos.X, rm.Pos.Y, false, _sim.Grid.Get(rm.Pos)));
 					break;
 				case Explosion ex:
 					foreach (var d in ex.DestroyedRock)
-						changes.Add(new TileChange(d.X, d.Y, true, TileType.Floor));
+						changes.Add(new TileChange(d.X, d.Y, true, _sim.Grid.Get(d)));
 					break;
 				case TileFlooded tf:
 					changes.Add(new TileChange(tf.Pos.X, tf.Pos.Y, false, tf.Type));
@@ -394,6 +396,7 @@ public partial class MatchHost : Node
 
 		if (result.FloorCleared && !_floorChoicePending)
 		{
+			if (_sim.ClaimArtifact() is { } artifact) _artifacts.Add(artifact);
 			foreach (var m in _sim.Miners) _cumulativeGold += m.GoldCollected;
 			var carryGold = _sim.Miners.ToDictionary(m => m.Id, m => m.GoldCollected);
 			SavePermLevels();
@@ -540,6 +543,7 @@ public partial class MatchHost : Node
 			var mapCfg = MapConfig.FloorConfig(newFloor, floorSeed, nm.MatchPlayerCount);
 			FloorModifiers.Apply(modifier, mapCfg, simCfg);
 			simCfg.ExpeditionTreasureKind = mapCfg.ExpeditionTreasureKind;
+			simCfg.RequireArtifactAtExit  = mapCfg.TempleSectionCount > 0;
 			newMap = MapGenerator.Generate(mapCfg);
 		}
 
@@ -605,7 +609,7 @@ public partial class MatchHost : Node
 		{
 			int monsterCount = (int)(MonsterRoster.CountFor(newMap.Grid.Width, newMap.Grid.Height, newFloor)
 									 * simCfg.MonsterCountMultiplier);
-			var roster = MonsterSpawner.Place(newMap.Grid, monsterRef, monsterCount, floor: newFloor);
+			var roster = MonsterSpawner.PlaceFor(newMap, monsterRef, monsterCount, newFloor, floorSeed);
 			for (int i = 0; i < roster.Count; i++)
 				newSim.AddMonster(i + 1, roster[i].Pos, roster[i].Kind);
 		}

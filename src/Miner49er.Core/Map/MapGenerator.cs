@@ -15,8 +15,14 @@ public static class MapGenerator
         RandomFill(grid, rng, config.InitialFloorChance);
         for (int i = 0; i < config.SmoothingSteps; i++) Smooth(grid);
 
-        ConnectRegions(grid);
+        // Stamped here so caves form around the sections. Its own Random leaves other floors untouched.
+        var (temples, sconces) = config.TempleSectionCount > 0
+            ? TempleLayout.Stamp(grid, new Random(config.Seed ^ 0x54454D50), config.TempleSectionCount)
+            : (new List<TempleSection>(), new List<GridPos>());
+
+        ConnectRegions(grid, temples.Count > 0);
         KeepLargestRegion(grid);
+        TempleLayout.SealDoors(grid, temples);
         PlaceWater(grid, rng, config);
         if (config.Pits)
             PlacePits(grid, rng, config.PitSiteCount + (config.PlayerCount - 1),
@@ -40,8 +46,9 @@ public static class MapGenerator
             items.AddRange(PlaceBuriedIdols(grid, rng, idolKinds, region, items));
         GridPos? expeditionTreasurePos = null;
         if (config.ExpeditionTreasureKind is { } ek)
-            expeditionTreasurePos = PlaceExpeditionTreasure(grid, rng, ek,
-                config.ExpeditionTreasureInChest, region, items);
+            expeditionTreasurePos = temples.Count > 0
+                ? PlaceTempleArtifact(grid, rng, ek, config.TempleHide, temples, items)
+                : PlaceExpeditionTreasure(grid, rng, ek, config.ExpeditionTreasureInChest, region, items);
         var decoys = PlaceDecoys(grid, rng, config.DecoyCount, region, items);
         var portals = config.PortalPairCount > 0
             ? PlacePortals(grid, rng, config.PortalPairCount, region, spawns,
@@ -83,6 +90,8 @@ public static class MapGenerator
             Portals = portals,
             TrackTiles = trackTiles,
             Carts = carts,
+            TempleSections = temples,
+            Sconces = sconces,
         };
     }
 
@@ -205,7 +214,7 @@ public static class MapGenerator
     // Joins every secondary floor island ≥10 tiles to the main (largest) region
     // with an L-shaped 1-tile corridor, maximising usable floor coverage.
     // Runs before KeepLargestRegion so the connected graph is kept as one piece.
-    private static void ConnectRegions(TileGrid g)
+    private static void ConnectRegions(TileGrid g, bool hasTemples)
     {
         var visited = new HashSet<GridPos>();
         var regions = new List<List<GridPos>>();
@@ -231,8 +240,41 @@ public static class MapGenerator
                     long d = dx * dx + dy * dy;
                     if (d < bestDist) { bestDist = d; fromPt = a; toPt = b; }
                 }
-            CarveL(g, fromPt, toPt);
+            if (hasTemples) CarveAroundTemples(g, fromPt, toPt);
+            else CarveL(g, fromPt, toPt);
         }
+    }
+
+    // Shortest corridor that keeps out of a temple's rock skin. A region no route reaches stays
+    // unconnected, and KeepLargestRegion fills it in.
+    private static void CarveAroundTemples(TileGrid g, GridPos from, GridPos to)
+    {
+        var cameFrom = new Dictionary<GridPos, GridPos> { [from] = from };
+        var frontier = new Queue<GridPos>(new[] { from });
+        while (frontier.Count > 0 && !cameFrom.ContainsKey(to))
+        {
+            var p = frontier.Dequeue();
+            foreach (var d in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                var n = new GridPos(p.X + d.Item1, p.Y + d.Item2);
+                if (!g.InBounds(n) || cameFrom.ContainsKey(n) || !CanCarve(g, n) || TouchesTemple(g, n)) continue;
+                cameFrom[n] = p;
+                frontier.Enqueue(n);
+            }
+        }
+        if (!cameFrom.ContainsKey(to)) return;
+        for (var p = to; p != from; p = cameFrom[p]) g.Set(p, TileType.Floor);
+    }
+
+    private static bool TouchesTemple(TileGrid g, GridPos p)
+    {
+        for (int dx = -1; dx <= 1; dx++)
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                var n = new GridPos(p.X + dx, p.Y + dy);
+                if (g.InBounds(n) && g.Get(n).IsTemple()) return true;
+            }
+        return false;
     }
 
     // L-shaped corridor: horizontal leg then vertical leg. Skips ImpermeableRock borders.
@@ -243,18 +285,20 @@ public static class MapGenerator
         while (x != to.X)
         {
             var p = new GridPos(x, y);
-            if (!IsBorder(g, p)) g.Set(p, TileType.Floor);
+            if (CanCarve(g, p)) g.Set(p, TileType.Floor);
             x += xDir;
         }
         int yDir = Math.Sign(to.Y - y);
         while (y != to.Y)
         {
             var p = new GridPos(x, y);
-            if (!IsBorder(g, p)) g.Set(p, TileType.Floor);
+            if (CanCarve(g, p)) g.Set(p, TileType.Floor);
             y += yDir;
         }
-        if (!IsBorder(g, to)) g.Set(to, TileType.Floor);
+        if (CanCarve(g, to)) g.Set(to, TileType.Floor);
     }
+
+    private static bool CanCarve(TileGrid g, GridPos p) => !IsBorder(g, p) && !g.Get(p).IsTemple();
 
     private static void KeepLargestRegion(TileGrid g)
     {
@@ -417,7 +461,8 @@ public static class MapGenerator
         var blocked = new HashSet<GridPos>(items.Select(it => it.Pos));
         foreach (var d in decoys) blocked.Add(d);
         var cands = g.Positions()
-            .Where(p => g.Get(p) == TileType.Rock && !blocked.Contains(p) && HasRegionNeighbor(g, p, region))
+            .Where(p => g.Get(p) == TileType.Rock && !blocked.Contains(p) && HasRegionNeighbor(g, p, region)
+                        && !TouchesTemple(g, p))
             .ToList();
         Shuffle(cands, rng);
         foreach (var p in cands.Take(Math.Min(count, cands.Count)))
@@ -769,6 +814,23 @@ public static class MapGenerator
         for (int i = 0; i < idolKinds.Length && i < rockCands.Count; i++)
             result.Add(new Item(rockCands[i], idolKinds[i], ItemPlacement.Buried));
         return result;
+    }
+
+    // Buried in a panel, in a pot (a jar like any other) or in a chest on the floor.
+    private static GridPos PlaceTempleArtifact(TileGrid g, Random rng, ItemKind kind, TempleHideSpot hide,
+        List<TempleSection> temples, List<Item> items)
+    {
+        var section = temples[rng.Next(temples.Count)];
+        var spots = hide switch
+        {
+            TempleHideSpot.Buried => section.Panels.ToList(),
+            TempleHideSpot.Pot    => section.Jars.ToList(),
+            _ => section.Floor.Where(p => g.Get(p) == TileType.TempleFloor).ToList(),
+        };
+        var pos = spots[rng.Next(spots.Count)];
+        var placement = hide == TempleHideSpot.Chest ? ItemPlacement.Toolbox : ItemPlacement.Buried;
+        items.Add(new Item(pos, kind, placement));
+        return pos;
     }
 
     private static GridPos? PlaceExpeditionTreasure(TileGrid g, Random rng, ItemKind kind,

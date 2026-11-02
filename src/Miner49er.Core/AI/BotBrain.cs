@@ -35,9 +35,9 @@ public sealed class BotBrain
         if (!miner.Alive) return BotAction.Idle;
 
         // In Expedition, snap goal to escape the moment it opens so bots react immediately.
-        if (mode == GameMode.Expedition && sim.EscapeOpen && sim.EscapeTile is { } escOpen && _goal != escOpen)
+        if (mode == GameMode.Expedition && ExpeditionGoal(sim) is { } urgent && _goal != urgent)
         {
-            _goal = escOpen;
+            _goal = urgent;
             _ticksUntilReeval = 0;
         }
 
@@ -55,6 +55,8 @@ public sealed class BotBrain
 
         // Let any in-progress activity finish — sending a direction cancels mining.
         if (miner.Activity != ActivityKind.None) return BotAction.Idle;
+
+        if (mode == GameMode.Expedition && LooseArtifact(sim) == miner.Pos) return new BotAction(-1, use: true);
 
         bool isPvP  = mode != GameMode.Expedition;
         // Grudge Match is a free-for-all deathmatch — bots fight exactly like Demolition Derby.
@@ -359,11 +361,24 @@ public sealed class BotBrain
 
     // ── Goal selection ─────────────────────────────────────────────────────
 
+    // A dropped artifact comes before the exit: the floor can't end without it.
+    private static GridPos? ExpeditionGoal(Simulation sim) =>
+        LooseArtifact(sim) ?? (sim.EscapeOpen ? sim.EscapeTile : null);
+
+    private static GridPos? LooseArtifact(Simulation sim)
+    {
+        if (!sim.ArtifactNeeded || !sim.EscapeOpen) return null;
+        foreach (var item in sim.Items)
+            if (item.Placement == ItemPlacement.Loose && item.Kind == sim.Config.ExpeditionTreasureKind)
+                return item.Pos;
+        return null;
+    }
+
     private GridPos? PickGoal(Simulation sim, GameMode mode, Miner miner)
     {
         // All skill levels rush the exit when it opens — floor won't advance until every alive miner is there.
-        if (mode == GameMode.Expedition && sim.EscapeOpen && sim.EscapeTile is { } esc)
-            return esc;
+        if (mode == GameMode.Expedition && ExpeditionGoal(sim) is { } urgent)
+            return urgent;
 
         if (mode is GameMode.DemolitionDerby or GameMode.GrudgeMatch) return DerbyGoal(sim, miner);
         if (mode == GameMode.LastManStanding)
