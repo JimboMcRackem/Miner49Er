@@ -49,6 +49,31 @@ public class FogMaskTests
     }
 
     [Fact]
+    public void Visible_texels_past_the_view_circle_go_opaque_next_to_never_seen_tiles()
+    {
+        // Seen from tile 0's centre with radius 5, tiles x < 6 are visible and the rest never seen.
+        // The visible ring tile's outer half is dimmed nearly shut; the middle of the view isn't.
+        var view = new FogView(0.5f, 2.5f, 5f, 0.5f);
+        var mask = FogMask.Build(VisibleLeftOf(6), 0, 0, 10, 5, Dim, false, view);
+        Assert.True(At(mask, 5 * T + T / 2, 2 * T + T / 2) > 200);
+        Assert.Equal(0, At(mask, 2 * T, 2 * T + T / 2));
+    }
+
+    [Fact]
+    public void The_view_circle_is_not_cut_away_next_to_remembered_tiles()
+    {
+        var fog = VisibleLeftOf(10);   // explore the whole window...
+        var visible = new HashSet<GridPos>();
+        for (int y = 0; y < 5; y++)
+            for (int x = 0; x < 6; x++)
+                visible.Add(new GridPos(x, y));
+        fog.Update(visible);           // ...then see only x < 6, leaving the rest remembered
+        var view = new FogView(0.5f, 2.5f, 5f, 0.5f);
+        var mask = FogMask.Build(fog, 0, 0, 10, 5, Dim, false, view);
+        Assert.True(At(mask, 5 * T + T / 2, 2 * T + T / 2) <= 128); // no more than the vignette's 0.5
+    }
+
+    [Fact]
     public void View_vignette_never_thins_hidden_tiles()
     {
         var view = new FogView(3f, 2.5f, 4f, 0.32f);

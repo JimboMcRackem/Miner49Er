@@ -40,7 +40,12 @@ public static class FogMask
         Pass(alpha, scratch, 1, w, h, w, BlurTexels, grow: false);
         Pass(scratch, alpha, w, h, w, 1, BlurTexels, grow: false);
 
-        if (view is { } v) ApplyVignette(alpha, w, h, tileX, tileY, v);
+        if (view is { } v)
+        {
+            ApplyVignette(alpha, w, h, tileX, tileY, v);
+            ApplyRoundEdge(alpha, NearUnexplored(fog, tileX, tileY, tilesW, tilesH, ignoreVisible),
+                w, h, tileX, tileY, v);
+        }
 
         var mask = new byte[w * h];
         for (int i = 0; i < mask.Length; i++)
@@ -67,6 +72,56 @@ public static class FogMask
                 float a = view.Dim * t * t * (3f - 2f * t);
                 if (a > alpha[y * w + x]) alpha[y * w + x] = a;
             }
+    }
+
+    // Where the view runs into never-seen tiles, fog fades to fully opaque around the view radius,
+    // hiding the tile-shaped notches of the visible set behind a circle. The first never-seen tiles
+    // come as close as about R - 0.5 (their near corner), so the fade starts a tile inside the radius
+    // and is opaque just past it, at the cost of dimming the outermost ring next to the unknown.
+    // Offsets are from the view radius in tiles. Only ever darkens, so it can't reveal anything.
+    private const float RoundEdgeStart = -1f, RoundEdgeEnd = 0.4f;
+    // How far "near never-seen" reaches inward: grown by two tiles, then softened, so the round edge
+    // fades out smoothly where the view's border turns from never-seen to remembered.
+    private const int NearGrowTexels = 2 * TexelsPerTile, NearBlurTexels = 6;
+
+    private static void ApplyRoundEdge(float[] alpha, float[] near, int w, int h, int tileX, int tileY,
+        FogView view)
+    {
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x;
+                if (near[i] <= 0f) continue;
+                float dx = tileX + (x + 0.5f) / TexelsPerTile - view.X;
+                float dy = tileY + (y + 0.5f) / TexelsPerTile - view.Y;
+                float t = Math.Clamp((MathF.Sqrt(dx * dx + dy * dy) - view.Radius - RoundEdgeStart)
+                    / (RoundEdgeEnd - RoundEdgeStart), 0f, 1f);
+                float a = near[i] * t * t * (3f - 2f * t);
+                if (a > alpha[i]) alpha[i] = a;
+            }
+    }
+
+    // 1 on and within about a tile and a quarter of never-seen tiles, falling to 0 near three tiles away.
+    private static float[] NearUnexplored(FogState fog, int tileX, int tileY, int tilesW, int tilesH,
+        bool ignoreVisible)
+    {
+        int w = tilesW * TexelsPerTile, h = tilesH * TexelsPerTile;
+        var near = new float[w * h];
+        for (int ty = 0; ty < tilesH; ty++)
+            for (int tx = 0; tx < tilesW; tx++)
+            {
+                var p = new GridPos(tileX + tx, tileY + ty);
+                if ((fog.IsVisible(p) && !ignoreVisible) || fog.IsExplored(p)) continue;
+                for (int y = 0; y < TexelsPerTile; y++)
+                    for (int x = 0; x < TexelsPerTile; x++)
+                        near[(ty * TexelsPerTile + y) * w + tx * TexelsPerTile + x] = 1f;
+            }
+        var scratch = new float[w * h];
+        Pass(near, scratch, 1, w, h, w, NearGrowTexels, grow: true);
+        Pass(scratch, near, w, h, w, 1, NearGrowTexels, grow: true);
+        Pass(near, scratch, 1, w, h, w, NearBlurTexels, grow: false);
+        Pass(scratch, near, w, h, w, 1, NearBlurTexels, grow: false);
+        return near;
     }
 
     // One direction of a square filter over ±radius: `step` is the index distance along a line,
