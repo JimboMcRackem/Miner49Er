@@ -186,7 +186,14 @@ public partial class WorldRenderer : Node2D
 	private const float ShoreWaveAmp   = 1.6f; // px
 	private const float ShoreWaveLen   = 11f;  // px per wave
 	private const float ShoreWaveSpeed = 2.2f; // rad/sec
-	private static readonly Color ShoreFoamCol = new Color(0.55f, 0.80f, 1f, 0.45f);
+	// Soft and only faintly cyan: brighter, it outlined every pool as a hard rectangle.
+	private static readonly Color ShoreFoamCol = new Color(0.62f, 0.78f, 0.92f, 0.25f);
+
+	// Tiny specks of light that drift a few px across the water and fade in and out, each on its
+	// own cycle, so the surface moves without a shader.
+	private const int WaterSpecksPerTile = 3;
+	private const float WaterSpeckDrift = 6f;   // px travelled over one cycle
+	private const float WaterSpeckAlpha = 0.55f;
 
 	private Texture2D? _shopLampTex;
 	private Texture2D? _chargeTex;
@@ -1134,6 +1141,7 @@ public partial class WorldRenderer : Node2D
 					deep ? new Color(0.5f, 0.72f, 1f, alpha * 0.7f)
 					     : new Color(0.68f, 0.86f, 1f, alpha));
 			}
+			DrawWaterSpecks(wx0, wy0, ts, wh, wTime, deep);
 
 			// Living shoreline: a wavy foam line just inside each dry-facing edge.
 			byte edges = _waterEdges![wi];
@@ -2646,6 +2654,24 @@ public partial class WorldRenderer : Node2D
 	}
 
 	// Draws a wavy foam line just inside a static water tile's dry-facing edge (side 0=N,1=E,2=S,3=W).
+	private void DrawWaterSpecks(float wx0, float wy0, int ts, uint tileHash, float now, bool deep)
+	{
+		for (int s = 0; s < WaterSpecksPerTile; s++)
+		{
+			uint h = tileHash ^ (uint)((s + 1) * 0x9E3779B9u);
+			float period = 3f + (h & 0xFu) * (3f / 15f);   // 3-6 s
+			float life = ((now + ((h >> 4) & 0xFFu) * (period / 255f)) % period) / period;
+			uint cycle = (uint)((now + ((h >> 4) & 0xFFu) * (period / 255f)) / period);
+			uint ch = (h ^ cycle * 2654435761u) * 2246822519u;   // a new spot and heading every cycle
+			float angle = ((ch >> 8) & 0xFFu) * (Mathf.Tau / 255f);
+			float x = wx0 + 3f + ((ch >> 16) & 0xFFu) * (ts - 6) / 255f + Mathf.Cos(angle) * WaterSpeckDrift * life;
+			float y = wy0 + 3f + ((ch >> 24) & 0xFFu) * (ts - 6) / 255f + Mathf.Sin(angle) * WaterSpeckDrift * life;
+			if (x < wx0 + 1f || x > wx0 + ts - 3f || y < wy0 + 1f || y > wy0 + ts - 2f) continue;
+			float alpha = Mathf.Sin(life * Mathf.Pi) * WaterSpeckAlpha * (deep ? 0.6f : 1f);
+			DrawRect(new Rect2(x, y, 2f, 1f), new Color(0.85f, 0.95f, 1f, alpha));
+		}
+	}
+
 	private void DrawShoreEdge(float wx0, float wy0, int ts, int side, float wTime)
 	{
 		const int N = 6;
