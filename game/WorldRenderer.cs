@@ -1369,6 +1369,7 @@ public partial class WorldRenderer : Node2D
 		}
 
 		DrawWallDepth(grid, vx0, vx1, vy0, vy1, ts);
+		DrawOreGlints(grid, vx0, vx1, vy0, vy1, ts, wTime);
 
 		// Colour-coded teleport gates. A gate only draws once its tile is uncovered Floor.
 		// State: black void until BOTH ends are revealed (partner still buried) — then the
@@ -2771,17 +2772,54 @@ public partial class WorldRenderer : Node2D
 
 	// Draws prominent diagonal gold ore veins on a GoldRock tile.
 	// Two veins per tile — direction and offset are deterministic from tile position.
+	// Ore glints: now and then a star catches the light somewhere along a gold vein. Only in the
+	// current view, so a glint never marks gold under fog.
+	private const float GlintSeconds = 0.35f;
+	private const float GlintArm = 7f;   // px, at the flash's peak
+	private static readonly Color OreGlintCol = new(2.2f, 1.8f, 0.8f);   // HDR, so it blooms
+
+	private void DrawOreGlints(TileGrid grid, int vx0, int vx1, int vy0, int vy1, int ts, float now)
+	{
+		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
+		{
+			if (grid.Get(p) != TileType.GoldRock || !_client.Fog.IsVisible(p)) continue;
+			uint h = (uint)(p.X * 2654435761u ^ p.Y * 40503u ^ 0x61u);
+			float period = 2.5f + (h & 0xFFu) * (2f / 255f);   // 2.5-4.5 s, so tiles never flash together
+			float since = (now + ((h >> 8) & 0xFFu) * (period / 255f)) % period;
+			if (since > GlintSeconds) continue;
+			float pulse = Mathf.Sin(since / GlintSeconds * Mathf.Pi);
+
+			// Each flash lands at a different point along the tile's primary vein.
+			var (va, vb) = GoldVeinEnds(p.X, p.Y, ts);
+			float along = 0.15f + (((h >> 16) ^ (uint)(now / period)) * 2654435761u >> 24) * (0.7f / 255f);
+			var c = va.Lerp(vb, along);
+			float arm = GlintArm * pulse;
+			var col = new Color(OreGlintCol.R, OreGlintCol.G, OreGlintCol.B, pulse);
+			DrawLine(c - new Vector2(arm, 0f), c + new Vector2(arm, 0f), col, 1f);
+			DrawLine(c - new Vector2(0f, arm), c + new Vector2(0f, arm), col, 1f);
+			DrawRect(new Rect2(c - Vector2.One, new Vector2(2f, 2f)), col);
+		}
+	}
+
+	private static (Vector2 a, Vector2 b) GoldVeinEnds(int tx, int ty, int ts)
+	{
+		uint h = (uint)(tx * 73856093 ^ ty * 19349663);
+		float x0 = tx * ts, y0 = ty * ts;
+		bool nw2se = (h & 1u) == 0;
+		float inA = 5f + (h >> 2 & 7u);   // 5–12 px inset at start
+		float inB = 5f + (h >> 6 & 7u);   // 5–12 px inset at end
+		return nw2se
+			? (new Vector2(x0 + inA, y0 + inA), new Vector2(x0 + ts - inB, y0 + ts - inB))
+			: (new Vector2(x0 + ts - inA, y0 + inA), new Vector2(x0 + inB, y0 + ts - inB));
+	}
+
 	private void DrawGoldVeins(int tx, int ty, int ts)
 	{
 		uint h = (uint)(tx * 73856093 ^ ty * 19349663);
 		float x0 = tx * ts, y0 = ty * ts;
 
 		// Primary vein — diagonal, direction and inset randomised per tile
-		bool nw2se = (h & 1u) == 0;
-		float inA = 5f + (h >> 2 & 7u);   // 5–12 px inset at start
-		float inB = 5f + (h >> 6 & 7u);   // 5–12 px inset at end
-		var va = nw2se ? new Vector2(x0 + inA, y0 + inA)           : new Vector2(x0 + ts - inA, y0 + inA);
-		var vb = nw2se ? new Vector2(x0 + ts - inB, y0 + ts - inB) : new Vector2(x0 + inB,      y0 + ts - inB);
+		var (va, vb) = GoldVeinEnds(tx, ty, ts);
 		DrawLine(va, vb, new Color(0.90f, 0.72f, 0.04f, 0.55f), 2.0f);
 
 		// Secondary short vein — only drawn on ~60 % of tiles to add variety
