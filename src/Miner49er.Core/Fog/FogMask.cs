@@ -48,8 +48,13 @@ public static class FogMask
         return mask;
     }
 
-    // Darkens toward the edge of the view, then holds that level everywhere beyond it so the
-    // vignette has no rim. Fog already darker than the vignette is left as it is.
+    // Fraction of the view radius that stays fully clear before the vignette starts to darken.
+    private const float VignetteClear = 0.5f;
+
+    // Clear out to VignetteClear, smoothly darkens to the edge of the view, then holds that level
+    // everywhere beyond it so the vignette has no rim. Reaching the dim level at the radius is what
+    // makes the view read as a circle rather than as the tile-shaped visible set. Fog already
+    // darker than the vignette is left as it is.
     private static void ApplyVignette(float[] alpha, int w, int h, int tileX, int tileY, FogView view)
     {
         for (int y = 0; y < h; y++)
@@ -57,8 +62,9 @@ public static class FogMask
             {
                 float dx = tileX + (x + 0.5f) / TexelsPerTile - view.X;
                 float dy = tileY + (y + 0.5f) / TexelsPerTile - view.Y;
-                float t = MathF.Min(1f, MathF.Sqrt(dx * dx + dy * dy) / view.Radius);
-                float a = view.Dim * t * t * t;
+                float t = Math.Clamp((MathF.Sqrt(dx * dx + dy * dy) / view.Radius - VignetteClear)
+                    / (1f - VignetteClear), 0f, 1f);
+                float a = view.Dim * t * t * (3f - 2f * t);
                 if (a > alpha[y * w + x]) alpha[y * w + x] = a;
             }
     }

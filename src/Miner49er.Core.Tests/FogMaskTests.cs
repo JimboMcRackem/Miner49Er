@@ -39,6 +39,16 @@ public class FogMaskTests
     }
 
     [Fact]
+    public void View_vignette_is_fully_clear_inside_half_the_radius()
+    {
+        var view = new FogView(0f, 2.5f, 4f, 0.5f);
+        var mask = FogMask.Build(VisibleLeftOf(10), 0, 0, 10, 5, Dim, false, view);
+        for (int x = 0; x < 2 * T - 1; x++)
+            Assert.Equal(0, At(mask, x, 2 * T + T / 2));
+        Assert.Equal(128, At(mask, 4 * T, 2 * T + T / 2)); // reaches the full 0.5 at the radius
+    }
+
+    [Fact]
     public void View_vignette_never_thins_hidden_tiles()
     {
         var view = new FogView(3f, 2.5f, 4f, 0.32f);

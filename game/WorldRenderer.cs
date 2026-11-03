@@ -98,8 +98,9 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color SconceFlame  = new(0.75f, 0.35f, 1.5f);
 	private static readonly Color CrystalGlowCore  = new(1.60f, 1.40f, 2.30f);
 	private static readonly Color LavaGlowBoost    = new(1.55f, 1.10f, 0.65f);
-	// Cool blue-white — only the bright core blooms; dimmer/cooler than the lantern.
-	private static readonly Color TorchGlowBoost = new(0.88f, 0.94f, 1.10f);
+	// Cool blue tint, kept under 1.0 so it never blooms and at half the texture's alpha so the
+	// floor's texture shows through; the light-map does the brightening.
+	private static readonly Color TorchGlowBoost = new(0.80f, 0.88f, 1.0f, 0.5f);
 	private const int TorchGlowTiles = 4;
 
 	// A soft flattened ellipse under an actor's feet — grounds sprites and adds depth. Static so

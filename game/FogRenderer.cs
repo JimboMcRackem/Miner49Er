@@ -15,9 +15,10 @@ public partial class FogRenderer : Node2D
 	public bool SpectatorMode { get; set; }
 
 	private const float DimAlpha = 0.78f;
-	// The visible disc is now lit by the light-map, so fog only lightly vignettes it —
-	// far below the flat DimAlpha used for explored-but-not-visible tiles.
-	private const float InViewDimAlpha = 0.32f;
+	// The visible disc also gets the light-map's darkness, so the vignette only needs to reach the
+	// level that, stacked on unlit ambient darkness, matches DimAlpha. The view's edge then blends
+	// into the explored fog instead of stepping along tile edges.
+	private const float InViewDimAlpha = 1f - (1f - DimAlpha) / (1f - LightRenderer.AmbientDarkAlpha);
 	private const float VoidMargin = 4096f; // world px blacked out past each map edge; well beyond any view
 	private const int MaskMarginTiles = 2;
 
