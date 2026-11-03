@@ -131,7 +131,10 @@ public partial class TerrainMap : Node2D
 		int bl = TerrainAt(i - 1, j);
 		int br = TerrainAt(i,     j);
 		var cell = new Vector2I(i, j);
-		var resolved = Resolve(tl, tr, bl, br);
+		// WorldRenderer paints water over its own tiles but over nothing else, and rounds its
+		// corners, so any water in a mixed cell would show the atlas's raw cyan.
+		var (dtl, dtr, dbl, dbr) = WaterCorners.Dry(tl, tr, bl, br, Water, FallbackPriority);
+		var resolved = Resolve(dtl, dtr, dbl, dbr);
 		_layer.SetCell(cell, _sourceId, resolved);
 
 		// _waterLayer is invisible; kept in sync so it can be re-enabled without a repaint.
@@ -159,9 +162,6 @@ public partial class TerrainMap : Node2D
 	{
 		if (_lookup.TryGetValue((tl, tr, bl, br), out var c)) return c;
 		int m = Majority(tl, tr, bl, br);
-		// There is no water/wall edge art. WorldRenderer paints water over its own tiles but not
-		// over walls, so a solid water tile here would show raw on the wall's quarter of the cell.
-		if (m == Water && (tl == Wall || tr == Wall || bl == Wall || br == Wall)) m = Wall;
 		if (_solid.TryGetValue(m, out var s)) return s;
 		return _solid.TryGetValue(Wall, out var w) ? w : new Vector2I(0, 0);
 	}
