@@ -34,6 +34,7 @@ public partial class FogRenderer : Node2D
 		mat.SetShaderParameter("shadow_tint", new Vector3(tint.R, tint.G, tint.B));
 		mat.SetShaderParameter("dim_alpha", DimAlpha);
 		mat.SetShaderParameter("memory_from", InViewDimAlpha);
+		mat.SetShaderParameter("tile_px", (float)MatchClient.TileSize);
 		Material = mat;
 	}
 
