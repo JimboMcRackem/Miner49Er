@@ -38,7 +38,7 @@ public partial class LightRenderer : Node2D
     public bool SpectatorMode { get; set; }
 
     // Alpha of full darkness on a visible-but-unlit tile. Lit tiles thin toward 0.
-    private const float AmbientDarkAlpha = 0.55f;
+    internal const float AmbientDarkAlpha = 0.55f;
     // +1 over the 4-tile blue torch halo (like the lantern's margin) so the interpolated
     // halo edge never slides onto a still-dark tile while the miner is moving.
     private const int   PlayerTorchRadius = 5;
