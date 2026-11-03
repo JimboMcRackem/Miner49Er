@@ -1024,6 +1024,73 @@ public partial class WorldRenderer : Node2D
 		return t == TileType.Floor || t == TileType.Cracked || t == TileType.Crumbling;
 	}
 
+	// Wall depth: a face along the bottom of walls with open ground below, and a contact shadow on
+	// open ground beside walls, heaviest under a wall since it is lit from the viewer's side.
+	private const float WallFaceDepth = 0.2f;   // fraction of a tile
+	// Alphas look high, but blending happens in linear light, which reads about half as dark.
+	private static readonly Color WallFaceTop = new(0f, 0f, 0f, 0.25f);
+	private static readonly Color WallFaceBottom = new(0f, 0f, 0f, 0.7f);
+	private static readonly (int dx, int dy, float depth, float alpha)[] WallShadowSides =
+	{
+		(0, -1, 0.45f, 0.7f),    // wall above: the shadow it casts down-screen
+		(-1, 0, 0.25f, 0.45f),
+		(1,  0, 0.25f, 0.45f),
+		(0,  1, 0.12f, 0.25f),   // wall below: its face is lit, so only a faint crease
+	};
+	private readonly Vector2[] _quadPts = new Vector2[4];
+	private readonly Color[] _quadCols = new Color[4];
+
+	private void DrawWallDepth(TileGrid grid, int vx0, int vx1, int vy0, int vy1, int ts)
+	{
+		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
+		{
+			var t = grid.Get(p);
+			if (t.BlocksSight())
+			{
+				var below = new GridPos(p.X, p.Y + 1);
+				if (!grid.InBounds(below) || !TakesWallShadow(grid.Get(below))) continue;
+				float face = ts * WallFaceDepth, top = (p.Y + 1) * ts - face;
+				DrawGradientQuad(new Rect2(p.X * ts, top, ts, face), WallFaceTop, WallFaceTop, WallFaceBottom, WallFaceBottom);
+				continue;
+			}
+			if (!TakesWallShadow(t)) continue;
+
+			float x0 = p.X * ts, y0 = p.Y * ts;
+			foreach (var (dx, dy, depth, alpha) in WallShadowSides)
+			{
+				var n = new GridPos(p.X + dx, p.Y + dy);
+				if (!grid.InBounds(n) || !grid.Get(n).BlocksSight()) continue;
+				float d = ts * depth;
+				var dark = new Color(0f, 0f, 0f, alpha);
+				var clear = new Color(0f, 0f, 0f, 0f);
+				switch (dx, dy)
+				{
+					case (0, -1): DrawGradientQuad(new Rect2(x0, y0, ts, d), dark, dark, clear, clear); break;
+					case (0, 1):  DrawGradientQuad(new Rect2(x0, y0 + ts - d, ts, d), clear, clear, dark, dark); break;
+					case (-1, 0): DrawGradientQuad(new Rect2(x0, y0, d, ts), dark, clear, dark, clear); break;
+					default:      DrawGradientQuad(new Rect2(x0 + ts - d, y0, d, ts), clear, dark, clear, dark); break;
+				}
+			}
+		}
+	}
+
+	// Lava glows, so a shadow on it would read as cooling.
+	private static bool TakesWallShadow(TileType t) =>
+		t.IsEnterable() && t != TileType.Lava && t != TileType.LavaVent;
+
+	private void DrawGradientQuad(Rect2 r, Color topLeft, Color topRight, Color bottomLeft, Color bottomRight)
+	{
+		_quadPts[0] = r.Position;
+		_quadPts[1] = new Vector2(r.End.X, r.Position.Y);
+		_quadPts[2] = r.End;
+		_quadPts[3] = new Vector2(r.Position.X, r.End.Y);
+		_quadCols[0] = topLeft;
+		_quadCols[1] = topRight;
+		_quadCols[2] = bottomRight;
+		_quadCols[3] = bottomLeft;
+		DrawPolygon(_quadPts, _quadCols);
+	}
+
 	private static System.Collections.Generic.IEnumerable<GridPos> VisibleTiles(int vx0, int vx1, int vy0, int vy1)
 	{
 		for (int y = vy0; y <= vy1; y++)
@@ -1300,6 +1367,8 @@ public partial class WorldRenderer : Node2D
 				}
 			}
 		}
+
+		DrawWallDepth(grid, vx0, vx1, vy0, vy1, ts);
 
 		// Colour-coded teleport gates. A gate only draws once its tile is uncovered Floor.
 		// State: black void until BOTH ends are revealed (partner still buried) — then the
