@@ -48,7 +48,14 @@ public partial class LightRenderer : Node2D
     private const int LavaRadius    = 3;
     private const int SconceRadius  = 4;
 
-    public void Init(MatchClient client) => _client = client;
+    // Darkness takes the floor's shadow tint rather than plain black (see CaveMood).
+    private Color _shadow = Colors.Black;
+
+    public void Init(MatchClient client)
+    {
+        _client = client;
+        _shadow = CaveMood.Shadow();
+    }
 
     public override void _Process(double delta) => QueueRedraw();
 
@@ -117,7 +124,7 @@ public partial class LightRenderer : Node2D
     private void AddVertex(float x, float y, float bright)
     {
         _points.Add(new Vector2(x, y));
-        _colors.Add(new Color(0f, 0f, 0f, AmbientDarkAlpha * (1f - bright)));
+        _colors.Add(new Color(_shadow.R, _shadow.G, _shadow.B, AmbientDarkAlpha * (1f - bright)));
     }
 
     private void BuildLights(TileGrid grid)

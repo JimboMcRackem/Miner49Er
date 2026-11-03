@@ -14,7 +14,9 @@ public partial class FogRenderer : Node2D
 	// Set true when the local miner is dead — suppresses all fog so the full map is visible.
 	public bool SpectatorMode { get; set; }
 
-	private const float DimAlpha = 0.78f;
+	// Remembered areas are also greyed by the fog shader, which marks them as not live, so they
+	// can stay readable rather than near-black.
+	private const float DimAlpha = 0.65f;
 	// The visible disc also gets the light-map's darkness, so the vignette only needs to reach the
 	// level that, stacked on unlit ambient darkness, matches DimAlpha. The view's edge then blends
 	// into the explored fog instead of stepping along tile edges.
@@ -27,6 +29,12 @@ public partial class FogRenderer : Node2D
 		_client = client;
 		// The project default is nearest for pixel art, but the fog mask is a soft gradient.
 		TextureFilter = TextureFilterEnum.Linear;
+		var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://game/Fog.gdshader") };
+		var tint = CaveMood.Shadow().SrgbToLinear();
+		mat.SetShaderParameter("shadow_tint", new Vector3(tint.R, tint.G, tint.B));
+		mat.SetShaderParameter("dim_alpha", DimAlpha);
+		mat.SetShaderParameter("memory_from", InViewDimAlpha);
+		Material = mat;
 	}
 
 	public override void _Process(double delta)
