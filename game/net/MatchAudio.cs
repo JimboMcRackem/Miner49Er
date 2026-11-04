@@ -29,6 +29,8 @@ public partial class MatchAudio : Node2D
 	private readonly Dictionary<int, int> _prevHeld = new();
 	private readonly HashSet<(int x, int y)> _prevMolds = new();
 	private readonly Dictionary<int, AudioStreamPlayer2D> _pickaxeLoops = new();
+	private readonly Dictionary<(int x, int y), AudioStreamPlayer2D> _fallWhistles = new();
+	private readonly HashSet<(int x, int y)> _fallsNow = new();
 	private readonly List<AudioStreamPlayer2D> _dripEmitters = new();
 	private AudioStreamPlayer2D? _lavaLoop;
 	private bool _hadExplosionThisFrame;
@@ -192,6 +194,7 @@ public partial class MatchAudio : Node2D
 		}
 
 		UpdateTremorSound();
+		UpdateFallWhistles();
 		if (_client.MineEvent != _prevMineEvent)
 		{
 			_prevMineEvent = _client.MineEvent;
@@ -339,6 +342,37 @@ public partial class MatchAudio : Node2D
 		{
 			_tremorPlayer.QueueFree();
 			_tremorPlayer = null;
+		}
+	}
+
+	// Each warned ceiling fall whistles like a dropping bomb: the pitch falls and the sound swells
+	// until the rock lands, then a crash. A fall that never lands (its tile changed) just goes quiet.
+	private void UpdateFallWhistles()
+	{
+		_fallsNow.Clear();
+		if (_client.PendingFalls != null)
+			foreach (var pf in _client.PendingFalls)
+			{
+				var key = (pf.X, pf.Y);
+				_fallsNow.Add(key);
+				if (!_fallWhistles.TryGetValue(key, out var p))
+					_fallWhistles[key] = p = MakeLoop(SfxLibrary.FallWhistle, WorldOf(pf.X, pf.Y));
+				p.PitchScale = Mathf.Lerp(1f, 0.4f, pf.FractionElapsed);
+				p.VolumeDb = Mathf.Lerp(-20f, -6f, pf.FractionElapsed);
+			}
+
+		List<(int x, int y)>? ended = null;
+		foreach (var key in _fallWhistles.Keys)
+			if (!_fallsNow.Contains(key)) (ended ??= new()).Add(key);
+		if (ended == null) return;
+		foreach (var key in ended)
+		{
+			var p = _fallWhistles[key];
+			_fallWhistles.Remove(key);
+			if (IsInstanceValid(p)) p.QueueFree();
+			var gp = new GridPos(key.x, key.y);
+			if (_client.Grid.InBounds(gp) && _client.Grid.Get(gp) == TileType.Rock)
+				OneShot(SfxLibrary.Rockfall, WorldOf(key.x, key.y));
 		}
 	}
 

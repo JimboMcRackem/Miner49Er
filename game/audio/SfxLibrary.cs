@@ -59,6 +59,7 @@ public static class SfxLibrary
 	public static AudioStream GhostScream => Get("ghost_scream", () => Tone(0.45f, 1800f, 300f));           // piercing wail
 	public static AudioStream ZombieGrunt => Get("zombie_grunt", () => Noise(0.18f, 140f, decay: true));    // guttural grunt
 	public static AudioStream Whistle     => Get("whistle",      () => Tone(0.30f, 1000f, 2200f));          // rising pea-whistle â€” call to exit
+	public static AudioStream FallWhistle  => Get("fall_whistle",  () => Whine(0.5f, 2000f));               // steady whistle, looped; MatchAudio bends it down like a falling bomb
 	public static AudioStream PortalWhoosh => Get("portal_whoosh", () => Tone(0.35f, 400f, 1400f));          // rising whoosh â€” teleport
 	public static AudioStream Tinnitus      => Get("tinnitus",       () => Noise(5.0f, 2800f, decay: true));  // high-frequency static hiss â€” deafen after nearby blast
 	public static AudioStream TinnitusWhine => Get("tinnitus_whine", () => Tone(5.0f,  3800f, 3800f));        // constant-pitch whine fading in amplitude â€” layered under the hiss
@@ -193,6 +194,23 @@ public static class SfxLibrary
 			data[i * 2 + 1] = (byte)((v >> 8) & 0xff);
 		}
 		return Wav(data);
+	}
+
+	// A constant sine that loops without a click: pick seconds * hz as a whole number of cycles.
+	private static AudioStreamWav Whine(float seconds, float hz)
+	{
+		int n = Mathf.Max(1, (int)(seconds * MixRate));
+		var data = new byte[n * 2];
+		for (int i = 0; i < n; i++)
+		{
+			short v = (short)(Mathf.Sin(2f * Mathf.Pi * hz * i / MixRate) * 12000f);
+			data[i * 2] = (byte)(v & 0xff);
+			data[i * 2 + 1] = (byte)((v >> 8) & 0xff);
+		}
+		var wav = Wav(data);
+		wav.LoopMode = AudioStreamWav.LoopModeEnum.Forward;
+		wav.LoopEnd = n;
+		return wav;
 	}
 
 	private static AudioStreamWav Wav(byte[] data) => new()
