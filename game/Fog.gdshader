@@ -11,8 +11,8 @@ uniform float dim_alpha;          // opacity of explored-but-not-visible tiles
 uniform float memory_from;        // opacity where greying starts: the in-view vignette's peak
 uniform float memory_grey = 0.6;  // how much colour remembered areas lose; some hue stays so water never reads as lava
 uniform float tile_px = 32.0;     // world px per tile (set from MatchClient.TileSize); sets the haze's scale
-uniform float haze_amount = 0.8;  // how much brighter the thickest wisps make a remembered area
-uniform float haze_gap = 0.25;    // how much darker the gaps between wisps are, as a share of haze_amount
+uniform float haze_amount = 0.4;  // how much brighter the thickest wisps make a remembered area
+uniform float haze_gap = 0.4;     // how much darker the gaps between wisps are, as a share of haze_amount
 
 varying vec2 world_px;
 
@@ -20,22 +20,28 @@ void vertex() {
 	world_px = VERTEX;   // FogRenderer draws in world space at the origin
 }
 
-float hash(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+vec2 grad(vec2 p) {
+	float a = fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453) * 6.2831853;
+	return vec2(cos(a), sin(a));
 }
 
-float value_noise(vec2 p) {
+// Gradient noise, about -0.7..0.7. Value noise left square, grid-aligned blobs once thresholded.
+float gradient_noise(vec2 p) {
 	vec2 i = floor(p), f = fract(p);
-	vec2 u = f * f * (3.0 - 2.0 * f);
-	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-	           mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+	vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+	return mix(mix(dot(grad(i), f), dot(grad(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0)), u.x),
+	           mix(dot(grad(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0)),
+	               dot(grad(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0)), u.x), u.y);
 }
 
-// Two layers drifting different ways, a few tiles across, so wisps slowly change shape as they move.
+// Two layers on grids turned against each other and drifting different ways, several tiles
+// across, so no edge lines up with the tiles and the wisps slowly change shape as they move.
 float haze(vec2 tiles, float t) {
-	float n = value_noise(tiles / 3.0 + t * vec2(0.08, 0.03)) * 0.65
-	        + value_noise(tiles / 1.3 - t * vec2(0.05, 0.1)) * 0.35;
-	return smoothstep(0.45, 0.8, n);
+	const mat2 turn_a = mat2(vec2(0.80, 0.60), vec2(-0.60, 0.80));
+	const mat2 turn_b = mat2(vec2(0.47, -0.88), vec2(0.88, 0.47));
+	float n = gradient_noise(turn_a * tiles / 6.0 + t * vec2(0.04, 0.015)) * 0.75
+	        + gradient_noise(turn_b * tiles / 2.5 - t * vec2(0.025, 0.05)) * 0.25;
+	return smoothstep(-0.15, 0.45, n);
 }
 
 void fragment() {
