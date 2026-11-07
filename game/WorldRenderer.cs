@@ -1125,31 +1125,7 @@ public partial class WorldRenderer : Node2D
 			if (_waterUnderlays![wi] is { } underlay) DrawPolygon(underlay, _shallowWaterCol);
 			DrawPolygon(_waterPolys![wi], deep ? _deepWaterCol : _shallowWaterCol);
 
-			float wx0 = p.X * ts, wy0 = p.Y * ts;
-			uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
-			for (int g = 0; g < 2; g++)
-			{
-				uint gh = wh ^ (uint)(g * 2654435761u);
-				float bx = wx0 + 4f + (gh & 0xFu) * (ts - 8) / 15f;
-				float by = wy0 + 4f + ((gh >> 8) & 0xFu) * (ts - 8) / 15f;
-				float ph = ((gh >> 16) & 0xFFu) * (Mathf.Tau / 255f);
-				float gx = bx + Mathf.Sin(wTime * GlintDriftSpeed + ph) * GlintDriftAmp;
-				float gy = by + Mathf.Cos(wTime * GlintDriftSpeed * 0.8f + ph) * GlintDriftAmp;
-				float pulse = 0.4f + 0.6f * (0.5f + 0.5f * Mathf.Sin(wTime * GlintPulseSpeed + ph));
-				float alpha = GlintAlpha * pulse;
-				DrawTextureRect(_waterGlintTex,
-					new Rect2(gx - GlintSize / 2f, gy - GlintSize / 2f, GlintSize, GlintSize), false,
-					deep ? new Color(0.5f, 0.72f, 1f, alpha * 0.7f)
-					     : new Color(0.68f, 0.86f, 1f, alpha));
-			}
-			DrawWaterSpecks(wx0, wy0, ts, wh, wTime, deep);
-
-			// Living shoreline: a wavy foam line just inside each dry-facing edge.
-			byte edges = _waterEdges![wi];
-			if (edges != 0)
-				for (int side = 0; side < 4; side++)
-					if ((edges & (1 << side)) != 0)
-						DrawShoreEdge(wx0, wy0, ts, side, wTime);
+			DrawWaterSurface(p, deep, _waterEdges![wi], ts, wTime);
 		}
 
 		// Rising-flood front: each conquered tile fills from its edge-ward side with a wavy
@@ -1165,14 +1141,21 @@ public partial class WorldRenderer : Node2D
 		}
 
 		// Settled flood water: not in the static polygon cache, so only the base tilemap draws
-		// it — and that layer can be depth-tinted, showing purple. Paint a deep-blue fill on top
-		// to match the pools. Tiles still creeping in are drawn by the pass above, so skip them.
+		// it — and that layer can be depth-tinted, showing purple. Paint the pools' colour on top
+		// with their glints, specks and shoreline. Tiles still creeping in are drawn by the pass
+		// above, so skip them.
 		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
 		{
 			var tt = grid.Get(p);
 			if (!tt.IsWater() || _staticWaterSet!.Contains(p) || _animatingTiles.Contains(p)) continue;
-			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts),
-				tt == TileType.DeepWater ? _deepWaterCol[0] : _shallowWaterCol[0]);
+			bool deep = tt == TileType.DeepWater;
+			DrawRect(new Rect2(p.X * ts, p.Y * ts, ts, ts), deep ? _deepWaterCol[0] : _shallowWaterCol[0]);
+			byte e = 0;
+			if (!IsWater(grid, p.X, p.Y - 1)) e |= 1; // N
+			if (!IsWater(grid, p.X + 1, p.Y)) e |= 2; // E
+			if (!IsWater(grid, p.X, p.Y + 1)) e |= 4; // S
+			if (!IsWater(grid, p.X - 1, p.Y)) e |= 8; // W
+			DrawWaterSurface(p, deep, e, ts, wTime);
 		}
 
 		// Procedural rough-stone floor — covers the PixelLab floor texture with per-tile brightness
@@ -2552,6 +2535,35 @@ public partial class WorldRenderer : Node2D
 			float a = fromA + (toA - fromA) * k / n;
 			pts.Add(new Vector2(cx + r * Mathf.Cos(a), cy + r * Mathf.Sin(a)));
 		}
+	}
+
+	// Drifting glints, light specks and, along each dry-facing side in `edges` (bits N,E,S,W),
+	// a wavy foam line: everything that makes a water tile read as water rather than paint.
+	private void DrawWaterSurface(GridPos p, bool deep, byte edges, int ts, float wTime)
+	{
+		float wx0 = p.X * ts, wy0 = p.Y * ts;
+		uint wh = (uint)(p.X * 2246822519u ^ p.Y * 3266489917u ^ 0xA71Bu);
+		for (int g = 0; g < 2; g++)
+		{
+			uint gh = wh ^ (uint)(g * 2654435761u);
+			float bx = wx0 + 4f + (gh & 0xFu) * (ts - 8) / 15f;
+			float by = wy0 + 4f + ((gh >> 8) & 0xFu) * (ts - 8) / 15f;
+			float ph = ((gh >> 16) & 0xFFu) * (Mathf.Tau / 255f);
+			float gx = bx + Mathf.Sin(wTime * GlintDriftSpeed + ph) * GlintDriftAmp;
+			float gy = by + Mathf.Cos(wTime * GlintDriftSpeed * 0.8f + ph) * GlintDriftAmp;
+			float pulse = 0.4f + 0.6f * (0.5f + 0.5f * Mathf.Sin(wTime * GlintPulseSpeed + ph));
+			float alpha = GlintAlpha * pulse;
+			DrawTextureRect(_waterGlintTex,
+				new Rect2(gx - GlintSize / 2f, gy - GlintSize / 2f, GlintSize, GlintSize), false,
+				deep ? new Color(0.5f, 0.72f, 1f, alpha * 0.7f)
+				     : new Color(0.68f, 0.86f, 1f, alpha));
+		}
+		DrawWaterSpecks(wx0, wy0, ts, wh, wTime, deep);
+
+		if (edges != 0)
+			for (int side = 0; side < 4; side++)
+				if ((edges & (1 << side)) != 0)
+					DrawShoreEdge(wx0, wy0, ts, side, wTime);
 	}
 
 	private void EnsureWaterCache()
