@@ -168,8 +168,8 @@ public sealed class SimConfig
     public int FiredampTiles { get; set; } = 50;
 
     public double FlashFloodWarningSeconds { get; set; } = 8.0;    // the area shows before the water comes
-    public double FlashFloodSeconds { get; set; } = 20.0;
-    public double FlashFloodTilesPerSecond { get; set; } = 12.0;
+    public double FlashFloodSeconds { get; set; } = 35.0;          // ~11 s rising, ~13 s full, ~11 s draining
+    public double FlashFloodTilesPerSecond { get; set; } = 4.0;
     public int FlashFloodTiles { get; set; } = 45;
 
     public double AwakeningSeconds { get; set; } = 30.0;

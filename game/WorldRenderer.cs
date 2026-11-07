@@ -166,7 +166,7 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color PebbleCol = new(0.62f, 0.56f, 0.5f, 1f);
 	private static readonly Color TremorDangerCol = new(1f, 0.15f, 0.08f, 0.32f);
 	private static readonly Color GasCol = new(0.7f, 0.85f, 0.3f, 0.3f);
-	private static readonly Color FloodWarningCol = new(0.2f, 0.5f, 1f, 0.3f);
+	private static readonly Color FloodWarningCol = new(0.1f, 0.55f, 1f, 0.6f); // strong enough not to read as torchlight
 	private static readonly Color SeamSparkCol = new(1.5f, 1.2f, 0.4f, 1f);
 	private const float TremorDebrisInterval = 0.12f;
 	private float _tremorDebrisTimer;
@@ -745,7 +745,8 @@ public partial class WorldRenderer : Node2D
 			var p = new GridPos(t.X, t.Y);
 			if (!_client.Fog.IsVisible(p) || (!gas && grid.Get(p) != TileType.Floor)) continue;
 			var col = gas ? GasCol : FloodWarningCol;
-			float wave = 0.65f + 0.35f * Mathf.Sin(time + (t.X + t.Y) * 0.9f);
+			float wave = gas ? 0.65f + 0.35f * Mathf.Sin(time + (t.X + t.Y) * 0.9f)
+			                 : 0.45f + 0.55f * Mathf.Sin(time * 2.5f + (t.X + t.Y) * 0.9f);   // a quicker, deeper pulse: danger
 			DrawRect(new Rect2(t.X * ts, t.Y * ts, ts, ts), col with { A = col.A * wave });
 		}
 	}
