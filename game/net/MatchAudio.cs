@@ -201,7 +201,10 @@ public partial class MatchAudio : Node2D
 		{
 			_prevMineEvent = _client.MineEvent;
 			PlayEventSound(_prevMineEvent);
+			if (_prevMineEvent != MineEventKind.None) Sting(SfxLibrary.EventSting);
 		}
+		UpdateStingers();
+		UpdateTension((float)delta);
 
 		_rumbleTimer -= delta;
 		if (_rumbleTimer <= 0 && _client.TremorIntensity <= 0f)
@@ -385,6 +388,68 @@ public partial class MatchAudio : Node2D
 		AddChild(p);
 		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
 		p.Play();
+	}
+
+	// Short musical phrases over the music for big moments.
+	private const float StingVolumeDb = -6f;
+	private bool? _prevLocalAlive;
+	private int _prevFloor = -1;
+
+	private void Sting(AudioStream stream)
+	{
+		var p = new AudioStreamPlayer { Stream = stream, Bus = AudioManager.BusMusic, VolumeDb = StingVolumeDb };
+		AddChild(p);
+		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
+		p.Play();
+	}
+
+	private void UpdateStingers()
+	{
+		bool? alive = null;
+		foreach (var m in _client.Miners)
+			if (m.Id == _client.LocalMinerId) { alive = m.Alive; break; }
+		if (_prevLocalAlive == true && alive == false) Sting(SfxLibrary.DeathSting);
+		if (alive != null) _prevLocalAlive = alive;
+
+		int floor = NetworkManager.Instance.MatchFloor;
+		if (_prevFloor >= 0 && floor > _prevFloor) Sting(SfxLibrary.FloorSting);
+		_prevFloor = floor;
+	}
+
+	// A low throbbing drone that swells in while a monster is close and in sight, or a flood is
+	// running, and ebbs away once it's over.
+	private const float TensionSilentDb = -40f, TensionFullDb = -9f, TensionRange = 5f;
+	private AudioStreamPlayer? _tensionPlayer;
+	private float _tension;
+
+	private void UpdateTension(float dt)
+	{
+		float target = 0f;
+		if (_client.LocalMinerTile() is { } me)
+		{
+			if (_client.MineEvent == MineEventKind.FlashFlood) target = 0.8f;
+			foreach (var mo in _client.Monsters)
+			{
+				if (!mo.Alive || mo.Dormant) continue;
+				var mp = new GridPos(mo.X, mo.Y);
+				if (!_client.Fog.IsVisible(mp)) continue;
+				float d = Mathf.Sqrt((mo.X - me.X) * (mo.X - me.X) + (mo.Y - me.Y) * (mo.Y - me.Y));
+				if (d <= TensionRange) target = Mathf.Max(target, 1f - 0.5f * d / TensionRange);
+			}
+		}
+		_tension = Mathf.MoveToward(_tension, target, dt * (target > _tension ? 0.8f : 0.25f));
+		if (_tension <= 0.01f)
+		{
+			if (_tensionPlayer != null) { _tensionPlayer.QueueFree(); _tensionPlayer = null; }
+			return;
+		}
+		if (_tensionPlayer == null)
+		{
+			_tensionPlayer = new AudioStreamPlayer { Stream = SfxLibrary.TensionLoop, Bus = AudioManager.BusMusic };
+			AddChild(_tensionPlayer);
+			_tensionPlayer.Play();
+		}
+		_tensionPlayer.VolumeDb = Mathf.LinearToDb(Mathf.Lerp(Mathf.DbToLinear(TensionSilentDb), Mathf.DbToLinear(TensionFullDb), _tension));
 	}
 
 	// Heard everywhere, not from the exit: it matters most when you're far from it.

@@ -62,6 +62,11 @@ public static class SfxLibrary
 	public static AudioStream RockBreak  => Get("rock_break",  () => Noise(0.16f, 600f, decay: true));   // crunch as a dug tile gives way
 	public static AudioStream GoldChime  => Get("gold_chime",  () => Tone(0.35f, 1500f, 2300f));          // bright ring when gold rock breaks
 	public static AudioStream FallWhistle  => Get("fall_whistle",  () => Whine(0.5f, 2000f));               // steady whistle, looped; MatchAudio bends it down like a falling bomb
+	// Music stingers and the tension bed (played on the Music bus).
+	public static AudioStream DeathSting => Get("sting_death", () => Arpeggio(0.16f, 392f, 311f, 262f, 196f)); // falling minor: it's over
+	public static AudioStream FloorSting => Get("sting_floor", () => Arpeggio(0.09f, 392f, 523f, 659f, 784f, 1047f)); // rising major: onward
+	public static AudioStream EventSting => Get("sting_event", () => Arpeggio(0.07f, 220f, 262f, 311f));        // short minor stab: something's coming
+	public static AudioStream TensionLoop => Get("tension_loop", () => Tension(4f));                              // throbbing low drone, looped
 	public static AudioStream Heartbeat  => Get("heartbeat",   () => Heartbeat2());                                     // lub-dub, low and dull
 	public static AudioStream ExitOpen   => Get("exit_open",   () => Arpeggio(0.11f, 523f, 659f, 784f, 1047f)); // bright fanfare: the way out is open
 	public static AudioStream PortalWhoosh => Get("portal_whoosh", () => Tone(0.35f, 400f, 1400f));          // rising whoosh â€” teleport
@@ -200,6 +205,30 @@ public static class SfxLibrary
 		return Wav(data);
 	}
 
+	// A throbbing bass note rubbing against the semitone above it, with a faint high whine.
+	// Every frequency makes a whole number of cycles in the loop, so it loops without a click.
+	private static AudioStreamWav Tension(float seconds)
+	{
+		int n = (int)(seconds * MixRate);
+		var data = new byte[n * 2];
+		float throbHz = 10f / seconds, bassHz = 220f / seconds, rubHz = 233f / seconds, highHz = 3700f / seconds;
+		for (int i = 0; i < n; i++)
+		{
+			float t = (float)i / MixRate;
+			float throb = 0.55f + 0.45f * Mathf.Pow(0.5f + 0.5f * Mathf.Cos(2f * Mathf.Pi * throbHz * t), 3f);
+			float sum = Mathf.Sin(2f * Mathf.Pi * bassHz * t) * throb
+					  + 0.45f * Mathf.Sin(2f * Mathf.Pi * rubHz * t)
+					  + 0.06f * Mathf.Sin(2f * Mathf.Pi * highHz * t) * (0.5f + 0.5f * Mathf.Sin(2f * Mathf.Pi * t / seconds));
+			short v = (short)(Mathf.Clamp(sum * 0.55f, -1f, 1f) * 14000f);
+			data[i * 2] = (byte)(v & 0xff);
+			data[i * 2 + 1] = (byte)((v >> 8) & 0xff);
+		}
+		var wav = Wav(data);
+		wav.LoopMode = AudioStreamWav.LoopModeEnum.Forward;
+		wav.LoopEnd = n;
+		return wav;
+	}
+
 	// Two low thumps, the second softer: lub-dub.
 	private static AudioStreamWav Heartbeat2()
 	{
@@ -216,7 +245,7 @@ public static class SfxLibrary
 				float env = Mathf.Min(1f, local * 400f) * Mathf.Exp(-local * 28f);
 				sum += Mathf.Sin(2f * Mathf.Pi * hz * local) * env * gain;
 			}
-			short v = (short)(Mathf.Clamp(sum * 1.6f, -1f, 1f) * 14000f);
+			short v = (short)(Mathf.Clamp(sum * 1.1f, -1f, 1f) * 16000f);
 			data[i * 2] = (byte)(v & 0xff);
 			data[i * 2 + 1] = (byte)((v >> 8) & 0xff);
 		}
