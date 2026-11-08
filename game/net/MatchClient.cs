@@ -41,8 +41,41 @@ public partial class MatchClient : Node2D
 	public GridPos? ExpeditionTreasurePos { get; private set; }
 	public int GoldRemaining { get; private set; }
 	public Vector2 MonsterVisualPos(int id, int x, int y) =>
-		_monsterVisualPos.TryGetValue(id, out var v)
-			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f);
+		(_monsterVisualPos.TryGetValue(id, out var v)
+			? v : new Vector2(x * TileSize + TileSize / 2f, y * TileSize + TileSize / 2f)) + MonsterKick(id);
+
+	// A struck monster flashes white and is shoved back a little, then springs back.
+	private readonly Dictionary<int, (ulong AtMs, Vector2 Dir)> _monsterHits = new();
+	private const float HitFlashSeconds = 0.14f, HitKickSeconds = 0.22f, HitKickPx = TileSize * 0.28f;
+
+	private float MonsterHitAge(int id) =>
+		_monsterHits.TryGetValue(id, out var h) ? (Time.GetTicksMsec() - h.AtMs) / 1000f : float.MaxValue;
+
+	/// <summary>1 the moment a monster is struck, falling to 0 over a fraction of a second.</summary>
+	public float MonsterHitFlash(int id) => Mathf.Max(0f, 1f - MonsterHitAge(id) / HitFlashSeconds);
+
+	private Vector2 MonsterKick(int id)
+	{
+		float age = MonsterHitAge(id);
+		if (age >= HitKickSeconds) return Vector2.Zero;
+		float t = age / HitKickSeconds;
+		return _monsterHits[id].Dir * HitKickPx * Mathf.Sin(Mathf.Pi * Mathf.Sqrt(t)) * (1f - t);
+	}
+
+	private void MarkMonsterHit(int id, Vector2 at)
+	{
+		// Away from the nearest miner — almost always whoever landed the blow.
+		Vector2 dir = Vector2.Zero;
+		float best = float.MaxValue;
+		foreach (var m in _miners)
+		{
+			if (!m.Alive) continue;
+			var mp = MinerVisualPos(m.Id, m.X, m.Y);
+			float d = mp.DistanceSquaredTo(at);
+			if (d < best && d > 1f) { best = d; dir = (at - mp).Normalized(); }
+		}
+		_monsterHits[id] = (Time.GetTicksMsec(), dir);
+	}
 	public IReadOnlyList<CartSnapshot> Carts => _carts;
 	public IReadOnlyList<GridPos> TrackTiles { get; private set; } = System.Array.Empty<GridPos>();
 	public Vector2 CartVisualPos(int id, int x, int y) =>
@@ -433,7 +466,8 @@ public partial class MatchClient : Node2D
 			if (FogRenderer?.SpectatorMode != true && !Fog.IsVisible(dp)) continue;
 			var mpos = new Vector2(oldMo.X * TileSize + TileSize / 2f, oldMo.Y * TileSize + TileSize / 2f);
 			PauseIfNear(mpos, MonsterHitPause);
-			if (!stillAlive) _world?.EmitMonsterDeath(mpos, oldMo.Kind);
+			if (stillAlive) MarkMonsterHit(oldMo.Id, mpos);
+			else _world?.EmitMonsterDeath(mpos, oldMo.Kind);
 		}
 		_monsters = new List<MonsterSnapshot>(update.Snapshot.Monsters);
 		_carts = new List<CartSnapshot>(update.Snapshot.Carts ?? System.Array.Empty<CartSnapshot>());

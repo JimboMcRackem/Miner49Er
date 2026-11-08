@@ -457,6 +457,24 @@ public partial class WorldRenderer : Node2D
 		var rect = new Rect2(c.X - s.X / 2f, top, s.X, s.Y);
 		if (modulate.HasValue) ci.DrawTextureRect(tex, rect, false, modulate.Value);
 		else                   ci.DrawTextureRect(tex, rect, false);
+		if (_hitFlash > 0f) ci.DrawTextureRect(WhiteSilhouette(tex), rect, false, HitFlashCol with { A = _hitFlash });
+	}
+
+	// Set around a struck monster's draw so its sprite gets a white silhouette laid over it.
+	private static float _hitFlash;
+	private static readonly Color HitFlashCol = new(1.6f, 1.6f, 1.6f);
+	private static readonly Dictionary<Texture2D, Texture2D> _whiteTex = new();
+
+	private static Texture2D WhiteSilhouette(Texture2D tex)
+	{
+		if (_whiteTex.TryGetValue(tex, out var white)) return white;
+		var image = tex.GetImage();
+		if (image.IsCompressed()) image.Decompress();
+		image.Convert(Image.Format.Rgba8);
+		for (int y = 0; y < image.GetHeight(); y++)
+			for (int x = 0; x < image.GetWidth(); x++)
+				image.SetPixel(x, y, new Color(1f, 1f, 1f, image.GetPixel(x, y).A));
+		return _whiteTex[tex] = ImageTexture.CreateFromImage(image);
 	}
 
 	/// <summary>Draw a sprite at 1:1 centred on <paramref name="c"/> — for things that
@@ -2214,6 +2232,7 @@ public partial class WorldRenderer : Node2D
 			var side = PerpendicularOffset(mo.Facing, ts * 0.10f);
 			if (mo.Kind != MonsterKind.Ghost) // ghosts float — no ground shadow
 				DrawGroundShadow(this, new Vector2(c.X, c.Y + ts * 0.34f), ts * 0.30f, ts * 0.12f);
+			_hitFlash = _client.MonsterHitFlash(mo.Id);
 			switch (mo.Kind)
 			{
 				case MonsterKind.Slime:
@@ -2336,6 +2355,7 @@ public partial class WorldRenderer : Node2D
 				}
 			}
 		}
+		_hitFlash = 0f;
 
 		if (_client.Octopus is { } octSnap)
 		{
