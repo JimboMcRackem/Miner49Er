@@ -596,6 +596,59 @@ public partial class WorldRenderer : Node2D
 				  160f, 0.5f + _fxRng.NextSingle() * 0.4f, 1.6f,
 				  new Color(0.92f, 0.6f, 0.3f, 1f));
 		}
+		// Rubble thrown high and wide that lands, bounces and lies about for a few seconds.
+		for (int i = 0; i < 26; i++)
+		{
+			float ang = _fxRng.NextSingle() * Mathf.Tau;
+			float shade = 0.7f + _fxRng.NextSingle() * 0.5f;
+			SpawnChunk(center, new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * (50f + _fxRng.NextSingle() * 110f),
+				110f + _fxRng.NextSingle() * 130f, 3f + _fxRng.NextSingle() * 2.5f,
+				1f + _fxRng.NextSingle() * 1.3f, new Color(0.44f * shade, 0.38f * shade, 0.31f * shade));
+		}
+		// Smoke that hangs and drifts up after the flash.
+		for (int i = 0; i < 12; i++)
+			Spawn(center.X + (_fxRng.NextSingle() - 0.5f) * 40f, center.Y + (_fxRng.NextSingle() - 0.5f) * 40f,
+				  (_fxRng.NextSingle() - 0.5f) * 16f, -8f - _fxRng.NextSingle() * 12f,
+				  -3f, 1.6f + _fxRng.NextSingle() * 1.2f, 4f + _fxRng.NextSingle() * 2f,
+				  new Color(0.3f, 0.28f, 0.27f, 0.45f), fadeIn: 0.2f);
+	}
+
+	// Soot left where a blast hit, lasting a while then fading. Re-blasting a tile renews it.
+	private readonly Dictionary<GridPos, float> _scorches = new();
+	private const float ScorchSeconds = 25f, ScorchFadeSeconds = 8f;
+	private static readonly Color ScorchCol = new(0.03f, 0.022f, 0.018f, 0.75f);
+
+	public void AddScorch(GridPos pos) => _scorches[pos] = ScorchSeconds;
+
+	private void UpdateScorches(float dt)
+	{
+		if (_scorches.Count == 0) return;
+		foreach (var key in new List<GridPos>(_scorches.Keys))
+		{
+			float left = _scorches[key] - dt;
+			if (left <= 0f) _scorches.Remove(key); else _scorches[key] = left;
+		}
+	}
+
+	// A few overlapping blotches per tile, placed from the tile's position so they don't jitter.
+	private void DrawScorches(TileGrid grid)
+	{
+		int ts = MatchClient.TileSize;
+		foreach (var (p, left) in _scorches)
+		{
+			if (!grid.InBounds(p) || !grid.IsWalkable(p) || grid.Get(p).IsWater()) continue;
+			float a = ScorchCol.A * Mathf.Min(1f, left / ScorchFadeSeconds);
+			uint h = (uint)(p.X * 2654435761u ^ p.Y * 40503u ^ 0x5C0Fu);
+			for (int k = 0; k < 4; k++)
+			{
+				uint kh = h ^ (uint)(k * 2246822519u);
+				float cx = p.X * ts + ts * 0.2f + (kh & 0xFu) * ts * 0.6f / 15f;
+				float cy = p.Y * ts + ts * 0.2f + ((kh >> 4) & 0xFu) * ts * 0.6f / 15f;
+				float r = ts * (0.22f + ((kh >> 8) & 0x7u) * 0.025f);
+				DrawCircle(new Vector2(cx, cy), r, ScorchCol with { A = a * 0.55f });
+				DrawCircle(new Vector2(cx, cy), r * 0.55f, ScorchCol with { A = a * 0.5f });
+			}
+		}
 	}
 
 	public void EmitWoodSplinters(Vector2 pos)
@@ -1095,6 +1148,7 @@ public partial class WorldRenderer : Node2D
 		float dt = (float)delta;
 		_particles.Update(dt);
 		UpdateChunks(dt);
+		UpdateScorches(dt);
 		EmitParticleEffects(dt);
 		EmitTremorDebris(dt);
 		EmitSeamSparks(dt);
@@ -1293,6 +1347,8 @@ public partial class WorldRenderer : Node2D
 				});
 			}
 		}
+
+		DrawScorches(grid);
 
 		// Scattered bone fragments on ~5% of floor tiles — 4 variants, seeded by position.
 		foreach (var p in VisibleTiles(vx0, vx1, vy0, vy1))
