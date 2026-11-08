@@ -846,6 +846,27 @@ public partial class MatchClient : Node2D
 		return null;
 	}
 
+	/// <summary>0 = safe, 1 = about to die: last life, a rock about to land close by, or flood water
+	/// about to cover nearby floor. Drives the heartbeat and red screen edge.</summary>
+	public float Danger()
+	{
+		if (LocalMinerTile() is not { } me) return 0f;
+		float danger = 0f;
+		if (NetworkManager.Instance.MatchMode == GameMode.Expedition && Lives == 1) danger = 0.45f;
+		if (PendingFalls != null)
+			foreach (var pf in PendingFalls)
+				if (Mathf.Abs(pf.X - me.X) <= 2 && Mathf.Abs(pf.Y - me.Y) <= 2)
+					danger = Mathf.Max(danger, 0.6f + 0.4f * pf.FractionElapsed);
+		if (MineEvent == MineEventKind.FlashFlood)
+			foreach (var t in EventTiles)
+				if (Mathf.Abs(t.X - me.X) <= 2 && Mathf.Abs(t.Y - me.Y) <= 2 && Grid.Get(new GridPos(t.X, t.Y)) == TileType.Floor)
+				{
+					danger = Mathf.Max(danger, 0.75f);
+					break;
+				}
+		return danger;
+	}
+
 	public void RaiseAmbientDrip(Vector2 worldPos) => AmbientDripped?.Invoke(worldPos);
 
 	// Cosmetic and local to this client, so players' rumbles don't line up and carry no warning.

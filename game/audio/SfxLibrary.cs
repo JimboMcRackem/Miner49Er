@@ -62,6 +62,7 @@ public static class SfxLibrary
 	public static AudioStream RockBreak  => Get("rock_break",  () => Noise(0.16f, 600f, decay: true));   // crunch as a dug tile gives way
 	public static AudioStream GoldChime  => Get("gold_chime",  () => Tone(0.35f, 1500f, 2300f));          // bright ring when gold rock breaks
 	public static AudioStream FallWhistle  => Get("fall_whistle",  () => Whine(0.5f, 2000f));               // steady whistle, looped; MatchAudio bends it down like a falling bomb
+	public static AudioStream Heartbeat  => Get("heartbeat",   () => Heartbeat2());                                     // lub-dub, low and dull
 	public static AudioStream ExitOpen   => Get("exit_open",   () => Arpeggio(0.11f, 523f, 659f, 784f, 1047f)); // bright fanfare: the way out is open
 	public static AudioStream PortalWhoosh => Get("portal_whoosh", () => Tone(0.35f, 400f, 1400f));          // rising whoosh â€” teleport
 	public static AudioStream Tinnitus      => Get("tinnitus",       () => Noise(5.0f, 2800f, decay: true));  // high-frequency static hiss â€” deafen after nearby blast
@@ -193,6 +194,29 @@ public static class SfxLibrary
 			phase += 2.0 * Mathf.Pi * hz / MixRate;
 			float env = 1f - t;
 			short v = (short)(Mathf.Sin((float)phase) * env * 12000f);
+			data[i * 2] = (byte)(v & 0xff);
+			data[i * 2 + 1] = (byte)((v >> 8) & 0xff);
+		}
+		return Wav(data);
+	}
+
+	// Two low thumps, the second softer: lub-dub.
+	private static AudioStreamWav Heartbeat2()
+	{
+		int n = (int)(0.45f * MixRate);
+		var data = new byte[n * 2];
+		for (int i = 0; i < n; i++)
+		{
+			float t = (float)i / MixRate, sum = 0f;
+			foreach (var (start, gain) in new[] { (0f, 1f), (0.17f, 0.7f) })
+			{
+				float local = t - start;
+				if (local < 0f) continue;
+				float hz = Mathf.Lerp(70f, 42f, Mathf.Min(1f, local / 0.12f));
+				float env = Mathf.Min(1f, local * 400f) * Mathf.Exp(-local * 28f);
+				sum += Mathf.Sin(2f * Mathf.Pi * hz * local) * env * gain;
+			}
+			short v = (short)(Mathf.Clamp(sum * 1.6f, -1f, 1f) * 14000f);
 			data[i * 2] = (byte)(v & 0xff);
 			data[i * 2 + 1] = (byte)((v >> 8) & 0xff);
 		}
