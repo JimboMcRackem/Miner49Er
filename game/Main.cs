@@ -132,9 +132,13 @@ public partial class Main : Node2D
 		AddChild(_compass);
 		_compass.Init(_client);
 
-		var exitArrow = new ExitArrow { Name = "ExitArrow" };
-		AddChild(exitArrow);
-		exitArrow.Init(_client);
+		var exitPulse = new ExitPulse { Name = "ExitPulse" };
+		AddChild(exitPulse);
+		exitPulse.Init(_client);
+
+		var danger = new DangerOverlay { Name = "DangerOverlay" };
+		AddChild(danger);
+		danger.Init(_client);
 
 		if (nm.IsHost)
 		{
