@@ -45,6 +45,7 @@ public partial class LightRenderer : Node2D
     private const int   BlackoutTorchRadius = 2;
     private const int LanternRadius = 6;
     private const int CrystalRadius = 4;
+    private const int HeldCrystalRadius = 7; // reaches past the torch, or carrying one changes nothing
     private const int LavaRadius    = 3;
     private const int SconceRadius  = 4;
 
@@ -162,7 +163,7 @@ public partial class LightRenderer : Node2D
             if (m.Held == (int)ItemKind.Lantern)
                 _lights.AddLight(grid, new GridPos(m.X, m.Y), LanternRadius, Flicker.Flame(HeldSeed(m.Id), now));
             else if (m.Held == (int)ItemKind.CrystalShard)
-                _lights.AddLight(grid, new GridPos(m.X, m.Y), CrystalRadius,
+                _lights.AddLight(grid, new GridPos(m.X, m.Y), HeldCrystalRadius,
                     Flicker.Multiplier(HeldSeed(m.Id), now, Flicker.Crystal));
         }
 

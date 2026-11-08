@@ -188,6 +188,7 @@ public partial class MatchClient : Node2D
 	private const int CrystalWallRadius       = 5;
 	private const int CrystalShardFloorRadius = 2;
 	private const int CrystalShardHeldRadius  = 3;
+	private const int CrystalShardVisionBonus = 2; // tiles added to the carrier's own sight
 	public bool FogDirty { get; private set; }
 	// Monotonic fog-change counter for multi-consumer renderers that can't share the single-use
 	// FogDirty flag (FogRenderer consumes it via ClearFogDirty). A consumer stores the last value
@@ -432,8 +433,7 @@ public partial class MatchClient : Node2D
 				TreasureToast?.Invoke(tt.Kind, tt.MinerId);
 
 		ApplyTilePaints(update.TileChanges, floodAdvances);
-		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);
-		// Your own death always jolts the camera, regardless of what caused it.
+		_miners = new List<MinerSnapshot>(update.Snapshot.Miners);		// Your own death always jolts the camera, regardless of what caused it.
 		bool localAliveNow = false;
 		foreach (var mm in _miners) if (mm.Id == LocalMinerId && mm.Alive) { localAliveNow = true; break; }
 		if (_localWasAlive && !localAliveNow)
@@ -1167,9 +1167,11 @@ public partial class MatchClient : Node2D
 				    && visible.Contains(new GridPos(it.X, it.Y)))
 					visible.UnionWith(Visibility.Compute(Grid, new GridPos(it.X, it.Y), CrystalShardFloorRadius));
 
+			// Carrying a shard sees further than the torch alone; someone else's shard lights round them.
 			foreach (var mn in _miners)
 				if (mn.Alive && mn.Held == (int)ItemKind.CrystalShard)
-					visible.UnionWith(Visibility.Compute(Grid, new GridPos(mn.X, mn.Y), CrystalShardHeldRadius));
+					visible.UnionWith(Visibility.Compute(Grid, new GridPos(mn.X, mn.Y),
+						mn.Id == LocalMinerId ? m.VisionRadius + CrystalShardVisionBonus : CrystalShardHeldRadius));
 
 			Fog.Update(visible);
 			FogDirty = true;

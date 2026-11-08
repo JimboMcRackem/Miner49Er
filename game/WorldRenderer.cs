@@ -97,6 +97,7 @@ public partial class WorldRenderer : Node2D
 	private static readonly Color LanternGlowBoost = new(0.86f, 0.72f, 0.44f);
 	private static readonly Color SconceFlame  = new(0.75f, 0.35f, 1.5f);
 	private static readonly Color CrystalGlowCore  = new(1.60f, 1.40f, 2.30f);
+	private static readonly Color HeldCrystalGlow  = new(0.62f, 0.45f, 1.15f);
 	private static readonly Color LavaGlowBoost    = new(1.55f, 1.10f, 0.65f);
 	// Cool blue tint, kept under 1.0 so it never blooms and at half the texture's alpha so the
 	// floor's texture shows through; the light-map does the brightening.
@@ -2228,13 +2229,17 @@ public partial class WorldRenderer : Node2D
 				false, LanternGlowBoost with { A = Flicker.Flame(LightRenderer.TileSeed(it.X, it.Y), flameNow) });
 		}
 
-		// Crystal shard halo: soft cyan ring around any miner holding a shard
+		// Crystal shard: a wide violet glow round whoever carries one, breathing gently.
+		int crystalPx = 7 * ts * 2;
 		foreach (var m in _client.Miners)
 		{
 			if (!m.Alive || m.Held != (int)ItemKind.CrystalShard) continue;
 			if (!_client.Fog.IsVisible(new GridPos(m.X, m.Y)) && !spectating) continue;
 			var center = _client.MinerVisualPos(m.Id, m.X, m.Y);
-			DrawCircle(center, ts * 0.55f, new Color(0.45f, 0.20f, 1.0f, 0.22f));
+			float breathe = Flicker.Multiplier(LightRenderer.HeldSeed(m.Id), flameNow, Flicker.Crystal);
+			DrawTextureRect(_lanternGlowTex,
+				new Rect2(center.X - crystalPx / 2f, center.Y - crystalPx / 2f, crystalPx, crystalPx),
+				false, HeldCrystalGlow with { A = 0.85f * breathe });
 		}
 
 		DrawTremorDanger(ts);
