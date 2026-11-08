@@ -45,7 +45,7 @@ public partial class LightRenderer : Node2D
     private const int   BlackoutTorchRadius = 2;
     private const int LanternRadius = 6;
     private const int CrystalRadius = 4;
-    private const int HeldCrystalRadius = 7; // reaches past the torch, or carrying one changes nothing
+    private const int HeldCrystalRadius = 5; // short of a lantern; stacks on the torch to brighten its rim
     private const int LavaRadius    = 3;
     private const int SconceRadius  = 4;
 

@@ -188,7 +188,7 @@ public partial class MatchClient : Node2D
 	private const int CrystalWallRadius       = 5;
 	private const int CrystalShardFloorRadius = 2;
 	private const int CrystalShardHeldRadius  = 3;
-	private const int CrystalShardVisionBonus = 2; // tiles added to the carrier's own sight
+	private const int CrystalShardVisionBonus = 1; // tiles added to the carrier's own sight
 	public bool FogDirty { get; private set; }
 	// Monotonic fog-change counter for multi-consumer renderers that can't share the single-use
 	// FogDirty flag (FogRenderer consumes it via ClearFogDirty). A consumer stores the last value

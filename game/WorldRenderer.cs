@@ -2230,7 +2230,7 @@ public partial class WorldRenderer : Node2D
 		}
 
 		// Crystal shard: a wide violet glow round whoever carries one, breathing gently.
-		int crystalPx = 7 * ts * 2;
+		int crystalPx = 9 * ts; // a little smaller than a lantern's glow
 		foreach (var m in _client.Miners)
 		{
 			if (!m.Alive || m.Held != (int)ItemKind.CrystalShard) continue;
