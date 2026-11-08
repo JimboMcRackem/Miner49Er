@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace Miner49er;
@@ -53,10 +54,94 @@ public partial class Hud : CanvasLayer
 		_hintLabel.AddThemeFontSizeOverride("font_size", 17);
 		_hintLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 0.6f, 0.92f));
 		AddChild(_hintLabel);
+
+		_coinLayer = new CoinLayer { HudRef = this, MouseFilter = Control.MouseFilterEnum.Ignore };
+		_coinLayer.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		AddChild(_coinLayer);
+	}
+
+	// Gold nuggets that fly from where gold was picked up to the objective text, which pops as each lands.
+	private sealed class Coin { public Vector2 From, Ctrl; public float T, Delay, Spin; public Vector2[] Shape = null!; }
+	private readonly List<Coin> _coins = new();
+	private CoinLayer _coinLayer = null!;
+	private float _pop; // 1 when a nugget just landed, decays to 0
+	private const float CoinFlightSeconds = 0.6f;
+	private static readonly Color NuggetCol = new(1.5f, 1.15f, 0.3f);
+	private static readonly Color NuggetDarkCol = new(0.55f, 0.33f, 0.06f);
+	private static readonly Color NuggetShineCol = new(2.2f, 2.0f, 1.3f);
+
+	public void CollectGold(Vector2 screenFrom, int nuggets)
+	{
+		for (int i = 0; i < nuggets; i++)
+		{
+			var side = new Vector2((float)GD.RandRange(-140.0, 140.0), (float)GD.RandRange(-60.0, 20.0));
+			_coins.Add(new Coin
+			{
+				From = screenFrom, Ctrl = screenFrom + side + new Vector2(0, -80), Delay = i * 0.07f,
+				Spin = (float)GD.RandRange(-9.0, 9.0), Shape = NuggetShape(),
+			});
+		}
+	}
+
+	// A lumpy 7-sided blob, each one a little different.
+	private static Vector2[] NuggetShape()
+	{
+		var pts = new Vector2[7];
+		for (int k = 0; k < pts.Length; k++)
+		{
+			float ang = Mathf.Tau * k / pts.Length;
+			float r = (float)GD.RandRange(7.0, 11.0);
+			pts[k] = new Vector2(Mathf.Cos(ang) * r * 1.15f, Mathf.Sin(ang) * r * 0.9f);
+		}
+		return pts;
+	}
+
+	private Vector2 CoinTarget() => _centerLabel.GlobalPosition + _centerLabel.Size * 0.5f;
+
+	private partial class CoinLayer : Control
+	{
+		public Hud HudRef = null!;
+		public override void _Draw() => HudRef.DrawCoins(this);
+	}
+
+	private void DrawCoins(Control c)
+	{
+		var to = CoinTarget();
+		foreach (var coin in _coins)
+		{
+			if (coin.Delay > 0f) continue;
+			float t = Mathf.Min(1f, coin.T / CoinFlightSeconds);
+			float e = t * t * (3f - 2f * t);
+			var p = coin.From.Lerp(coin.Ctrl, e).Lerp(coin.Ctrl.Lerp(to, e), e);
+			c.DrawSetTransform(p, coin.T * coin.Spin, Vector2.One);
+			c.DrawColoredPolygon(coin.Shape, NuggetDarkCol);
+			c.DrawSetTransform(p + new Vector2(-0.8f, -0.8f), coin.T * coin.Spin, Vector2.One * 0.78f);
+			c.DrawColoredPolygon(coin.Shape, NuggetCol);
+			c.DrawSetTransform(p, 0f, Vector2.One);
+			c.DrawRect(new Rect2(-4f, -4f, 3f, 3f), NuggetShineCol); // fixed glint, top-left, so it reads as light
+			c.DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
+		}
+	}
+
+	private void UpdateCoins(float dt)
+	{
+		for (int i = _coins.Count - 1; i >= 0; i--)
+		{
+			var coin = _coins[i];
+			if (coin.Delay > 0f) { coin.Delay -= dt; continue; }
+			coin.T += dt;
+			if (coin.T >= CoinFlightSeconds) { _coins.RemoveAt(i); _pop = 1f; }
+		}
+		_pop = Mathf.Max(0f, _pop - dt * 3.5f);
+		_centerLabel.PivotOffset = _centerLabel.Size * 0.5f;
+		_centerLabel.Scale = Vector2.One * (1f + 0.22f * _pop);
+		_centerLabel.AddThemeColorOverride("font_color", Colors.White.Lerp(new Color(1.5f, 1.2f, 0.4f), _pop));
+		_coinLayer.QueueRedraw();
 	}
 
 	public override void _Process(double delta)
 	{
+		UpdateCoins((float)delta);
 		if (TimerUrgent)
 		{
 			float flash = (Mathf.Sin((float)Time.GetTicksMsec() * 0.006f) + 1f) * 0.5f;

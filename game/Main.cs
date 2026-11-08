@@ -68,6 +68,7 @@ public partial class Main : Node2D
 	private MineEventKind _prevMineEvent = MineEventKind.None;
 	private ItemKind? _pendingChestLoot;
 	private bool _prevEscapeOpen;
+	private int _prevLocalGold = -1; // -1 until the first snapshot, so joining mid-match doesn't fire
 	private bool _prevTempleEntered;
 	private bool _hadTreasureFloor;
 
@@ -394,6 +395,14 @@ public partial class Main : Node2D
 			{
 				sawLocal = true;
 				localAlive = m.Alive;
+				// Gold just picked up: nuggets fly from the miner to the objective text.
+				if (_prevLocalGold >= 0 && m.Gold > _prevLocalGold)
+				{
+					int ts = MatchClient.TileSize;
+					var screen = GetViewport().GetCanvasTransform() * new Vector2(m.X * ts + ts / 2f, m.Y * ts + ts / 2f);
+					_hud.CollectGold(screen, Math.Min(12, 4 + 2 * (m.Gold - _prevLocalGold)));
+				}
+				_prevLocalGold = m.Gold;
 				string rawStatus = m.Alive
 					? (m.Activity == (int)ActivityKind.Mining           ? $"Mining… {m.ActivityRemaining:0.0}s"
 						: m.Activity == (int)ActivityKind.Planting          ? $"Planting… {m.ActivityRemaining:0.0}s"
