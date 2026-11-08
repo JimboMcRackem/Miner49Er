@@ -631,40 +631,60 @@ public partial class WorldRenderer : Node2D
 				  new Color(0.3f, 0.28f, 0.27f, 0.45f), fadeIn: 0.2f);
 	}
 
-	// Soot left where a blast hit, lasting a while then fading. Re-blasting a tile renews it.
-	private readonly Dictionary<GridPos, float> _scorches = new();
-	private const float ScorchSeconds = 25f, ScorchFadeSeconds = 8f;
-	private static readonly Color ScorchCol = new(0.03f, 0.022f, 0.018f, 0.75f);
+	// Scorch streaks fanning out from a blast across the floor, fading after a while. Each streak
+	// stops at the first wall it meets, so rock the blast didn't break stays clean.
+	private sealed class Scorch { public Vector2 C; public float R, Left; public (float Ang, float Len, float Width)[] Rays = null!; }
+	private readonly List<Scorch> _scorches = new();
+	private const float ScorchSeconds = 12f, ScorchFadeSeconds = 5f, ScorchStepPx = 4f;
+	private const int ScorchRays = 26;
+	private static readonly Color ScorchCol = new(0.03f, 0.022f, 0.018f, 0.4f);
 
-	public void AddScorch(GridPos pos) => _scorches[pos] = ScorchSeconds;
+	public void AddScorch(Vector2 centre, float radius)
+	{
+		var rays = new (float, float, float)[ScorchRays];
+		for (int i = 0; i < rays.Length; i++)
+			rays[i] = (Mathf.Tau * (i + _fxRng.NextSingle() * 0.8f) / rays.Length,
+					   0.55f + _fxRng.NextSingle() * 0.45f,
+					   1.5f + _fxRng.NextSingle() * 2.5f);
+		_scorches.Add(new Scorch { C = centre, R = radius, Left = ScorchSeconds, Rays = rays });
+	}
 
 	private void UpdateScorches(float dt)
 	{
-		if (_scorches.Count == 0) return;
-		foreach (var key in new List<GridPos>(_scorches.Keys))
-		{
-			float left = _scorches[key] - dt;
-			if (left <= 0f) _scorches.Remove(key); else _scorches[key] = left;
-		}
+		for (int i = _scorches.Count - 1; i >= 0; i--)
+			if ((_scorches[i].Left -= dt) <= 0f) _scorches.RemoveAt(i);
 	}
 
-	// A few overlapping blotches per tile, placed from the tile's position so they don't jitter.
+	private static bool ScorchesFloor(TileGrid grid, Vector2 at, int ts)
+	{
+		var p = new GridPos(Mathf.FloorToInt(at.X / ts), Mathf.FloorToInt(at.Y / ts));
+		return grid.InBounds(p) && grid.IsWalkable(p) && !grid.Get(p).IsWater();
+	}
+
 	private void DrawScorches(TileGrid grid)
 	{
 		int ts = MatchClient.TileSize;
-		foreach (var (p, left) in _scorches)
+		foreach (var s in _scorches)
 		{
-			if (!grid.InBounds(p) || !grid.IsWalkable(p) || grid.Get(p).IsWater()) continue;
-			float a = ScorchCol.A * Mathf.Min(1f, left / ScorchFadeSeconds);
-			uint h = (uint)(p.X * 2654435761u ^ p.Y * 40503u ^ 0x5C0Fu);
-			for (int k = 0; k < 4; k++)
+			float a = ScorchCol.A * Mathf.Min(1f, s.Left / ScorchFadeSeconds);
+			foreach (var (ang, lenFrac, width) in s.Rays)
 			{
-				uint kh = h ^ (uint)(k * 2246822519u);
-				float cx = p.X * ts + ts * 0.2f + (kh & 0xFu) * ts * 0.6f / 15f;
-				float cy = p.Y * ts + ts * 0.2f + ((kh >> 4) & 0xFu) * ts * 0.6f / 15f;
-				float r = ts * (0.22f + ((kh >> 8) & 0x7u) * 0.025f);
-				DrawCircle(new Vector2(cx, cy), r, ScorchCol with { A = a * 0.55f });
-				DrawCircle(new Vector2(cx, cy), r * 0.55f, ScorchCol with { A = a * 0.5f });
+				var dir = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
+				float len = s.R * lenFrac;
+				var prev = s.C;
+				for (float d = ScorchStepPx; d <= len; d += ScorchStepPx)
+				{
+					var next = s.C + dir * d;
+					if (!ScorchesFloor(grid, next, ts))
+					{
+						if (d > ts * 0.5f) break; // hit a wall: the streak ends here
+						prev = next;              // still inside the blasted tile at the centre
+						continue;
+					}
+					float t = d / len; // thick and dark near the blast, thin and faint at the tip
+					DrawLine(prev, next, ScorchCol with { A = a * (1f - t * 0.8f) }, width * (1f - t * 0.7f));
+					prev = next;
+				}
 			}
 		}
 	}

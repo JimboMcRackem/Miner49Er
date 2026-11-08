@@ -320,7 +320,6 @@ public partial class MatchClient : Node2D
 			if (t.FromBlast)
 			{
 				_world?.AddExplosionFlash(p);
-				_world?.AddScorch(p);
 				bx += t.X; by += t.Y; blastCount++;
 				// A blasted wall that was a propped, exposed-face Rock throws wood splinters over
 				// the rock debris (exterior check mirrors the draw pass so splinters only fly where
@@ -343,14 +342,8 @@ public partial class MatchClient : Node2D
 					if (d > maxR) maxR = d;
 				}
 			_world?.AddExplosionRing(c, maxR + TileSize * 0.7f);
-			// Open floor inside the blast is sooted too, not just the rock it broke.
-			float scorchR = Mathf.Max(maxR, TileSize * 1.6f);
-			int sr = Mathf.CeilToInt(scorchR / TileSize);
-			int ctx = Mathf.FloorToInt(c.X / TileSize), cty = Mathf.FloorToInt(c.Y / TileSize);
-			for (int sy = cty - sr; sy <= cty + sr; sy++)
-				for (int sx = ctx - sr; sx <= ctx + sr; sx++)
-					if (c.DistanceTo(new Vector2(sx * TileSize + TileSize / 2f, sy * TileSize + TileSize / 2f)) <= scorchR + 1f)
-						_world?.AddScorch(new GridPos(sx, sy));
+			// Scorch streaks reach a little past the broken rock, across any open floor around it.
+			_world?.AddScorch(c, Mathf.Max(maxR, TileSize * 1.6f) + TileSize * 0.6f);
 			Exploded?.Invoke(c);
 			ShakeFromWorld(c, 0.7f);
 			PauseIfNear(c, BlastPause);
