@@ -49,6 +49,7 @@ public partial class MatchAudio : Node2D
 		_client.Exploded += OnExploded;
 		_client.ScreeCollapsed += OnScreeCollapsed;
 		_client.Whistled += OnWhistled;
+		_client.TileBroken += OnTileBroken;
 		_client.Portaled += OnPortaled;
 		_client.StoneTossed += OnStoneTossed;
 		_client.AmbientDripped += OnAmbientDripped;
@@ -58,7 +59,7 @@ public partial class MatchAudio : Node2D
 
 	public override void _ExitTree()
 	{
-		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; _client.Whistled -= OnWhistled; _client.Portaled -= OnPortaled; _client.StoneTossed -= OnStoneTossed; _client.AmbientDripped -= OnAmbientDripped; }
+		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; _client.Whistled -= OnWhistled; _client.TileBroken -= OnTileBroken; _client.Portaled -= OnPortaled; _client.StoneTossed -= OnStoneTossed; _client.AmbientDripped -= OnAmbientDripped; }
 		// Don't StopMusic here Ã¢â‚¬â€ the incoming scene (Lobby/MainMenu) always calls PlayMusic
 		// and StopMusic can fire after the new scene's PlayMusic in some Godot orderings.
 		if (_lavaLoop != null && IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree();
@@ -383,6 +384,12 @@ public partial class MatchAudio : Node2D
 		AddChild(p);
 		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
 		p.Play();
+	}
+
+	private void OnTileBroken(Vector2 worldPos, bool gold)
+	{
+		OneShot(SfxLibrary.RockBreak, worldPos);
+		if (gold) OneShot(SfxLibrary.GoldChime, worldPos);
 	}
 
 	private void OnWhistled(Vector2 worldPos)

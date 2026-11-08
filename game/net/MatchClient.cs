@@ -70,6 +70,7 @@ public partial class MatchClient : Node2D
 	public event System.Action<Vector2>? AmbientDripped; // world position of a visible water drop
 	private const float AmbientRumbleShake = 0.15f;
 	private const float TremorShake = 0.7f;   // trauma held at the peak of a tremor
+	private const float RockBreakShake = 0.1f; // a small kick as a dug tile gives way
 
 	// Hit-pause lengths, and how near the camera a blow must land to cause one.
 	private const double LocalDeathPause = 0.12;
@@ -82,6 +83,7 @@ public partial class MatchClient : Node2D
 	private static readonly float GoatWanderGlideSeconds = (float)new SimConfig().MonsterGoatWanderMoveSeconds;
 	public event System.Action<Vector2, int>? ScreeCollapsed; // world position + collapse radius
 	public event System.Action<Vector2>? Whistled; // world position of a bot whistle
+	public event System.Action<Vector2, bool>? TileBroken; // world position of a dug-out tile + whether it was gold
 		public event System.Action<Vector2, PortalKind>? Portaled; // world position + kind of a teleport
 		public event System.Action<Vector2, Vector2>? StoneTossed; // origin, landing (world coords)
 	public event System.Action<PrizeType, Vector2>? PrizeTelegraphed; // type + world position of an incoming prize
@@ -264,6 +266,15 @@ public partial class MatchClient : Node2D
 					(floodAdvances ??= new()).Add(p);
 				Grid.Set(p, t.NewType);
 				if (oldType == TileType.Jar) SmashedJars.Add(p);
+				// Dug out by a pickaxe (blasts have their own effects below; jars smash their own way).
+				if (!t.FromBlast && oldType.IsMinable() && oldType != TileType.Jar && !t.NewType.IsMinable())
+				{
+					var wc = new Vector2(t.X * TileSize + TileSize / 2f, t.Y * TileSize + TileSize / 2f);
+					if (FogRenderer?.SpectatorMode == true || Fog.IsVisible(p))
+						_world?.EmitRockBreak(wc, oldType);
+					ShakeFromWorld(wc, RockBreakShake);
+					TileBroken?.Invoke(wc, oldType == TileType.GoldRock);
+				}
 				if (t.NewType == TileType.Floor && _crystalPositions != null)
 				{
 					if (_crystalPositions.Remove(p))

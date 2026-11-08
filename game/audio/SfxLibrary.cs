@@ -59,6 +59,8 @@ public static class SfxLibrary
 	public static AudioStream GhostScream => Get("ghost_scream", () => Tone(0.45f, 1800f, 300f));           // piercing wail
 	public static AudioStream ZombieGrunt => Get("zombie_grunt", () => Noise(0.18f, 140f, decay: true));    // guttural grunt
 	public static AudioStream Whistle     => Get("whistle",      () => Tone(0.30f, 1000f, 2200f));          // rising pea-whistle â€” call to exit
+	public static AudioStream RockBreak  => Get("rock_break",  () => Noise(0.16f, 600f, decay: true));   // crunch as a dug tile gives way
+	public static AudioStream GoldChime  => Get("gold_chime",  () => Tone(0.35f, 1500f, 2300f));          // bright ring when gold rock breaks
 	public static AudioStream FallWhistle  => Get("fall_whistle",  () => Whine(0.5f, 2000f));               // steady whistle, looped; MatchAudio bends it down like a falling bomb
 	public static AudioStream PortalWhoosh => Get("portal_whoosh", () => Tone(0.35f, 400f, 1400f));          // rising whoosh â€” teleport
 	public static AudioStream Tinnitus      => Get("tinnitus",       () => Noise(5.0f, 2800f, decay: true));  // high-frequency static hiss â€” deafen after nearby blast

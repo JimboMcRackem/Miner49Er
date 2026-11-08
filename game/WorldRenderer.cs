@@ -143,6 +143,15 @@ public partial class WorldRenderer : Node2D
 	// Particle pool + emitters (client-side cosmetic).
 	private readonly ParticleSystem _particles = new(400);
 	private readonly System.Random _fxRng = new();
+
+	// Rock chunks: thrown up off the floor, bounce, roll to a stop, then fade. Z is height
+	// above the floor, drawn as an upward offset with a shadow left on the ground.
+	private struct Chunk { public Vector2 Pos, Vel; public float Z, Vz, Life, MaxLife, Size; public Color Col; }
+	private readonly List<Chunk> _chunks = new();
+	private const int ChunkCap = 220;
+	private const float ChunkGravity = 420f;     // px/s² pulling Z down
+	private const float ChunkBounce = 0.35f;     // share of fall speed kept on a bounce
+	private static readonly Color ChunkShadowCol = new(0f, 0f, 0f, 0.35f);
 	private readonly Dictionary<int, GridPos> _lastFootTile = new();
 	private float _miningDustTimer;
 	private float _moteTimer;
@@ -907,6 +916,91 @@ public partial class WorldRenderer : Node2D
 		}
 	}
 
+	private void SpawnChunk(Vector2 pos, Vector2 vel, float vz, float life, float size, Color col)
+	{
+		if (_chunks.Count >= ChunkCap) _chunks.RemoveAt(0);   // oldest first: it has settled by now
+		_chunks.Add(new Chunk { Pos = pos, Vel = vel, Vz = vz, Life = life, MaxLife = life, Size = size, Col = col });
+	}
+
+	private void UpdateChunks(float dt)
+	{
+		var grid = _client.Grid;
+		int ts = MatchClient.TileSize;
+		for (int i = _chunks.Count - 1; i >= 0; i--)
+		{
+			var c = _chunks[i];
+			c.Life -= dt;
+			if (c.Life <= 0f) { _chunks.RemoveAt(i); continue; }
+			c.Vz -= ChunkGravity * dt;
+			c.Z += c.Vz * dt;
+			if (c.Z <= 0f)
+			{
+				c.Z = 0f;
+				if (c.Vz < -30f) { c.Vz = -c.Vz * ChunkBounce; c.Vel *= 0.6f; }
+				else { c.Vz = 0f; c.Vel *= Mathf.Max(0f, 1f - 7f * dt); }   // rolling to a stop
+			}
+			var next = c.Pos + c.Vel * dt;
+			var tile = new GridPos(Mathf.FloorToInt(next.X / ts), Mathf.FloorToInt(next.Y / ts));
+			if (grid.InBounds(tile) && grid.IsWalkable(tile)) c.Pos = next;
+			else c.Vel = Vector2.Zero;   // hit a wall: drop where it is
+			_chunks[i] = c;
+		}
+	}
+
+	private void DrawChunks()
+	{
+		foreach (var c in _chunks)
+		{
+			float fade = Mathf.Min(1f, c.Life / (c.MaxLife * 0.3f));   // full until the last 30%
+			float s = c.Size;
+			if (c.Z > 0.5f)
+				DrawRect(new Rect2(c.Pos.X - s, c.Pos.Y - s * 0.5f, s * 2f, s), ChunkShadowCol with { A = ChunkShadowCol.A * fade });
+			var top = new Vector2(c.Pos.X - s, c.Pos.Y - s - c.Z);
+			DrawRect(new Rect2(top, new Vector2(s * 2f, s * 2f)), c.Col with { A = c.Col.A * fade });
+			// Darker lower-right edge so each chunk reads as a lump, not a pixel.
+			DrawRect(new Rect2(top + new Vector2(s, s), new Vector2(s, s)),
+				new Color(c.Col.R * 0.55f, c.Col.G * 0.55f, c.Col.B * 0.55f, c.Col.A * fade));
+		}
+	}
+
+	// A mined-out tile breaks apart: lumps of its rock hop out and settle, under a puff of dust.
+	// Gold throws bright flecks too; crystal and marble shatter in their own colours.
+	public void EmitRockBreak(Vector2 center, TileType kind)
+	{
+		int ts = MatchClient.TileSize;
+		Color baseCol = kind switch
+		{
+			TileType.GoldRock    => new Color(0.42f, 0.35f, 0.27f),
+			TileType.CrystalRock => new Color(0.62f, 0.45f, 1.1f),
+			TileType.MarblePanel => new Color(0.86f, 0.84f, 0.8f),
+			_                    => new Color(0.44f, 0.38f, 0.31f),
+		};
+		for (int i = 0; i < 10; i++)
+		{
+			float shade = 0.8f + _fxRng.NextSingle() * 0.4f;
+			var col = kind == TileType.GoldRock && i % 3 == 0
+				? new Color(1.5f, 1.15f, 0.4f)                              // HDR: gold nuggets glow
+				: new Color(baseCol.R * shade, baseCol.G * shade, baseCol.B * shade);
+			float ang = _fxRng.NextSingle() * Mathf.Tau;
+			var start = center + new Vector2((_fxRng.NextSingle() - 0.5f) * ts * 0.6f, (_fxRng.NextSingle() - 0.5f) * ts * 0.6f);
+			SpawnChunk(start, new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * (20f + _fxRng.NextSingle() * 45f),
+				60f + _fxRng.NextSingle() * 80f, 1.4f + _fxRng.NextSingle() * 1.2f,
+				1f + _fxRng.NextSingle() * 1.1f, col);
+		}
+		for (int i = 0; i < 7; i++)
+			Spawn(center.X + (_fxRng.NextSingle() - 0.5f) * ts * 0.7f, center.Y + (_fxRng.NextSingle() - 0.5f) * ts * 0.7f,
+				(_fxRng.NextSingle() - 0.5f) * 18f, -6f - _fxRng.NextSingle() * 10f,
+				-4f, 0.7f + _fxRng.NextSingle() * 0.4f, 3f, new Color(0.58f, 0.52f, 0.44f, 0.4f), fadeIn: 0.05f);
+		if (kind == TileType.GoldRock)
+			for (int i = 0; i < 12; i++)
+			{
+				float ang = _fxRng.NextSingle() * Mathf.Tau;
+				float spd = 30f + _fxRng.NextSingle() * 60f;
+				Spawn(center.X, center.Y, Mathf.Cos(ang) * spd, Mathf.Sin(ang) * spd - 25f,
+					90f, 0.4f + _fxRng.NextSingle() * 0.3f, 0.9f, new Color(2.2f, 1.8f, 0.7f, 1f));
+			}
+	}
+
 	private void DrawParticles()
 	{
 		foreach (var p in _particles.Live)
@@ -1000,6 +1094,7 @@ public partial class WorldRenderer : Node2D
 		}
 		float dt = (float)delta;
 		_particles.Update(dt);
+		UpdateChunks(dt);
 		EmitParticleEffects(dt);
 		EmitTremorDebris(dt);
 		EmitSeamSparks(dt);
@@ -2360,6 +2455,7 @@ public partial class WorldRenderer : Node2D
 		}
 
 		DrawRipples(ts);
+		DrawChunks();
 		DrawParticles();
 		DrawFloatingTexts();
 	}
