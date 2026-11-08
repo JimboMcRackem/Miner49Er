@@ -286,6 +286,9 @@ public partial class MatchClient : Node2D
 	{
 		float bx = 0f, by = 0f;
 		int blastCount = 0;
+		// Tiles a blast actually broke. A firedamp ignition lists only floor tiles (fire, no soot),
+		// so soot is laid around these alone, even when dynamite set the gas off in the same tick.
+		List<Vector2>? blastBroken = null;
 		List<GridPos>? floodAdvances = null;
 		foreach (var t in update.TileChanges)
 		{
@@ -319,6 +322,8 @@ public partial class MatchClient : Node2D
 			}
 			if (t.FromBlast)
 			{
+				if (oldType != t.NewType)
+					(blastBroken ??= new()).Add(new Vector2(t.X * TileSize + TileSize / 2f, t.Y * TileSize + TileSize / 2f));
 				_world?.AddExplosionFlash(p);
 				bx += t.X; by += t.Y; blastCount++;
 				// A blasted wall that was a propped, exposed-face Rock throws wood splinters over
@@ -343,7 +348,15 @@ public partial class MatchClient : Node2D
 				}
 			_world?.AddExplosionRing(c, maxR + TileSize * 0.7f);
 			// Scorch streaks reach a little past the broken rock, across any open floor around it.
-			_world?.AddScorch(c, Mathf.Max(maxR, TileSize * 1.6f) + TileSize * 0.6f);
+			if (blastBroken != null)
+			{
+				var sc = Vector2.Zero;
+				foreach (var b in blastBroken) sc += b;
+				sc /= blastBroken.Count;
+				float sr = 0f;
+				foreach (var b in blastBroken) sr = Mathf.Max(sr, sc.DistanceTo(b));
+				_world?.AddScorch(sc, Mathf.Max(sr, TileSize * 1.6f) + TileSize * 0.6f);
+			}
 			Exploded?.Invoke(c);
 			ShakeFromWorld(c, 0.7f);
 			PauseIfNear(c, BlastPause);
