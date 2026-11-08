@@ -2616,6 +2616,48 @@ public partial class WorldRenderer : Node2D
 		}
 	}
 
+	// A shaft of light rising off the open exit, drawn above the darkness so it reads from across
+	// the cave. It flares tall for a moment when the exit first opens.
+	private static readonly Color BeamCol = new(1.5f, 1.3f, 0.5f);
+	private const float BeamFlareSeconds = 2.5f;
+
+	public void DrawExitBeam(CanvasItem target)
+	{
+		if (_client == null || !_client.EscapeOpen || _client.EscapeTile is not { } exit) return;
+		if (!_client.Fog.IsExplored(exit) && _client.FogRenderer?.SpectatorMode != true) return;
+		int ts = MatchClient.TileSize;
+		float now = Time.GetTicksMsec() / 1000f;
+		float sinceOpen = (Time.GetTicksMsec() - _client.EscapeOpenedAtMs) / 1000f;
+		float flare = _client.EscapeOpenedAtMs > 0 ? Mathf.Max(0f, 1f - sinceOpen / BeamFlareSeconds) : 0f;
+		float shimmer = 0.85f + 0.15f * Mathf.Sin(now * 3.1f);
+		float height = ts * (2.6f + 4f * flare);
+		float halfBase = ts * (0.32f + 0.12f * flare), halfTop = ts * (0.12f + 0.2f * flare);
+		float a = (0.22f + 0.4f * flare) * shimmer;
+		var foot = new Vector2(exit.X * ts + ts / 2f, exit.Y * ts + ts * 0.8f);
+		var top = foot - new Vector2(0, height);
+		target.DrawPolygon(
+			new[] { foot + new Vector2(-halfBase, 0), foot + new Vector2(halfBase, 0),
+					top + new Vector2(halfTop, 0), top + new Vector2(-halfTop, 0) },
+			new[] { BeamCol with { A = a }, BeamCol with { A = a }, BeamCol with { A = 0f }, BeamCol with { A = 0f } });
+		// A brighter core down the middle.
+		target.DrawPolygon(
+			new[] { foot + new Vector2(-halfBase * 0.35f, 0), foot + new Vector2(halfBase * 0.35f, 0),
+					top + new Vector2(halfTop * 0.3f, height * 0.3f), top + new Vector2(-halfTop * 0.3f, height * 0.3f) },
+			new[] { BeamCol with { A = a * 1.3f }, BeamCol with { A = a * 1.3f }, BeamCol with { A = 0f }, BeamCol with { A = 0f } });
+		// Motes drifting up the shaft.
+		for (int i = 0; i < 6; i++)
+		{
+			float ph = (now * 0.45f + i / 6f) % 1f;
+			float x = Mathf.Sin(i * 2.4f + now * 1.3f) * halfBase * 0.7f * (1f - ph);
+			target.DrawRect(new Rect2(foot.X + x - 1f, foot.Y - ph * height - 1f, 2f, 2f), BeamCol with { A = a * 2f * (1f - ph) });
+		}
+		if (flare > 0f)
+		{
+			float r = ts * (0.5f + 3f * (1f - flare));
+			target.DrawArc(foot - new Vector2(0, ts * 0.3f), r, 0f, Mathf.Tau, 48, BeamCol with { A = flare * 0.8f }, 3f);
+		}
+	}
+
 	public void DrawGhosts(CanvasItem target)
 	{
 		if (_client == null) return;

@@ -132,6 +132,10 @@ public partial class Main : Node2D
 		AddChild(_compass);
 		_compass.Init(_client);
 
+		var exitArrow = new ExitArrow { Name = "ExitArrow" };
+		AddChild(exitArrow);
+		exitArrow.Init(_client);
+
 		if (nm.IsHost)
 		{
 			MapConfig hostMapCfg;

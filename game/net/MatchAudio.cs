@@ -53,13 +53,14 @@ public partial class MatchAudio : Node2D
 		_client.Portaled += OnPortaled;
 		_client.StoneTossed += OnStoneTossed;
 		_client.AmbientDripped += OnAmbientDripped;
+		_client.EscapeOpened += OnEscapeOpened;
 		AudioManager.Instance.PlayMusic(SfxLibrary.PickMusic(NetworkManager.Instance.MatchSeed));
 		SpawnDrips();
 	}
 
 	public override void _ExitTree()
 	{
-		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; _client.Whistled -= OnWhistled; _client.TileBroken -= OnTileBroken; _client.Portaled -= OnPortaled; _client.StoneTossed -= OnStoneTossed; _client.AmbientDripped -= OnAmbientDripped; }
+		if (_client != null) { _client.Exploded -= OnExploded; _client.ScreeCollapsed -= OnScreeCollapsed; _client.Whistled -= OnWhistled; _client.TileBroken -= OnTileBroken; _client.Portaled -= OnPortaled; _client.StoneTossed -= OnStoneTossed; _client.AmbientDripped -= OnAmbientDripped; _client.EscapeOpened -= OnEscapeOpened; }
 		// Don't StopMusic here Ã¢â‚¬â€ the incoming scene (Lobby/MainMenu) always calls PlayMusic
 		// and StopMusic can fire after the new scene's PlayMusic in some Godot orderings.
 		if (_lavaLoop != null && IsInstanceValid(_lavaLoop)) _lavaLoop.QueueFree();
@@ -381,6 +382,15 @@ public partial class MatchAudio : Node2D
 	private void PlayDistantRumble()
 	{
 		var p = new AudioStreamPlayer { Stream = SfxLibrary.DistantRumble, Bus = AudioManager.BusSfx, VolumeDb = RumbleVolumeDb };
+		AddChild(p);
+		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
+		p.Play();
+	}
+
+	// Heard everywhere, not from the exit: it matters most when you're far from it.
+	private void OnEscapeOpened(Vector2 worldPos)
+	{
+		var p = new AudioStreamPlayer { Stream = SfxLibrary.ExitOpen, Bus = AudioManager.BusSfx, VolumeDb = -4f };
 		AddChild(p);
 		p.Finished += () => { if (IsInstanceValid(p)) p.QueueFree(); };
 		p.Play();

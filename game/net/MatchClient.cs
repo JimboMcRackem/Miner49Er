@@ -101,6 +101,9 @@ public partial class MatchClient : Node2D
 	public int Lives { get; private set; } = 3;
 	public event System.Action<Vector2>? Exploded; // world position of a detonation
 	public event System.Action<Vector2>? AmbientDripped; // world position of a visible water drop
+	public event System.Action<Vector2>? EscapeOpened;   // world position of the exit, the moment it opens
+	public ulong EscapeOpenedAtMs { get; private set; }
+	private bool _escapeStateKnown;
 	private const float AmbientRumbleShake = 0.15f;
 	private const float TremorShake = 0.7f;   // trauma held at the peak of a tremor
 	private const float RockBreakShake = 0.1f; // a small kick as a dug tile gives way
@@ -483,6 +486,13 @@ public partial class MatchClient : Node2D
 		TempleEntered = update.Snapshot.TempleEntered;
 		if (TempleEntered && LocalMinerTile() is { } sconceLighter) Sconces.Update(sconceLighter);
 		if (!wasOpen && EscapeOpen) ExpeditionTreasurePos = null;
+		// Only an opening seen happen, not a floor that starts with the exit already open.
+		if (!wasOpen && EscapeOpen && _escapeStateKnown && EscapeTile is { } opened)
+		{
+			EscapeOpenedAtMs = Time.GetTicksMsec();
+			EscapeOpened?.Invoke(new Vector2(opened.X * TileSize + TileSize / 2f, opened.Y * TileSize + TileSize / 2f));
+		}
+		_escapeStateKnown = true;
 		GoldRemaining = CountGold(Grid);
 		SecondsRemaining = update.Snapshot.SecondsRemaining;
 		Octopus          = update.Snapshot.Octopus;

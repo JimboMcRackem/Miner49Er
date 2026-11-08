@@ -15,6 +15,8 @@ public partial class GhostOverlay : Node2D
 
     public override void _Draw()
     {
-        if (_world != null) _world.DrawGhosts(this);
+        if (_world == null) return;
+        _world.DrawExitBeam(this);
+        _world.DrawGhosts(this);
     }
 }
