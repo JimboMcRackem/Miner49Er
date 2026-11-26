@@ -188,6 +188,23 @@ public class SimulationMineEventTests
     }
 
     [Fact]
+    public void Flood_water_arrives_shallow_so_a_miner_caught_in_it_can_wade_out()
+    {
+        var sim = new Simulation(Open(), Cfg(MineEventKind.FlashFlood));
+        sim.AddMiner(1, new GridPos(15, 15));
+        Run(sim, 1);
+        var first = sim.EventTiles[0];
+        var caught = sim.AddMiner(2, first);
+
+        Run(sim, sim.Config.FlashFloodWarningSeconds - 1 + 1.0);   // ~1 s after water reaches it
+        Assert.Equal(TileType.ShallowWater, sim.Grid.Get(first));
+        Assert.True(caught.Alive);
+
+        Run(sim, sim.Config.FlashFloodShallowSeconds + 1);
+        Assert.Equal(TileType.DeepWater, sim.Grid.Get(first));
+    }
+
+    [Fact]
     public void Flood_leaves_items_the_exit_and_spawns_dry()
     {
         var grid = Open(12, 12);

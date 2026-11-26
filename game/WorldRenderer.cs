@@ -615,20 +615,20 @@ public partial class WorldRenderer : Node2D
 				  160f, 0.5f + _fxRng.NextSingle() * 0.4f, 1.6f,
 				  new Color(0.92f, 0.6f, 0.3f, 1f));
 		}
-		// Rubble thrown high and wide that lands, bounces and lies about for a few seconds.
+		// Rubble thrown high and wide that lands, bounces and lies about briefly.
 		for (int i = 0; i < 26; i++)
 		{
 			float ang = _fxRng.NextSingle() * Mathf.Tau;
 			float shade = 0.7f + _fxRng.NextSingle() * 0.5f;
 			SpawnChunk(center, new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * (50f + _fxRng.NextSingle() * 110f),
-				110f + _fxRng.NextSingle() * 130f, 3f + _fxRng.NextSingle() * 2.5f,
+				110f + _fxRng.NextSingle() * 130f, 1.5f + _fxRng.NextSingle() * 1f,
 				1f + _fxRng.NextSingle() * 1.3f, new Color(0.44f * shade, 0.38f * shade, 0.31f * shade));
 		}
 		// Smoke that hangs and drifts up after the flash.
 		for (int i = 0; i < 12; i++)
 			Spawn(center.X + (_fxRng.NextSingle() - 0.5f) * 40f, center.Y + (_fxRng.NextSingle() - 0.5f) * 40f,
 				  (_fxRng.NextSingle() - 0.5f) * 16f, -8f - _fxRng.NextSingle() * 12f,
-				  -3f, 1.6f + _fxRng.NextSingle() * 1.2f, 4f + _fxRng.NextSingle() * 2f,
+				  -3f, 1f + _fxRng.NextSingle() * 0.6f, 4f + _fxRng.NextSingle() * 2f,
 				  new Color(0.3f, 0.28f, 0.27f, 0.45f), fadeIn: 0.2f);
 	}
 
@@ -636,7 +636,7 @@ public partial class WorldRenderer : Node2D
 	// stops at the first wall it meets, so rock the blast didn't break stays clean.
 	private sealed class Scorch { public Vector2 C; public float R, Left; public (float Ang, float Len, float Width)[] Rays = null!; }
 	private readonly List<Scorch> _scorches = new();
-	private const float ScorchSeconds = 12f, ScorchFadeSeconds = 5f, ScorchStepPx = 4f;
+	private const float ScorchSeconds = 5f, ScorchFadeSeconds = 2.5f, ScorchStepPx = 4f;
 	private const int ScorchRays = 26;
 	private static readonly Color ScorchCol = new(0.03f, 0.022f, 0.018f, 0.4f);
 

@@ -102,7 +102,7 @@ public sealed partial class Simulation
     private void EndEvent()
     {
         if (ActiveEvent == MineEventKind.GoldSeam) CloseGoldSeam();
-        if (ActiveEvent == MineEventKind.FlashFlood) DrainTo(0);
+        if (ActiveEvent == MineEventKind.FlashFlood) SetFloodLevel(0);
         ActiveEvent = MineEventKind.None;
         _tremorTargets.Clear();
         _eventTiles.Clear();
@@ -273,9 +273,9 @@ public sealed partial class Simulation
     }
 
     // --- Flash flood ------------------------------------------------------
-    // The marked tiles fill up in order from the first, and drain back the same way.
-    private int _floodedTiles;
-
+    // The marked tiles fill up in order from the first, and drain back the same way. Water
+    // arrives shallow (wadeable) and only turns deep FlashFloodShallowSeconds later, so a miner
+    // the flood catches always has a moment to splash out; the receding edge goes shallow again.
     private void AdvanceFlashFlood()
     {
         _eventTilesShown = _eventTiles.Count;
@@ -283,27 +283,25 @@ public sealed partial class Simulation
         if (warned < 0) return;
 
         double remaining = Config.FlashFloodSeconds - warned;
-        int wanted = (int)(Math.Min(warned, remaining) * Config.FlashFloodTilesPerSecond);
-        wanted = Math.Clamp(wanted, 0, _eventTiles.Count);
-        if (wanted < _floodedTiles) { DrainTo(wanted); return; }
-        for (; _floodedTiles < wanted; _floodedTiles++)
-        {
-            var p = _eventTiles[_floodedTiles];
-            if (Grid.Get(p) != TileType.Floor) continue;
-            Grid.Set(p, TileType.DeepWater);
-            _events.Add(new TileFlooded(p, TileType.DeepWater));
-        }
+        SetFloodLevel(Math.Max(0, Math.Min(warned, remaining)) * Config.FlashFloodTilesPerSecond);
         KillOccupantsOnLethalTiles();
     }
 
-    private void DrainTo(int count)
+    // Tile i is wet once the level passes i, and deep once it passes i + the shallow band.
+    private void SetFloodLevel(double level)
     {
-        for (; _floodedTiles > count; _floodedTiles--)
+        double band = Config.FlashFloodShallowSeconds * Config.FlashFloodTilesPerSecond;
+        for (int i = 0; i < _eventTiles.Count; i++)
         {
-            var p = _eventTiles[_floodedTiles - 1];
-            if (Grid.Get(p) != TileType.DeepWater) continue;
-            Grid.Set(p, TileType.Floor);
-            _events.Add(new TileFlooded(p, TileType.Floor));
+            var p = _eventTiles[i];
+            var cur = Grid.Get(p);
+            if (cur is not (TileType.Floor or TileType.ShallowWater or TileType.DeepWater)) continue;
+            var want = i < level - band ? TileType.DeepWater
+                     : i < level ? TileType.ShallowWater
+                     : TileType.Floor;
+            if (want == cur) continue;
+            Grid.Set(p, want);
+            _events.Add(new TileFlooded(p, want));
         }
     }
 

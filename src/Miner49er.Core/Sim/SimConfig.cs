@@ -171,6 +171,7 @@ public sealed class SimConfig
     public double FlashFloodSeconds { get; set; } = 35.0;          // ~11 s rising, ~13 s full, ~11 s draining
     public double FlashFloodTilesPerSecond { get; set; } = 4.0;
     public int FlashFloodTiles { get; set; } = 45;
+    public double FlashFloodShallowSeconds { get; set; } = 3.0;    // a tile stays wadeable this long before it goes deep
 
     public double AwakeningSeconds { get; set; } = 30.0;
     public int AwakeningSenseMultiplier { get; set; } = 4;
